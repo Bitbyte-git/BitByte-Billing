@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import api from '../api.js';
+import api, { downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId, serviceNames } from '../utils/format.js';
 
 export default function TablePage({ type, role }) {
@@ -81,6 +81,15 @@ export default function TablePage({ type, role }) {
     }
   };
 
+  const markPaymentPaid = async (id) => {
+    try {
+      await api.put(`/payments/${id}`, { status: 'Paid' });
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update payment status');
+    }
+  };
+
   const config = {
     quotations: {
       title: role === 'Client' ? 'My Quotations' : role === 'Accountant' ? 'Quotations List' : 'All Quotations',
@@ -105,7 +114,7 @@ export default function TablePage({ type, role }) {
         { key: 'totalAmount', label: 'Amount', render: (row) => currency(row.totalAmount) },
         { key: 'paymentStatus', label: 'Status', badge: true }
       ],
-      actions: () => <PdfDownloadButton />
+      actions: (row) => <PdfDownloadButton onClick={() => downloadPdf(recordId(row), row.invoiceId)} />
     },
     payments: {
       title: 'Payments Management',
@@ -117,7 +126,14 @@ export default function TablePage({ type, role }) {
         { key: 'paymentDate', label: 'Paid Date', render: (row) => formatDate(row.paymentDate) },
         { key: 'status', label: 'Status', badge: true }
       ],
-      actions: () => <button className="rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple">Mark paid</button>
+      actions: (row) => (
+        <button 
+          onClick={() => markPaymentPaid(recordId(row))}
+          disabled={row.status === 'Paid'} 
+          className="rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple disabled:opacity-50">
+          {row.status === 'Paid' ? 'Paid' : 'Mark paid'}
+        </button>
+      )
     },
     clients: {
       title: 'Clients Management',

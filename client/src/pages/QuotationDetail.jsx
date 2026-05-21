@@ -4,7 +4,7 @@ import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import QuotationTimeline from '../components/QuotationTimeline.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import api from '../api.js';
+import api, { downloadPdf } from '../api.js';
 import { formatDate, getClientName, recordId } from '../utils/format.js';
 
 export default function QuotationDetail({ role, mode }) {
@@ -39,6 +39,19 @@ export default function QuotationDetail({ role, mode }) {
       setMessage({ type: 'success', text: 'Clarification request sent.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to send clarification.' });
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const { data } = await api.get(`/invoices?quotationId=${recordId(quotation)}`);
+      if (data && data.length > 0) {
+        await downloadPdf(recordId(data[0]), data[0].invoiceId);
+      } else {
+        alert('Invoice not found for this quotation.');
+      }
+    } catch (err) {
+      alert('Unable to fetch invoice details.');
     }
   };
 
@@ -112,7 +125,13 @@ export default function QuotationDetail({ role, mode }) {
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
             <h2 className="text-lg font-black">Invoice Link</h2>
             <p className="mt-2 text-sm text-slate-500">Available after approval and invoice generation.</p>
-            <div className="mt-4"><PdfDownloadButton /></div>
+            <div className="mt-4">
+              {['Invoice Generated', 'Paid'].includes(quotation.status) ? (
+                <PdfDownloadButton onClick={handleDownload} />
+              ) : (
+                <button disabled className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-slate-400 opacity-60">PDF Unavailable</button>
+              )}
+            </div>
           </div>
         </aside>
       </div>

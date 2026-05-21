@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
-import api from '../api.js';
+import api, { downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
 
 export default function InvoiceGeneration() {
@@ -58,7 +58,7 @@ export default function InvoiceGeneration() {
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Invoice number</p>
               <h2 className="text-2xl font-black">{invoice?.invoiceId || 'Ready after generation'}</h2>
             </div>
-            <PdfDownloadButton />
+            {invoice && <PdfDownloadButton onClick={() => downloadPdf(recordId(invoice), invoice.invoiceId)} />}
           </div>
           <label className="mt-6 block text-sm font-bold">Approved quotation
             <select value={quotationId} onChange={(event) => { setQuotationId(event.target.value); setInvoice(null); }} className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple">

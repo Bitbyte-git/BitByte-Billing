@@ -8,11 +8,17 @@ export async function recordAudit({ userId, action, entityType, entityId, oldVal
 }
 
 export async function notifyRole({ role, title, message, type = 'Quotation' }) {
-  const users = await User.find({ role, status: 'Active' });
-  await Promise.all(users.map(async (user) => {
-    await Notification.create({ userId: user._id, title, message, type });
-    await sendNotificationEmail({ to: user.email, subject: title, text: message });
-  }));
+  try {
+    const users = await User.find({ role, status: 'Active' });
+    await Promise.all(users.map(async (user) => {
+      try {
+        await Notification.create({ userId: user._id, title, message, type });
+      } catch (_) { /* ignore notification errors */ }
+      try {
+        await sendNotificationEmail({ to: user.email, subject: title, text: message });
+      } catch (_) { /* ignore email errors – SMTP may not be configured */ }
+    }));
+  } catch (_) { /* ignore if user lookup fails */ }
 }
 
 export async function changeQuotationStatus({ quotation, status, user, message }) {

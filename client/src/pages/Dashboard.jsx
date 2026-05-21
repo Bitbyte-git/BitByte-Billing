@@ -37,15 +37,15 @@ export default function Dashboard({ role, reports = false }) {
   const cards = role === 'Client'
     ? [
       ['Total quotations', summary?.totalQuotations || 0, FileText, 'purple'],
-      ['Under review', summary?.statusDistribution?.['Under Review'] || 0, Clock3, 'amber'],
       ['Approved', summary?.statusDistribution?.Approved || 0, CheckCircle2, 'green'],
+      ['Invoice generated', summary?.statusDistribution?.['Invoice Generated'] || 0, ReceiptText, 'blue'],
       ['Total spent', currency(paid), IndianRupee, 'blue']
     ]
     : role === 'Accountant'
       ? [
         ['New quotations', summary?.statusDistribution?.Submitted || 0, FileText, 'blue'],
-        ['Under review', summary?.statusDistribution?.['Under Review'] || 0, Clock3, 'purple'],
         ['Pending clarification', summary?.statusDistribution?.['Needs Clarification'] || 0, ShieldAlert, 'amber'],
+        ['Invoice generated', summary?.statusDistribution?.['Invoice Generated'] || 0, ReceiptText, 'blue'],
         ['Total quotation value', currency(totalValue), IndianRupee, 'green']
       ]
       : [

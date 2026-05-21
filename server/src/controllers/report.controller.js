@@ -6,7 +6,7 @@ import Quotation from '../models/Quotation.js';
 export async function dashboard(req, res, next) {
   try {
     const client = req.user.role === 'Client' ? await Client.findOne({ email: req.user.email }) : null;
-    const query = client ? { clientId: client._id } : {};
+    const query = req.user.role === 'Client' ? (client ? { clientId: client._id } : { _id: null }) : {};
     const [quotations, invoices, payments] = await Promise.all([Quotation.find(query), Invoice.find(query), Payment.find(query)]);
     const revenueByMonth = payments.reduce((acc, payment) => {
       const date = payment.paymentDate ? new Date(payment.paymentDate) : null;
