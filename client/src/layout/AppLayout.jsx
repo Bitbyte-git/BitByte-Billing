@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, Users, Wrench } from 'lucide-react';
+import { Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.jsx';
 
 const nav = {
@@ -29,6 +29,7 @@ const nav = {
     ['Payments', '/admin/payments', CircleDollarSign],
     ['Services', '/admin/services', BriefcaseBusiness],
     ['Users', '/admin/users', Users],
+    ['Accountants', '/admin/accountants', UserCog],
     ['Reports', '/admin/reports', ChartNoAxesCombined],
     ['Notifications', '/admin/notifications', Bell],
     ['Settings', '/admin/settings', Wrench]

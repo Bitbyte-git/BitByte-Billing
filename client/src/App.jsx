@@ -10,6 +10,7 @@ import PricingPage from './pages/PricingPage.jsx';
 import AdminApproval from './pages/AdminApproval.jsx';
 import InvoiceGeneration from './pages/InvoiceGeneration.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import AccountantManagement from './pages/AccountantManagement.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 
 function RequireAuth({ roles, children }) {
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/admin/payments" element={<TablePage type="payments" role="Admin" />} />
         <Route path="/admin/services" element={<TablePage type="services" role="Admin" />} />
         <Route path="/admin/users" element={<TablePage type="users" role="Admin" />} />
+        <Route path="/admin/accountants" element={<AccountantManagement />} />
         <Route path="/admin/reports" element={<Dashboard role="Admin" reports />} />
         <Route path="/admin/notifications" element={<SettingsPage role="Admin" notifications />} />
         <Route path="/admin/settings" element={<SettingsPage role="Admin" />} />
