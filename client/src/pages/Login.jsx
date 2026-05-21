@@ -11,7 +11,6 @@ const roles = {
 };
 
 export default function Login() {
-  const [role, setRole] = useState('Admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +23,7 @@ export default function Login() {
     setSubmitting(true);
     setError('');
     try {
-      navigate(await login({ email, password, role }));
+      navigate(await login({ email, password }));
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Unable to sign in.');
     } finally {
@@ -53,17 +52,14 @@ export default function Login() {
             <h2 className="text-2xl font-black text-slate-950">Secure role login</h2>
           <p className="mt-2 text-sm text-slate-500">Sign in with your workspace account to continue.</p>
           </div>
-          <div className="mb-5 grid grid-cols-3 gap-2">
-            {Object.entries(roles).map(([item, Icon]) => (
-              <button type="button" key={item} onClick={() => setRole(item)} className={`rounded-2xl border p-3 text-sm font-bold ${role === item ? 'border-purple bg-purple/5 text-purple' : 'border-line text-slate-500'}`}>
-                <Icon className="mx-auto mb-1" size={20} /> {item}
-              </button>
-            ))}
-          </div>
           <label className="mb-4 block text-sm font-bold">Email<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple" /></label>
           <label className="mb-4 block text-sm font-bold">Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple" /></label>
           {error && <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">{error}</p>}
           <button disabled={submitting} className="gradient-button flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 font-bold disabled:opacity-60">{submitting ? 'Signing in...' : 'Open dashboard'} <ArrowRight size={18} /></button>
+          
+          <p className="mt-6 text-center text-sm font-medium text-slate-500">
+            Don't have an account? <a href="/register" className="text-purple hover:underline" onClick={(e) => { e.preventDefault(); navigate('/register'); }}>Register as Client</a>
+          </p>
         </motion.form>
       </section>
     </main>

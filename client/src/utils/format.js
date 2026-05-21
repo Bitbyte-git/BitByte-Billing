@@ -27,5 +27,13 @@ export const getQuotationNumber = (record) =>
 export const getInvoiceNumber = (record) =>
   record?.invoiceId?.invoiceId || record?.invoiceId || '-';
 
-export const serviceNames = (services = []) =>
-  services.map((service) => service?.name || service).filter(Boolean).join(', ');
+export const serviceNames = (record) => {
+  if (Array.isArray(record)) {
+    return record.map((service) => service?.name || service).filter(Boolean).join(', ');
+  }
+  const mains = record?.mainService || [];
+  const subs = record?.subServices || [];
+  const oldServices = record?.servicesSelected || [];
+  const combined = [...mains, ...subs, ...oldServices.map(s => s?.name || s)].filter(Boolean);
+  return combined.join(', ');
+};

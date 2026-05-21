@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppLayout from './layout/AppLayout.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import NewQuotation from './pages/NewQuotation.jsx';
 import TablePage from './pages/TablePage.jsx';
@@ -32,6 +33,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Register />} />
       <Route path="/" element={<Navigate to={user ? roleHome[user.role] : '/login'} replace />} />
 
       <Route element={<RoleLayout role="Client" />}>

@@ -1,3 +1,4 @@
+// trigger reload
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getQuotation, listQuotations, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
@@ -10,9 +11,9 @@ router.use(authenticate);
 router.get('/', listQuotations);
 router.get('/:id', getQuotation);
 router.post('/', authorize('Client'), [
-  body('servicesSelected').isArray({ min: 1 }),
+  body('mainService').isArray({ min: 1 }),
   body('projectTitle').notEmpty(),
-  body('projectDescription').notEmpty()
+  body('requirementDetails').notEmpty()
 ], validate, createQuotation);
 router.put('/:id', updateQuotation);
 router.put('/:id/status', updateStatus);

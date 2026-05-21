@@ -36,9 +36,17 @@ export function AuthProvider({ children }) {
       .finally(() => setBooting(false));
   }, []);
 
-  const login = async ({ email, password, role }) => {
+  const login = async ({ email, password }) => {
     const { data } = await api.post('/auth/login', { email, password });
-    if (role && data.user.role !== role) throw new Error(`This account belongs to the ${data.user.role} workspace.`);
+    const sessionUser = data.user;
+    localStorage.setItem('bbt_user', JSON.stringify(sessionUser));
+    localStorage.setItem('bbt_token', data.token);
+    setUser(sessionUser);
+    return roleHome[sessionUser.role];
+  };
+
+  const registerClient = async (form) => {
+    const { data } = await api.post('/auth/register/client', form);
     const sessionUser = data.user;
     localStorage.setItem('bbt_user', JSON.stringify(sessionUser));
     localStorage.setItem('bbt_token', data.token);
@@ -52,7 +60,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, booting, login, logout, roleHome }), [user, booting]);
+  const value = useMemo(() => ({ user, booting, login, registerClient, logout, roleHome }), [user, booting]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

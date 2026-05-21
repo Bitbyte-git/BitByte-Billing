@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CheckCircle2, Clock3, FileText, IndianRupee, ReceiptText, ShieldAlert, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
 import ChartCard from '../components/ChartCard.jsx';
 import DataTable from '../components/DataTable.jsx';
@@ -11,6 +12,7 @@ import { currency, formatDate, getClientName, recordId } from '../utils/format.j
 const colors = ['#7444DC', '#8D6BE2', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
 export default function Dashboard({ role, reports = false }) {
+  const navigate = useNavigate();
   const [state, setState] = useState({ loading: true, error: '', summary: null, quotations: [] });
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export default function Dashboard({ role, reports = false }) {
       <div className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-black">Recent Activity</h2>
-          <button className="gradient-button rounded-xl px-4 py-2 text-sm font-bold">New Quotation</button>
+          <button onClick={() => navigate('/client/new-quotation')} className="gradient-button rounded-xl px-4 py-2 text-sm font-bold">Create New Quotation</button>
         </div>
         <DataTable
           columns={[

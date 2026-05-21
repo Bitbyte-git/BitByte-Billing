@@ -23,7 +23,8 @@ export async function getQuotation(req, res, next) {
 
 export async function createQuotation(req, res, next) {
   try {
-    if (!req.body.servicesSelected?.length) throw Object.assign(new Error('At least one service must be selected'), { status: 422 });
+    console.log('CreateQuotation payload:', req.body);
+  if (!req.body.mainService?.length && !req.body.servicesSelected?.length) throw Object.assign(new Error('At least one service must be selected'), { status: 422 });
     const clientId = req.body.clientId || (await resolveClientId(req));
     const quotation = await Quotation.create({
       ...req.body,
@@ -35,7 +36,7 @@ export async function createQuotation(req, res, next) {
     });
     await recordAudit({ userId: req.user._id, action: 'Quotation submitted', entityType: 'Quotation', entityId: quotation._id, newValue: quotation.toObject() });
     res.status(201).json(quotation);
-  } catch (err) { next(err); }
+  } catch (err) { console.error('CreateQuotation error:', err); next(err); }
 }
 
 async function resolveClientId(req) {

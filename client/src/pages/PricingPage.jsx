@@ -85,7 +85,18 @@ export default function PricingPage() {
             {quotations.map((quotation) => <option key={recordId(quotation)} value={recordId(quotation)}>{quotation.quotationId} - {quotation.projectTitle} - {getClientName(quotation)}</option>)}
           </select>
         </label>
-        {selectedQuotation && <p className="mt-3 text-sm font-semibold text-slate-500">{selectedQuotation.projectDescription}</p>}
+        {selectedQuotation && (
+          <div className="mt-3 text-sm font-semibold text-slate-500">
+            <p>{selectedQuotation.projectDescription}</p>
+            <p className="mt-2 text-slate-800">Requested Services:</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[...(selectedQuotation.mainService || []), ...(selectedQuotation.subServices || []), ...(selectedQuotation.servicesSelected || []).map(s => s.name || s)].filter(Boolean).map(s => (
+                <span key={s} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 border border-slate-200">{s}</span>
+              ))}
+            </div>
+            {selectedQuotation.requirementDetails && <p className="mt-3 whitespace-pre-wrap">{selectedQuotation.requirementDetails}</p>}
+          </div>
+        )}
       </div>
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <section>

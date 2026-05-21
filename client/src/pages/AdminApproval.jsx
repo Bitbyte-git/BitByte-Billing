@@ -62,7 +62,7 @@ export default function AdminApproval() {
             </div>
             <div className="mt-5 rounded-xl bg-surface p-4 text-sm leading-6 text-slate-600">
               <p>{selected.projectDescription}</p>
-              <p className="mt-2"><strong>Services:</strong> {serviceNames(selected.servicesSelected)}</p>
+              <p className="mt-2"><strong>Services:</strong> {serviceNames(selected)}</p>
               <p className="mt-2"><strong>Accountant remarks:</strong> {selected.accountantRemarks || '-'}</p>
             </div>
           </section>

@@ -20,7 +20,13 @@ export default function QuotationDetail({ role, mode }) {
       .catch((err) => setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to load quotation.' }));
   }, [id]);
 
-  const selectedServices = useMemo(() => quotation?.servicesSelected || [], [quotation]);
+  const selectedServices = useMemo(() => {
+    if (!quotation) return [];
+    const mains = quotation.mainService || [];
+    const subs = quotation.subServices || [];
+    const oldServices = quotation.servicesSelected || [];
+    return [...mains, ...subs, ...oldServices.map(s => s?.name || s)].filter(Boolean);
+  }, [quotation]);
   const subtotal = quotation?.subtotal || 0;
   const gst = quotation?.gstAmount || 0;
 
@@ -67,10 +73,14 @@ export default function QuotationDetail({ role, mode }) {
           </div>
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
             <h2 className="text-lg font-black">Quotation Summary</h2>
-            <div className="mt-4 flex flex-wrap gap-2">{selectedServices.map((item) => <StatusBadge key={recordId(item)} status={item.name || item} />)}</div>
+            <div className="mt-4 flex flex-wrap gap-2">{selectedServices.map((item) => {
+          const key = typeof item === 'object' ? (item._id || item.id || item.name) : item;
+          return <StatusBadge key={key} status={item.name || item} />;
+        })}</div>
             <div className="mt-5 space-y-3 rounded-xl bg-surface p-4 text-sm leading-6 text-slate-600">
               <p>{quotation.projectDescription}</p>
-              {quotation.serviceRequirement && <p><strong>Requirement:</strong> {quotation.serviceRequirement}</p>}
+              {quotation.requirementDetails && <p><strong>Requirement:</strong> <span className="whitespace-pre-wrap">{quotation.requirementDetails}</span></p>}
+              {quotation.serviceRequirement && <p><strong>Service Requirement:</strong> {quotation.serviceRequirement}</p>}
               {quotation.technologyPreference && <p><strong>Technology:</strong> {quotation.technologyPreference}</p>}
               {quotation.budgetRange && <p><strong>Budget:</strong> {quotation.budgetRange}</p>}
             </div>

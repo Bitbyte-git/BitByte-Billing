@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   phone: { type: String, validate: { validator: (v) => !v || /^\d{10}$/.test(v), message: 'Phone number must be 10 digits' } },
   passwordHash: { type: String, required: true },
+  encryptedPassword: { type: String }, // Stores symmetrically encrypted password for admin view
   role: { type: String, enum: ['Client', 'Accountant', 'Admin'], required: true },
   status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }
 }, { timestamps: { createdAt: true, updatedAt: false } });
