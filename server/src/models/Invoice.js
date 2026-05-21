@@ -1,0 +1,28 @@
+import mongoose from 'mongoose';
+
+const invoiceItemSchema = new mongoose.Schema({
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  service: String,
+  description: String,
+  amount: Number,
+  gstPercentage: Number,
+  total: Number
+}, { _id: false });
+
+const invoiceSchema = new mongoose.Schema({
+  invoiceId: { type: String, required: true, unique: true },
+  quotationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation', required: true },
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+  invoiceDate: { type: Date, default: Date.now },
+  dueDate: Date,
+  items: [invoiceItemSchema],
+  subtotal: { type: Number, required: true },
+  gstAmount: { type: Number, required: true },
+  totalAmount: { type: Number, required: true },
+  amountPaid: { type: Number, default: 0 },
+  balanceDue: { type: Number, required: true },
+  paymentStatus: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Overdue'], default: 'Pending' },
+  pdfUrl: String
+}, { timestamps: true });
+
+export default mongoose.model('Invoice', invoiceSchema);
