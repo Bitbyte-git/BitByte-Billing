@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'https://bitbyte-server.onrender.com'
+      '/api': 'https://bitbyte-server.onrender.com/api'
     }
   }
 });
