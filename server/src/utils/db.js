@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { autoSeed } from './autoSeed.js';
 
 export async function connectDb() {
   const uri = (process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/bbt_billing').trim();
@@ -6,4 +7,9 @@ export async function connectDb() {
   console.log('Connecting to MongoDB using URI:', uri.startsWith('mongodb+srv') ? '[mongodb+srv URI hidden]' : uri);
   await mongoose.connect(uri);
   console.log('MongoDB connected');
+  try {
+    await autoSeed();
+  } catch (err) {
+    console.error('Error running autoSeed:', err);
+  }
 }

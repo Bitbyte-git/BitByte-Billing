@@ -3,7 +3,7 @@ import ConfirmModal from '../components/ConfirmModal.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import api from '../api.js';
-import { formatDate, getClientName, recordId, serviceNames } from '../utils/format.js';
+import { currency, formatDate, getClientName, recordId, serviceNames } from '../utils/format.js';
 
 export default function AdminApproval() {
   const [modal, setModal] = useState(null);
@@ -11,7 +11,21 @@ export default function AdminApproval() {
   const [quotations, setQuotations] = useState([]);
   const [quotationId, setQuotationId] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [discount, setDiscount] = useState({ type: 'None', value: '' });
   const selected = useMemo(() => quotations.find((item) => recordId(item) === quotationId), [quotations, quotationId]);
+  const pricing = useMemo(() => {
+    const baseSubtotal = Number(selected?.subtotal || 0);
+    const value = Math.max(Number(discount.value || 0), 0);
+    const discountedAmount = discount.type === 'Percentage'
+      ? Math.min(baseSubtotal * Math.min(value, 100) / 100, baseSubtotal)
+      : discount.type === 'Fixed Amount'
+        ? Math.min(value, baseSubtotal)
+        : 0;
+    const finalSubtotal = Math.max(baseSubtotal - discountedAmount, 0);
+    const gstRate = baseSubtotal ? Number(selected?.gstAmount || 0) / baseSubtotal : 0;
+    const gst = finalSubtotal * gstRate;
+    return { baseSubtotal, discountedAmount, finalSubtotal, gst };
+  }, [selected, discount]);
 
   const load = () => api.get('/quotations')
     .then(({ data }) => {
@@ -23,11 +37,23 @@ export default function AdminApproval() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    if (!selected) return;
+    setDiscount({
+      type: selected.finalDiscountType || 'None',
+      value: selected.finalDiscountValue ? String(selected.finalDiscountValue) : ''
+    });
+  }, [selected?._id]);
+
   const decide = async () => {
     if (!selected || !modal) return;
     try {
       const endpoint = modal === 'Approve Quotation' ? 'approve' : 'reject';
-      await api.post(`/quotations/${recordId(selected)}/${endpoint}`, { adminRemarks: remarks });
+      await api.post(`/quotations/${recordId(selected)}/${endpoint}`, {
+        adminRemarks: remarks,
+        discountType: discount.type,
+        discountValue: Number(discount.value || 0)
+      });
       setModal(null);
       setRemarks('');
       setMessage({ type: 'success', text: endpoint === 'approve' ? 'Quotation approved.' : 'Quotation rejected.' });
@@ -65,14 +91,67 @@ export default function AdminApproval() {
               <p className="mt-2"><strong>Services:</strong> {serviceNames(selected)}</p>
               <p className="mt-2"><strong>Accountant remarks:</strong> {selected.accountantRemarks || '-'}</p>
             </div>
+            {!!selected.costingItems?.length && (
+              <div className="mobile-table mt-5 overflow-hidden rounded-xl border border-line">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="p-3">Main Service</th>
+                      <th className="p-3">Sub-Service</th>
+                      <th className="p-3">Base</th>
+                      <th className="p-3">Discount</th>
+                      <th className="p-3">GST</th>
+                      <th className="p-3">Total</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Added By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.costingItems.map((item, index) => (
+                      <tr key={`${item.subService}-${index}`} className="border-t border-line">
+                        <td className="p-3 font-semibold">
+                          {item.mainService || '-'}
+                          {!(selected.mainService || []).includes(item.mainService) && <span className="ml-2 rounded-full bg-purple/10 px-2 py-0.5 text-xs font-bold text-purple">Added by accountant</span>}
+                        </td>
+                        <td className="p-3">{item.subService || item.subServiceName || '-'}</td>
+                        <td className="p-3">{currency(item.basePrice)}</td>
+                        <td className="p-3">{item.discountPercentage || 0}%</td>
+                        <td className="p-3">{currency(item.gstAmount)}</td>
+                        <td className="p-3 font-bold">{currency(item.totalAmount)}</td>
+                        <td className="p-3"><StatusBadge status={item.priceType || 'Manual'} /></td>
+                        <td className="p-3">{item.addedByAccountantName || 'Accountant'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
-          <AmountSummaryCard subtotal={selected.subtotal} gst={selected.gstAmount} />
+          <AmountSummaryCard subtotal={pricing.finalSubtotal} gst={pricing.gst} originalSubtotal={pricing.baseSubtotal} discount={pricing.discountedAmount} />
         </div>
       ) : (
         <p className="rounded-2xl border border-line bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">No quotations are waiting for admin approval.</p>
       )}
       <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-premium">
         <h2 className="text-xl font-black">Decision Section</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block text-sm font-bold text-slate-600">Admin Final Discount
+            <select value={discount.type} onChange={(event) => setDiscount((current) => ({ ...current, type: event.target.value, value: event.target.value === 'None' ? '' : current.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple">
+              <option value="None">No discount</option>
+              <option value="Percentage">Percentage</option>
+              <option value="Fixed Amount">Fixed Amount</option>
+            </select>
+          </label>
+          <label className="block text-sm font-bold text-slate-600">Discount Value
+            <input type="number" min={0} max={discount.type === 'Percentage' ? 100 : undefined} disabled={discount.type === 'None'} value={discount.value} onChange={(event) => setDiscount((current) => ({ ...current, value: event.target.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple disabled:bg-slate-50" placeholder={discount.type === 'Percentage' ? 'Enter %' : 'Enter amount'} />
+          </label>
+        </div>
+        <div className="mt-4 grid gap-3 rounded-2xl bg-surface p-4 text-sm md:grid-cols-4">
+          <div><p className="text-xs font-bold uppercase text-slate-400">Base</p><strong>{currency(pricing.baseSubtotal)}</strong></div>
+          <div><p className="text-xs font-bold uppercase text-slate-400">Discount</p><strong className="text-emerald-600">-{currency(pricing.discountedAmount)}</strong></div>
+          <div><p className="text-xs font-bold uppercase text-slate-400">GST</p><strong>{currency(pricing.gst)}</strong></div>
+          <div><p className="text-xs font-bold uppercase text-slate-400">Final Total</p><strong className="text-purple">{currency(pricing.finalSubtotal + pricing.gst)}</strong></div>
+        </div>
         <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} className="mt-4 min-h-24 w-full rounded-xl border border-line px-4 py-3 outline-purple" placeholder="Admin remarks..." />
         <div className="mt-5 flex flex-wrap gap-3">
           <button disabled={!selected} onClick={() => setModal('Approve Quotation')} className="gradient-button rounded-xl px-5 py-3 font-bold disabled:opacity-50">Approve</button>

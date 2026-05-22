@@ -2,7 +2,11 @@ import Client from '../models/Client.js';
 import Quotation from '../models/Quotation.js';
 import QuotationItem from '../models/QuotationItem.js';
 import Remark from '../models/Remark.js';
+import User from '../models/User.js';
 import { nextQuotationId } from '../utils/idGenerator.js';
+import { priceMap } from '../utils/priceList.js';
+import { sendNotificationEmail } from '../utils/email.js';
+import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { changeQuotationStatus, recordAudit } from '../services/workflowService.js';
 
 export async function listQuotations(req, res, next) {
@@ -81,22 +85,97 @@ export async function addRemark(req, res, next) {
 
 export async function addCosting(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.id);
-    const items = await QuotationItem.deleteMany({ quotationId: quotation._id }).then(() => QuotationItem.insertMany(req.body.items.map((item) => ({
-      ...item,
-      quotationId: quotation._id,
-      total: Number(item.estimatedCost) * (1 + Number(item.gstPercentage || 0) / 100)
-    }))));
-    const subtotal = items.reduce((sum, item) => sum + item.estimatedCost, 0);
-    const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+    const quotation = await Quotation.findById(req.params.id).populate('clientId');
+    if (!quotation) throw Object.assign(new Error('Quotation not found'), { status: 404 });
+    if (!req.body.items?.length) throw Object.assign(new Error('At least one pricing item is required'), { status: 422 });
+
+    await QuotationItem.deleteMany({ quotationId: quotation._id });
+
+    const items = req.body.items.map((item) => {
+      const subService = item.subService || item.subServiceName || item.mainService;
+      const mainService = item.mainService;
+      const hasAutoPrice = Object.prototype.hasOwnProperty.call(priceMap, subService);
+      const basePrice = Number(item.basePrice || 0);
+      const quantity = Number(item.quantity || 1);
+      const discountPercentage = Number(item.discountPercentage || 0);
+      const gstPercentage = Number(item.gstPercentage || 0);
+      const lineBase = basePrice * quantity;
+      const discountAmount = lineBase * discountPercentage / 100;
+      const taxableAmount = lineBase - discountAmount;
+      const gstAmount = taxableAmount * gstPercentage / 100;
+      const totalAmount = taxableAmount + gstAmount;
+      if (!mainService) throw Object.assign(new Error('Main service is required for every pricing item'), { status: 422 });
+      if (!subService) throw Object.assign(new Error('Sub-service is required for every pricing item'), { status: 422 });
+      if (!Number.isFinite(basePrice) || basePrice < 0) throw Object.assign(new Error(`Invalid price for ${subService}`), { status: 422 });
+      if (!Number.isFinite(quantity) || quantity < 1) throw Object.assign(new Error(`Invalid quantity for ${subService}`), { status: 422 });
+      if (!Number.isFinite(discountPercentage) || discountPercentage < 0 || discountPercentage > 20) {
+        throw Object.assign(new Error(`Discount for ${subService} must be between 0% and 20%`), { status: 422 });
+      }
+      return {
+        quotationId: quotation._id,
+        serviceId: item.serviceId || undefined,
+        mainService,
+        subService,
+        subServiceName: subService,
+        description: item.description || '',
+        basePrice,
+        quantity,
+        discountPercentage,
+        discountAmount,
+        gstPercentage,
+        gstAmount,
+        totalAmount,
+        priceType: hasAutoPrice && basePrice === Number(priceMap[subService]) ? 'Auto' : 'Manual',
+        addedByAccountant: req.user._id,
+        addedByAccountantName: req.user.name || req.user.email || 'Accountant',
+        pricingAddedAt: new Date()
+      };
+    });
+
+    const insertedItems = await QuotationItem.insertMany(items);
+
+    // Recalculate totals for quotation
+    const subtotal = insertedItems.reduce((sum, i) => sum + (i.basePrice * i.quantity) - (i.discountAmount || 0), 0);
+    const totalGst = insertedItems.reduce((sum, i) => sum + i.gstAmount, 0);
+    const totalAmount = subtotal + totalGst;
     quotation.subtotal = subtotal;
-    quotation.gstAmount = totalAmount - subtotal;
+    quotation.gstAmount = totalGst;
     quotation.totalAmount = totalAmount;
     quotation.accountantRemarks = req.body.accountantRemarks;
+    quotation.costingItems = insertedItems.map((item) => ({
+      serviceId: item.serviceId,
+      mainService: item.mainService,
+      subService: item.subService,
+      subServiceName: item.subServiceName,
+      description: item.description,
+      basePrice: item.basePrice,
+      quantity: item.quantity,
+      discountPercentage: item.discountPercentage,
+      discountAmount: item.discountAmount,
+      gstPercentage: item.gstPercentage,
+      gstAmount: item.gstAmount,
+      totalAmount: item.totalAmount,
+      priceType: item.priceType,
+      addedByAccountant: item.addedByAccountant,
+      addedByAccountantName: item.addedByAccountantName,
+      pricingAddedAt: item.pricingAddedAt
+    }));
     await quotation.save();
-    await recordAudit({ userId: req.user._id, action: 'Accountant added costing', entityType: 'Quotation', entityId: quotation._id, newValue: { subtotal, totalAmount } });
-    res.json({ quotation, items });
-  } catch (err) { next(err); }
+
+    // Record audit and notify admin via email
+    await recordAudit({
+      userId: req.user._id,
+      action: 'Accountant added costing',
+      entityType: 'Quotation',
+      entityId: quotation._id,
+      newValue: { subtotal, totalAmount }
+    });
+    await sendPricingEmailToAdmins({ quotation, items: insertedItems, accountantRemarks: req.body.accountantRemarks });
+
+    res.json({ quotation, items: insertedItems });
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function clarification(req, res, next) {
@@ -110,8 +189,21 @@ export async function clarification(req, res, next) {
 
 export async function forwardToAdmin(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.id);
-    res.json(await changeQuotationStatus({ quotation, status: 'Forwarded to Admin', user: req.user }));
+    const quotation = await Quotation.findById(req.params.id).populate('clientId');
+    if (!quotation) throw Object.assign(new Error('Quotation not found'), { status: 404 });
+    const items = await QuotationItem.find({ quotationId: quotation._id });
+    const selectedSubServices = quotation.subServices || [];
+    const hasEverySelectedSubService = selectedSubServices.length
+      ? selectedSubServices.every((subService) => items.some((item) => (item.subService || item.subServiceName) === subService && Number(item.basePrice) > 0))
+      : items.length > 0 && items.every((item) => Number(item.basePrice) > 0);
+
+    if (!hasEverySelectedSubService) {
+      throw Object.assign(new Error('Every selected sub-service must have a price before forwarding to admin'), { status: 422 });
+    }
+
+    const updated = await changeQuotationStatus({ quotation, status: 'Forwarded to Admin', user: req.user });
+    await sendPricingEmailToAdmins({ quotation: updated, items, accountantRemarks: quotation.accountantRemarks });
+    res.json(updated);
   } catch (err) { next(err); }
 }
 
@@ -119,8 +211,19 @@ export async function approve(req, res, next) {
   try {
     const quotation = await Quotation.findById(req.params.id);
     quotation.adminRemarks = req.body.adminRemarks;
+    quotation.finalDiscountType = req.body.discountType || req.body.finalDiscountType || 'None';
+    const rawDiscountValue = Math.max(Number(req.body.discountValue ?? req.body.finalDiscountValue ?? 0), 0);
+    quotation.finalDiscountValue = quotation.finalDiscountType === 'Percentage' ? Math.min(rawDiscountValue, 100) : rawDiscountValue;
+    const subtotal = Number(quotation.subtotal || 0);
+    quotation.finalDiscountAmount = quotation.finalDiscountType === 'Percentage'
+      ? subtotal * quotation.finalDiscountValue / 100
+      : quotation.finalDiscountType === 'Fixed Amount'
+        ? Math.min(quotation.finalDiscountValue, subtotal)
+        : 0;
     await quotation.save();
-    res.json(await changeQuotationStatus({ quotation, status: 'Approved', user: req.user }));
+    const updated = await changeQuotationStatus({ quotation, status: 'Approved', user: req.user });
+    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Approved', adminRemarks: req.body.adminRemarks });
+    res.json(updated);
   } catch (err) { next(err); }
 }
 
@@ -129,6 +232,69 @@ export async function reject(req, res, next) {
     const quotation = await Quotation.findById(req.params.id);
     quotation.adminRemarks = req.body.adminRemarks;
     await quotation.save();
-    res.json(await changeQuotationStatus({ quotation, status: 'Rejected', user: req.user }));
+    const updated = await changeQuotationStatus({ quotation, status: 'Rejected', user: req.user });
+    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Rejected', adminRemarks: req.body.adminRemarks });
+    res.json(updated);
   } catch (err) { next(err); }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
+}
+
+function adminReviewUrl() {
+  const baseUrl = process.env.CLIENT_URL || process.env.APP_URL || '';
+  return baseUrl ? `${baseUrl.replace(/\/$/, '')}/admin/approvals` : '/admin/approvals';
+}
+
+function buildPricingEmail({ quotation, items, accountantRemarks }) {
+  const clientName = quotation.clientId?.companyName || quotation.clientId?.fullName || 'Client';
+  const mainService = (quotation.mainService || []).join(', ') || '-';
+  const selectedSubServices = items.map((item) => item.subService || item.subServiceName).filter(Boolean).join(', ') || '-';
+  const reviewUrl = adminReviewUrl();
+  const text = [
+    'Quotation Pricing Added - Review Required',
+    '',
+    `Quotation ID: ${quotation.quotationId}`,
+    `Client Name: ${clientName}`,
+    `Main Service: ${mainService}`,
+    `Selected Sub-Services: ${selectedSubServices}`,
+    `Total Amount: ${formatCurrency(quotation.totalAmount)}`,
+    `Accountant Remarks: ${accountantRemarks || '-'}`,
+    `Review quotation in Admin panel: ${reviewUrl}`
+  ].join('\n');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.5">
+      <h2 style="margin:0 0 12px">Quotation Pricing Added - Review Required</h2>
+      <p><strong>Quotation ID:</strong> ${quotation.quotationId}</p>
+      <p><strong>Client Name:</strong> ${clientName}</p>
+      <p><strong>Main Service:</strong> ${mainService}</p>
+      <p><strong>Selected Sub-Services:</strong> ${selectedSubServices}</p>
+      <p><strong>Total Amount:</strong> ${formatCurrency(quotation.totalAmount)}</p>
+      <p><strong>Accountant Remarks:</strong> ${accountantRemarks || '-'}</p>
+      <p><a href="${reviewUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">Review quotation in Admin panel</a></p>
+    </div>
+  `;
+
+  return { text, html };
+}
+
+async function sendPricingEmailToAdmins({ quotation, items, accountantRemarks }) {
+  try {
+    const admins = await User.find({ role: 'Admin', status: 'Active' });
+    if (!admins.length) return;
+    const email = buildPricingEmail({ quotation, items, accountantRemarks });
+    await Promise.all(admins.map((admin) => sendNotificationEmail({
+      to: admin.email,
+      subject: 'Quotation Pricing Added - Review Required',
+      ...email
+    })));
+  } catch (_) {
+    // Email delivery should not block pricing workflow when SMTP is unavailable.
+  }
 }

@@ -9,9 +9,25 @@ export default function InvoiceGeneration() {
   const [quotationId, setQuotationId] = useState('');
   const [invoice, setInvoice] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [discount, setDiscount] = useState({ type: 'None', value: '' });
   const selectedQuotation = useMemo(() => quotations.find((item) => recordId(item) === quotationId), [quotations, quotationId]);
-  const subtotal = invoice?.subtotal || selectedQuotation?.subtotal || 0;
-  const gst = invoice?.gstAmount || selectedQuotation?.gstAmount || 0;
+  const pricing = useMemo(() => {
+    const baseSubtotal = Number(invoice?.subtotal || selectedQuotation?.subtotal || 0);
+    const currentType = invoice?.discountType || discount.type;
+    const currentValue = Number(invoice?.discountValue ?? discount.value ?? 0);
+    const discountedAmount = invoice?.discountedAmount ?? (
+      currentType === 'Percentage'
+        ? Math.min(baseSubtotal * Math.min(Math.max(currentValue, 0), 100) / 100, baseSubtotal)
+        : currentType === 'Fixed Amount'
+          ? Math.min(Math.max(currentValue, 0), baseSubtotal)
+          : 0
+    );
+    const finalSubtotal = invoice?.finalSubtotal ?? Math.max(baseSubtotal - discountedAmount, 0);
+    const sourceGst = Number(selectedQuotation?.gstAmount || invoice?.gstAmount || 0);
+    const gstRate = baseSubtotal ? sourceGst / baseSubtotal : 0;
+    const gst = invoice?.gstAmount ?? finalSubtotal * gstRate;
+    return { baseSubtotal, discountedAmount, finalSubtotal, gst };
+  }, [invoice, selectedQuotation, discount]);
 
   useEffect(() => {
     api.get('/quotations')
@@ -23,12 +39,23 @@ export default function InvoiceGeneration() {
       .catch((err) => setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to load approved quotations.' }));
   }, []);
 
+  useEffect(() => {
+    if (!selectedQuotation) return;
+    setDiscount({
+      type: selectedQuotation.finalDiscountType || 'None',
+      value: selectedQuotation.finalDiscountValue ? String(selectedQuotation.finalDiscountValue) : ''
+    });
+  }, [selectedQuotation?._id]);
+
   const generate = async () => {
     if (!quotationId) return;
     try {
-      const { data } = await api.post(`/invoices/generate/${quotationId}`);
+      const { data } = await api.post(`/invoices/generate/${quotationId}`, {
+        discountType: discount.type,
+        discountValue: Number(discount.value || 0)
+      });
       setInvoice(data);
-      setMessage({ type: 'success', text: 'Invoice generated.' });
+      setMessage({ type: 'success', text: data.emailDeliveryStatus === 'Sent' ? 'Invoice generated. Invoice Sent Successfully.' : 'Invoice generated. Email delivery is pending or skipped.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to generate invoice.' });
     }
@@ -37,8 +64,9 @@ export default function InvoiceGeneration() {
   const sendEmail = async () => {
     if (!invoice) return;
     try {
-      await api.post(`/invoices/${recordId(invoice)}/send-email`);
-      setMessage({ type: 'success', text: 'Invoice email queued.' });
+      const { data } = await api.post(`/invoices/${recordId(invoice)}/send-email`);
+      setInvoice(data.invoice);
+      setMessage({ type: 'success', text: data.message || 'Invoice Sent Successfully.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to queue invoice email.' });
     }
@@ -57,6 +85,7 @@ export default function InvoiceGeneration() {
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Invoice number</p>
               <h2 className="text-2xl font-black">{invoice?.invoiceId || 'Ready after generation'}</h2>
+              {invoice && <p className="mt-1 text-sm font-bold text-emerald-700">{invoice.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : `Email status: ${invoice.emailDeliveryStatus || 'Pending'}`}</p>}
             </div>
             {invoice && <PdfDownloadButton onClick={() => downloadPdf(recordId(invoice), invoice.invoiceId)} />}
           </div>
@@ -66,6 +95,26 @@ export default function InvoiceGeneration() {
               {quotations.map((quotation) => <option key={recordId(quotation)} value={recordId(quotation)}>{quotation.quotationId} - {quotation.projectTitle} - {getClientName(quotation)}</option>)}
             </select>
           </label>
+          <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm font-bold text-slate-600">Discount Type
+                <select value={discount.type} disabled={!!invoice} onChange={(event) => setDiscount((current) => ({ ...current, type: event.target.value, value: event.target.value === 'None' ? '' : current.value }))} className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 outline-purple disabled:bg-slate-50">
+                  <option value="None">No discount</option>
+                  <option value="Percentage">Percentage</option>
+                  <option value="Fixed Amount">Fixed Amount</option>
+                </select>
+              </label>
+              <label className="block text-sm font-bold text-slate-600">Discount Value
+                <input type="number" min={0} max={discount.type === 'Percentage' ? 100 : undefined} disabled={!!invoice || discount.type === 'None'} value={discount.value} onChange={(event) => setDiscount((current) => ({ ...current, value: event.target.value }))} className="mt-2 w-full rounded-xl border border-line bg-white px-4 py-3 outline-purple disabled:bg-slate-50" placeholder={discount.type === 'Percentage' ? 'Enter %' : 'Enter amount'} />
+              </label>
+            </div>
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+              <div><p className="text-xs font-bold uppercase text-slate-400">Base</p><strong>{currency(pricing.baseSubtotal)}</strong></div>
+              <div><p className="text-xs font-bold uppercase text-slate-400">Discount</p><strong className="text-emerald-600">-{currency(pricing.discountedAmount)}</strong></div>
+              <div><p className="text-xs font-bold uppercase text-slate-400">GST</p><strong>{currency(pricing.gst)}</strong></div>
+              <div><p className="text-xs font-bold uppercase text-slate-400">Final Total</p><strong className="text-purple">{currency(pricing.finalSubtotal + pricing.gst)}</strong></div>
+            </div>
+          </div>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <input className="rounded-xl border border-line px-4 py-3" value={invoice ? getClientName(invoice) : getClientName(selectedQuotation)} readOnly />
             <input className="rounded-xl border border-line px-4 py-3" value={selectedQuotation?.quotationId || ''} readOnly />
@@ -84,7 +133,7 @@ export default function InvoiceGeneration() {
             <button onClick={sendEmail} disabled={!invoice} className="rounded-xl border border-line px-5 py-3 font-bold disabled:opacity-50">Send invoice email</button>
           </div>
         </section>
-        <AmountSummaryCard subtotal={subtotal} gst={gst} paid={0} />
+        <AmountSummaryCard subtotal={pricing.finalSubtotal} gst={pricing.gst} paid={invoice?.amountPaid || 0} originalSubtotal={pricing.baseSubtotal} discount={pricing.discountedAmount} />
       </div>
     </div>
   );

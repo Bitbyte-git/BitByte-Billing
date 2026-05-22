@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
+import { Activity, Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.jsx';
 
 const nav = {
@@ -7,6 +7,7 @@ const nav = {
     ['Dashboard', '/client/dashboard', Home],
     ['New Quotation', '/client/new-quotation', FileCheck2],
     ['My Quotations', '/client/quotations', FileText],
+    ['Status Tracking', '/client/status-tracking', Activity],
     ['Invoices', '/client/invoices', ReceiptText],
     ['Payments', '/client/payments', CircleDollarSign],
     ['Profile & Settings', '/client/settings', Settings]
@@ -75,10 +76,6 @@ export default function AppLayout() {
               <Search size={18} className="text-slate-400" />
               <input className="w-full bg-transparent text-sm outline-none" placeholder="Search quotations, invoices, clients..." />
             </label>
-            <button className="relative rounded-xl border border-line p-2 text-slate-600">
-              <Bell size={19} />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-            </button>
             <button className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold">
               {user.name.split(' ')[0]} <ChevronDown size={16} />
             </button>

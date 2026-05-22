@@ -5,7 +5,8 @@ import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import QuotationTimeline from '../components/QuotationTimeline.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api, { downloadPdf } from '../api.js';
-import { formatDate, getClientName, recordId } from '../utils/format.js';
+import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
+import priceMap from '../utils/priceList.js';
 
 export default function QuotationDetail({ role, mode }) {
   const { id } = useParams();
@@ -43,6 +44,7 @@ export default function QuotationDetail({ role, mode }) {
   };
 
   const handleDownload = async () => {
+    if (role === 'Client') return;
     try {
       const { data } = await api.get(`/invoices?quotationId=${recordId(quotation)}`);
       if (data && data.length > 0) {
@@ -92,12 +94,63 @@ export default function QuotationDetail({ role, mode }) {
         })}</div>
             <div className="mt-5 space-y-3 rounded-xl bg-surface p-4 text-sm leading-6 text-slate-600">
               <p>{quotation.projectDescription}</p>
+              <p><strong>Main Service:</strong> {(quotation.mainService || []).join(', ') || '-'}</p>
+              <p><strong>Sub-Services:</strong> {(quotation.subServices || []).join(', ') || '-'}</p>
               {quotation.requirementDetails && <p><strong>Requirement:</strong> <span className="whitespace-pre-wrap">{quotation.requirementDetails}</span></p>}
               {quotation.serviceRequirement && <p><strong>Service Requirement:</strong> {quotation.serviceRequirement}</p>}
               {quotation.technologyPreference && <p><strong>Technology:</strong> {quotation.technologyPreference}</p>}
-              {quotation.budgetRange && <p><strong>Budget:</strong> {quotation.budgetRange}</p>}
+              <p><strong>Priority:</strong> {quotation.priorityLevel || '-'}</p>
+              <p><strong>Attachments:</strong> {quotation.attachments?.length ? quotation.attachments.map((file) => (
+                <a key={file.url || file.filename} href={file.url} target="_blank" rel="noreferrer" className="ml-2 text-purple underline">{file.filename || 'Attachment'}</a>
+              )) : '-'}</p>
             </div>
           </div>
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+              <h2 className="text-lg font-black">Selected Sub-Services & Pricing</h2>
+              {quotation.costingItems?.length ? (
+                <div className="mobile-table mt-4 overflow-hidden rounded-xl border border-line">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="p-3">Main Service</th>
+                        <th className="p-3">Sub-Service</th>
+                        <th className="p-3">Base Price</th>
+                        <th className="p-3">Discount</th>
+                        <th className="p-3">GST</th>
+                        <th className="p-3">Total</th>
+                        <th className="p-3">Type</th>
+                        <th className="p-3">Added By</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotation.costingItems.map((item, index) => (
+                        <tr key={`${item.subService}-${index}`} className="border-t border-line">
+                          <td className="p-3 font-semibold">
+                            {item.mainService || '-'}
+                            {!(quotation.mainService || []).includes(item.mainService) && <span className="ml-2 rounded-full bg-purple/10 px-2 py-0.5 text-xs font-bold text-purple">Added by accountant</span>}
+                          </td>
+                          <td className="p-3">{item.subService || item.subServiceName || '-'}</td>
+                          <td className="p-3">{currency(item.basePrice)}</td>
+                          <td className="p-3">{item.discountPercentage || 0}%</td>
+                          <td className="p-3">{currency(item.gstAmount)} ({item.gstPercentage || 0}%)</td>
+                          <td className="p-3 font-bold">{currency(item.totalAmount)}</td>
+                          <td className="p-3"><StatusBadge status={item.priceType || 'Manual'} /></td>
+                          <td className="p-3">{item.addedByAccountantName || 'Accountant'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(quotation.subServices || []).length ? quotation.subServices.map((sub) => (
+                    <span key={sub} className={`rounded-full border px-3 py-1 text-xs font-bold ${priceMap[sub] ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                      {sub}: {priceMap[sub] ? currency(priceMap[sub]) : 'Manual Price'}
+                    </span>
+                  )) : <span className="text-sm font-semibold text-slate-500">No sub-services selected yet.</span>}
+                </div>
+              )}
+            </div>
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
               <h2 className="text-lg font-black">Accountant Remarks</h2>
@@ -126,7 +179,9 @@ export default function QuotationDetail({ role, mode }) {
             <h2 className="text-lg font-black">Invoice Link</h2>
             <p className="mt-2 text-sm text-slate-500">Available after approval and invoice generation.</p>
             <div className="mt-4">
-              {['Invoice Generated', 'Paid'].includes(quotation.status) ? (
+              {role === 'Client' && ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
+                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">Invoice has been sent to your registered email.</p>
+              ) : ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
                 <PdfDownloadButton onClick={handleDownload} />
               ) : (
                 <button disabled className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-slate-400 opacity-60">PDF Unavailable</button>

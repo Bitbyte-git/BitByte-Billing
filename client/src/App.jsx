@@ -11,6 +11,7 @@ import AdminApproval from './pages/AdminApproval.jsx';
 import InvoiceGeneration from './pages/InvoiceGeneration.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import AccountantManagement from './pages/AccountantManagement.jsx';
+import ClientStatusTracking from './pages/ClientStatusTracking.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 
 function RequireAuth({ roles, children }) {
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/client/new-quotation" element={<NewQuotation />} />
         <Route path="/client/quotations" element={<TablePage type="quotations" role="Client" />} />
         <Route path="/client/quotations/:id" element={<QuotationDetail role="Client" />} />
+        <Route path="/client/status-tracking" element={<ClientStatusTracking />} />
         <Route path="/client/invoices" element={<TablePage type="invoices" role="Client" />} />
         <Route path="/client/payments" element={<TablePage type="payments" role="Client" />} />
         <Route path="/client/settings" element={<SettingsPage role="Client" />} />

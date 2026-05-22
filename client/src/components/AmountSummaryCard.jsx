@@ -1,11 +1,17 @@
 import { currency } from '../utils/format.js';
 
-export default function AmountSummaryCard({ subtotal = 0, gst = 0, paid = 0 }) {
+export default function AmountSummaryCard({ subtotal = 0, gst = 0, paid = 0, originalSubtotal = null, discount = 0 }) {
   const total = subtotal + gst;
   return (
     <div className="rounded-2xl border border-line bg-white p-5 shadow-premium">
       <h3 className="text-base font-bold">Amount Summary</h3>
       <div className="mt-4 space-y-3 text-sm">
+        {originalSubtotal !== null && Number(discount) > 0 && (
+          <>
+            <div className="flex justify-between text-slate-500"><span>Base amount</span><strong className="text-slate-900">{currency(originalSubtotal)}</strong></div>
+            <div className="flex justify-between text-slate-500"><span>Admin final discount</span><strong className="text-emerald-600">-{currency(discount)}</strong></div>
+          </>
+        )}
         <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-900">{currency(subtotal)}</strong></div>
         <div className="flex justify-between text-slate-500"><span>GST</span><strong className="text-slate-900">{currency(gst)}</strong></div>
         <div className="flex justify-between border-t border-line pt-3 text-base"><span>Total</span><strong>{currency(total)}</strong></div>

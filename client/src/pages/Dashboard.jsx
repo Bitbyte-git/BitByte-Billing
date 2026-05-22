@@ -30,6 +30,9 @@ export default function Dashboard({ role, reports = false }) {
   const { summary, quotations } = state;
   const statusData = useMemo(() => Object.entries(summary?.statusDistribution || {}).map(([name, value]) => ({ name, value })), [summary]);
   const revenueData = useMemo(() => Object.entries(summary?.revenueByMonth || {}).map(([month, value]) => ({ month, value })), [summary]);
+  const primaryChartData = role === 'Client'
+    ? statusData.map((item) => ({ month: item.name, value: item.value }))
+    : revenueData;
   const totalValue = summary?.totalValue || 0;
   const paid = summary?.totalRevenue || 0;
   const outstanding = summary?.outstandingAmount || 0;
@@ -80,10 +83,10 @@ export default function Dashboard({ role, reports = false }) {
       <div className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
         <ChartCard title={role === 'Client' ? 'Quotation Status Chart' : 'Revenue Trend'}>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={revenueData.length ? revenueData : [{ month: 'No data', value: 0 }]}>
+            <BarChart data={primaryChartData.length ? primaryChartData : [{ month: 'No data', value: 0 }]}>
               <XAxis dataKey="month" axisLine={false} tickLine={false} />
-              <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${value / 1000}k`} />
-              <Tooltip formatter={(value) => currency(value)} />
+              <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => role === 'Client' ? value : `${value / 1000}k`} />
+              <Tooltip formatter={(value) => role === 'Client' ? value : currency(value)} />
               <Bar dataKey="value" radius={[10, 10, 0, 0]} fill="#7444DC" />
             </BarChart>
           </ResponsiveContainer>
@@ -103,7 +106,7 @@ export default function Dashboard({ role, reports = false }) {
       <div className="mt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-black">Recent Activity</h2>
-          <button onClick={() => navigate('/client/new-quotation')} className="gradient-button rounded-xl px-4 py-2 text-sm font-bold">Create New Quotation</button>
+          {role === 'Client' && <button onClick={() => navigate('/client/new-quotation')} className="gradient-button rounded-xl px-4 py-2 text-sm font-bold">Create New Quotation</button>}
         </div>
         <DataTable
           columns={[

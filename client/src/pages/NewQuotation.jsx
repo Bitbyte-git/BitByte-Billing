@@ -4,15 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import Stepper from '../components/Stepper.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api from '../api.js';
+import priceMap, { serviceCatalog } from '../utils/priceList.js';
+import { currency } from '../utils/format.js';
 
-const SERVICE_DATA = [
-  { name: 'Web Development', subs: ['Custom Website', 'E-Commerce Website', 'Web Dashboard', 'Landing Page', 'Web Application'] },
-  { name: 'Digital Marketing', subs: ['SEO', 'AEO', 'GEO', 'Performance Marketing', 'Google Ads', 'Social Media Marketing', 'Content Marketing', 'Creative Digital Experiences', 'Analytics, Automation & Growth Intelligence'] },
-  { name: 'Personal Branding', subs: ['Profile Optimization', 'Content Strategy', 'Visual Branding', 'Growth & Engagement'] },
-  { name: 'Business Analytics', subs: ['Business Intelligence Dashboard', 'Data Analytics & Reporting', 'Sales & Revenue Analytics', 'Customer & Marketing Analytics', 'Operation & Workflow Analytics', 'Predictive Analytics & Forecasting', 'KPI Tracking & Performance Tracking', 'Data Integration & Automation'] },
-  { name: 'Imagination to Reality', subs: [] },
-  { name: 'Real-Time Sales Data Driven Solutions', subs: ['ERP & CRM Integration', 'Inventory Tracking', 'Customer Insights', 'Automated Reporting', 'Predictive Analytics', 'Branch & Team Comparison', 'Executive KPI Monitoring'] }
-];
+const SERVICE_DATA = serviceCatalog;
 
 export default function NewQuotation() {
   const navigate = useNavigate();
@@ -26,7 +21,6 @@ export default function NewQuotation() {
     subServices: [],
     projectTitle: '',
     requirementDetails: '',
-    budgetRange: '',
     preferredStartDate: '',
     referenceLinks: '',
     priorityLevel: 'Medium'
@@ -108,7 +102,8 @@ export default function NewQuotation() {
                       {service.subs.map(sub => (
                         <label key={sub} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                           <input type="checkbox" checked={form.subServices.includes(sub)} onChange={() => toggleSub(sub)} className="rounded border-slate-300 text-purple focus:ring-purple" />
-                          {sub}
+                          <span>{sub}</span>
+                          <span className="ml-auto text-xs font-bold text-purple">{currency(priceMap[sub])}</span>
                         </label>
                       ))}
                     </div>
@@ -128,19 +123,6 @@ export default function NewQuotation() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="text-sm font-bold">Project Title<input required value={form.projectTitle} onChange={(e) => update('projectTitle', e.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple" /></label>
             <label className="text-sm font-bold">Preferred Start Date<input type="date" value={form.preferredStartDate} onChange={(e) => update('preferredStartDate', e.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple" /></label>
-            <label className="text-sm font-bold">Budget Range
-              <select value={form.budgetRange} onChange={(e) => update('budgetRange', e.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple bg-white">
-                <option value="">Select budget range</option>
-                <option value="Up to ₹50,000">Up to ₹50,000</option>
-                <option value="₹50,000 – ₹80,000">₹50,000 – ₹80,000</option>
-                <option value="₹80,000 – ₹1,00,000">₹80,000 – ₹1,00,000</option>
-                <option value="₹1,00,000 – ₹2,00,000">₹1,00,000 – ₹2,00,000</option>
-                <option value="₹2,00,000 – ₹3,00,000">₹2,00,000 – ₹3,00,000</option>
-                <option value="₹3,00,000 – ₹4,00,000">₹3,00,000 – ₹4,00,000</option>
-                <option value="₹4,00,000 – ₹5,00,000">₹4,00,000 – ₹5,00,000</option>
-                <option value="₹5,00,000+">₹5,00,000+</option>
-              </select>
-            </label>
             <label className="text-sm font-bold">Priority Level
               <select value={form.priorityLevel} onChange={(e) => update('priorityLevel', e.target.value)} className="mt-2 w-full rounded-xl border border-line px-4 py-3 font-medium outline-purple bg-white">
                 <option value="Low">Low</option>
@@ -170,7 +152,6 @@ export default function NewQuotation() {
             </div>
             <dl className="mt-6 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-surface p-4"><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">Project Title</dt><dd className="mt-1 text-sm font-semibold text-slate-800">{form.projectTitle}</dd></div>
-              <div className="rounded-xl bg-surface p-4"><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">Budget Range</dt><dd className="mt-1 text-sm font-semibold text-slate-800">{form.budgetRange || 'N/A'}</dd></div>
               <div className="rounded-xl bg-surface p-4"><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">Start Date</dt><dd className="mt-1 text-sm font-semibold text-slate-800">{form.preferredStartDate || 'N/A'}</dd></div>
               <div className="rounded-xl bg-surface p-4"><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">Priority Level</dt><dd className="mt-1 text-sm font-semibold text-slate-800">{form.priorityLevel}</dd></div>
               <div className="rounded-xl bg-surface p-4 md:col-span-2"><dt className="text-xs font-bold uppercase tracking-wide text-slate-400">Detailed Requirement</dt><dd className="mt-1 text-sm font-semibold text-slate-800 whitespace-pre-wrap">{form.requirementDetails}</dd></div>

@@ -9,8 +9,8 @@ export function createTransporter() {
   });
 }
 
-export async function sendNotificationEmail({ to, subject, text }) {
+export async function sendNotificationEmail({ to, subject, text, html, attachments }) {
   const transporter = createTransporter();
   if (!transporter) return { skipped: true };
-  return transporter.sendMail({ from: process.env.MAIL_FROM, to, subject, text });
+  return transporter.sendMail({ from: process.env.MAIL_FROM, to, subject, text, html, attachments });
 }
