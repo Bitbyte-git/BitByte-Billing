@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
-
+const api = axios.create({
+  baseURL: 'https://bitbyte-server.onrender.com/api'
+});
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('bbt_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
