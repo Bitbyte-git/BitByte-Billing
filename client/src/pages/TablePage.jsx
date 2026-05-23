@@ -8,6 +8,22 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import api, { downloadPaymentAttachment, downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId, serviceNames } from '../utils/format.js';
 
+function buildPaymentDraftFromRow(row) {
+  return {
+    paymentLabel: row.paymentLabel || 'Payment',
+    amount: row.amount ?? 0,
+    paymentStatus: row.paymentStatus || row.status || 'Pending',
+    paymentMethod: row.paymentMethod || '',
+    paymentDate: row.paymentDate ? String(row.paymentDate).slice(0, 10) : '',
+    transactionReference: row.transactionReference || '',
+    notes: row.notes || '',
+    attachmentFileName: row.attachmentFileName || '',
+    attachmentMimeType: row.attachmentMimeType || '',
+    attachmentData: '',
+    hasAttachment: Boolean(row.hasAttachment || row.attachmentFileName)
+  };
+}
+
 export default function TablePage({ type, role }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -28,16 +44,25 @@ export default function TablePage({ type, role }) {
     users: '/auth/users'
   }[type];
 
-  const loadData = () => {
-    setState({ loading: true, error: '', data: [] });
-    api.get(endpoint)
-      .then(({ data }) => setState({ loading: false, error: '', data }))
-      .catch((err) => setState({ loading: false, error: err.response?.data?.message || 'Unable to load records.', data: [] }));
+  const loadData = async ({ reset = false } = {}) => {
+    if (reset) setState({ loading: true, error: '', data: [] });
+    else setState((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const { data } = await api.get(endpoint);
+      setState({ loading: false, error: '', data });
+      return data;
+    } catch (err) {
+      setState((prev) => ({
+        loading: false,
+        error: err.response?.data?.message || 'Unable to load records.',
+        data: reset ? [] : prev.data
+      }));
+      return null;
+    }
   };
 
-  // Initial data load
   useEffect(() => {
-    loadData();
+    loadData({ reset: true });
   }, [endpoint]);
 
   useEffect(() => {
@@ -46,12 +71,6 @@ export default function TablePage({ type, role }) {
       .then(({ data }) => setInvoiceOptions(data))
       .catch(() => setInvoiceOptions([]));
   }, [type, role]);
-
-  // Periodic refresh to keep client view in sync with admin updates
-  useEffect(() => {
-    const interval = setInterval(loadData, 30000); // refresh every 30 seconds
-    return () => clearInterval(interval);
-  }, []);
 
   const data = state.data;
   const rows = useMemo(() => data.filter((row) => {
@@ -62,24 +81,26 @@ export default function TablePage({ type, role }) {
 
   useEffect(() => {
     if (type !== 'payments' || role !== 'Admin') return;
-    const next = {};
-    rows.forEach((row) => {
-      const id = recordId(row);
-      next[id] = {
-        paymentLabel: row.paymentLabel || 'Payment',
-        amount: row.amount ?? 0,
-        paymentStatus: row.paymentStatus || row.status || 'Pending',
-        paymentMethod: row.paymentMethod || '',
-        paymentDate: row.paymentDate ? String(row.paymentDate).slice(0, 10) : '',
-        transactionReference: row.transactionReference || '',
-        notes: row.notes || '',
-        attachmentFileName: row.attachmentFileName || '',
-        attachmentMimeType: row.attachmentMimeType || '',
-        attachmentData: '',
-        hasAttachment: Boolean(row.hasAttachment || row.attachmentFileName)
-      };
+    setPaymentEdits((current) => {
+      const next = { ...current };
+      let changed = false;
+      const activeIds = new Set();
+      rows.forEach((row) => {
+        const id = recordId(row);
+        activeIds.add(id);
+        if (!next[id]) {
+          next[id] = buildPaymentDraftFromRow(row);
+          changed = true;
+        }
+      });
+      Object.keys(next).forEach((id) => {
+        if (!activeIds.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      });
+      return changed ? next : current;
     });
-    setPaymentEdits(next);
   }, [rows, type, role]);
 
   const deleteUser = async (id) => {
@@ -120,23 +141,33 @@ export default function TablePage({ type, role }) {
     }
   };
 
-  const markPaymentPaid = async (row) => {
-    try {
-      await api.put(`/payments/${recordId(row)}`, { paymentStatus: 'Paid', status: 'Paid' });
-      loadData();
-      if (type === 'payments' && role === 'Admin') {
-        api.get('/invoices').then(({ data }) => setInvoiceOptions(data)).catch(() => {});
-      }
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update payment status');
-    }
+  const syncPaymentEditsFromServer = (payments) => {
+    const next = {};
+    payments.forEach((row) => {
+      next[recordId(row)] = buildPaymentDraftFromRow(row);
+    });
+    setPaymentEdits(next);
   };
 
   const refreshPayments = async () => {
-    loadData();
+    const payments = await loadData();
     if (type === 'payments' && role === 'Admin') {
-      const { data } = await api.get('/invoices');
-      setInvoiceOptions(data);
+      try {
+        const { data } = await api.get('/invoices');
+        setInvoiceOptions(data);
+      } catch {
+        setInvoiceOptions([]);
+      }
+      if (payments) syncPaymentEditsFromServer(payments);
+    }
+  };
+
+  const markPaymentPaid = async (row) => {
+    try {
+      await api.put(`/payments/${recordId(row)}`, { paymentStatus: 'Paid', status: 'Paid' });
+      await refreshPayments();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update payment status');
     }
   };
 
@@ -260,7 +291,7 @@ export default function TablePage({ type, role }) {
           </div>
         </div>
         <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
-        {state.loading && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading payment stages...</p>}
+        {state.loading && !rows.length && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading payment stages...</p>}
         {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
         <div className="space-y-5">
           {filteredInvoices.map((invoice) => {
@@ -516,7 +547,7 @@ export default function TablePage({ type, role }) {
       </div>
 
       <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
-      {state.loading && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading records...</p>}
+      {state.loading && !rows.length && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading records...</p>}
       {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <DataTable columns={config.columns} rows={rows} actions={config.actions} />
       
