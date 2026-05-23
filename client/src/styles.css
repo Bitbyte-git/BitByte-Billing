@@ -46,34 +46,128 @@ button, input, textarea, select {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.showcase-hero {
+.showcase-stage {
   background:
-    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(141, 107, 226, 0.45), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 90% 20%, rgba(66, 38, 152, 0.5), transparent 50%),
-    linear-gradient(145deg, #111436 0%, #1b1a47 45%, #2a1f5e 100%);
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(141, 107, 226, 0.2), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(66, 38, 152, 0.15), transparent 50%),
+    linear-gradient(180deg, #f8f7fc 0%, #eef0f8 50%, #f5f3ff 100%);
 }
 
-.showcase-orb {
+.showcase-stage-grid {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(116, 68, 220, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(116, 68, 220, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 75%);
   pointer-events: none;
 }
 
-.showcase-orb-a {
-  width: 280px;
-  height: 280px;
-  top: -80px;
-  right: 10%;
-  background: rgba(141, 107, 226, 0.35);
+.showcase-stage-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
 }
 
-.showcase-orb-b {
-  width: 200px;
-  height: 200px;
-  bottom: -40px;
-  left: 5%;
-  background: rgba(236, 72, 153, 0.2);
+.showcase-stage-glow-a {
+  width: 420px;
+  height: 420px;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(141, 107, 226, 0.25);
+}
+
+.showcase-stage-glow-b {
+  width: 300px;
+  height: 300px;
+  bottom: 15%;
+  right: 20%;
+  background: rgba(116, 68, 220, 0.15);
+}
+
+.showcase-button-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.showcase-button-ring {
+  position: absolute;
+  inset: -20px;
+  border-radius: 9999px;
+  border: 2px solid rgba(116, 68, 220, 0.45);
+  pointer-events: none;
+}
+
+.showcase-button-ring-2 {
+  inset: -36px;
+  border-color: rgba(141, 107, 226, 0.25);
+}
+
+.showcase-button-shimmer {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.35), transparent 30%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.showcase-cta-button {
+  position: relative;
+  isolation: isolate;
+}
+
+.showcase-cta-button-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #7444dc 0%, #8d6be2 35%, #422698 70%, #7444dc 100%);
+  background-size: 200% 200%;
+  animation: showcaseGradient 4s ease infinite;
+}
+
+.showcase-cta-button::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+@keyframes showcaseGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.canva-embed-frame {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+
+.canva-embed-iframe {
+  display: block;
+  min-height: 100vh;
+}
+
+/* Cover Canva embed toolbar (zoom, menu, fullscreen) */
+.canva-chrome-mask {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+  background: #fff;
+}
+
+.canva-chrome-mask-corner {
+  right: 0;
+  bottom: 0;
+  width: 220px;
+  height: 80px;
+  border-top-left-radius: 12px;
 }
 
 @media (max-width: 900px) {

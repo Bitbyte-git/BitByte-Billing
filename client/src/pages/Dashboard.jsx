@@ -83,7 +83,7 @@ export default function Dashboard({ role, reports = false }) {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-purple">New</p>
             <h2 className="mt-1 text-xl font-black text-slate-900">Explore service samples & portfolio</h2>
-            <p className="mt-1 text-sm text-slate-600">Browse six core services with live work samples before you request a quotation.</p>
+            <p className="mt-1 text-sm text-slate-600">Open our full service portfolio presentation before you request a quotation.</p>
           </div>
           <span className="gradient-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold">View showcase</span>
         </Link>
