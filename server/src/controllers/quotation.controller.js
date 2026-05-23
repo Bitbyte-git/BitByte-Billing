@@ -5,6 +5,7 @@ import Remark from '../models/Remark.js';
 import User from '../models/User.js';
 import { nextQuotationId } from '../utils/idGenerator.js';
 import { priceMap } from '../utils/priceList.js';
+import { getSacCode } from '../utils/sacCodes.js';
 import { sendNotificationEmail } from '../utils/email.js';
 import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { changeQuotationStatus, recordAudit, notifyRole } from '../services/workflowService.js';
@@ -118,6 +119,7 @@ export async function addCosting(req, res, next) {
         mainService,
         subService,
         subServiceName: subService,
+        sacCode: getSacCode(subService),
         description: item.description || '',
         basePrice,
         quantity,
@@ -147,6 +149,7 @@ export async function addCosting(req, res, next) {
       mainService: item.mainService,
       subService: item.subService,
       subServiceName: item.subServiceName,
+      sacCode: item.sacCode,
       description: item.description,
       basePrice: item.basePrice,
       quantity: item.quantity,

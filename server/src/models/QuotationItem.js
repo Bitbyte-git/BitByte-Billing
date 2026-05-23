@@ -6,6 +6,7 @@ const quotationItemSchema = new mongoose.Schema({
   mainService: { type: String, required: true },
   subService: { type: String, required: true },
   subServiceName: { type: String, required: true },
+  sacCode: String,
   description: { type: String, default: '' },
   basePrice: { type: Number, required: true, min: 0 },
   quantity: { type: Number, default: 1, min: 1 },

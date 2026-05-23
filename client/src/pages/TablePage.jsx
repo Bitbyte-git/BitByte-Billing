@@ -446,9 +446,11 @@ export default function TablePage({ type, role }) {
       columns: [
         { key: 'invoiceId', label: 'Invoice number' },
         { key: 'quotationId', label: 'Quotation ID', render: (row) => getQuotationNumber(row) },
-        { key: 'clientId', label: 'Client', render: (row) => getClientName(row) },
+        ...(role !== 'Client' ? [{ key: 'clientId', label: 'Client', render: (row) => getClientName(row) }] : []),
         { key: 'invoiceDate', label: 'Date', render: (row) => formatDate(row.invoiceDate) },
-        { key: 'totalAmount', label: 'Amount', render: (row) => currency(row.totalAmount) },
+        { key: 'totalAmount', label: 'Invoice Total', render: (row) => currency(row.totalAmount) },
+        { key: 'amountPaid', label: 'Paid', render: (row) => currency(row.amountPaid || 0) },
+        { key: 'balanceDue', label: 'Balance Pending', render: (row) => currency(row.balanceDue ?? Math.max(Number(row.totalAmount || 0) - Number(row.amountPaid || 0), 0)) },
         { key: 'paymentStatus', label: 'Status', badge: true },
         { key: 'emailDeliveryStatus', label: 'Email', render: (row) => row.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : row.emailDeliveryStatus || 'Pending' }
       ],

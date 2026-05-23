@@ -2,6 +2,7 @@ import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import { currency } from '../utils/format.js';
 import priceMap, { serviceSubServices } from '../utils/priceList.js';
+import { getSacCode } from '../utils/sacCodes.js';
 
 function calcRow(row) {
   const base = Number(row.basePrice || 0);
@@ -47,7 +48,7 @@ function RowCard({ row, index, services, selectedServiceOptions, subServicesByMa
             <p className="font-bold text-slate-800 text-sm truncate">
               {row.subService || <span className="text-slate-400 italic">Select sub-service…</span>}
             </p>
-            <p className="text-xs text-slate-400">{row.mainService || 'No main service'}</p>
+            <p className="text-xs text-slate-400">{row.mainService || 'No main service'}{row.subService ? ` · SAC ${getSacCode(row.subService)}` : ''}</p>
           </div>
           <PriceTypeBadge type={row.priceType} />
         </div>

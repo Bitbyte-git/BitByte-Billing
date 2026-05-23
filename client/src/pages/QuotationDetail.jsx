@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import api, { downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
 import priceMap from '../utils/priceList.js';
+import { getSacCode } from '../utils/sacCodes.js';
 
 export default function QuotationDetail({ role, mode }) {
   const { id } = useParams();
@@ -114,6 +115,7 @@ export default function QuotationDetail({ role, mode }) {
                       <tr>
                         <th className="p-3">Main Service</th>
                         <th className="p-3">Sub-Service</th>
+                        <th className="p-3">SAC</th>
                         <th className="p-3">Base Price</th>
                         <th className="p-3">Discount</th>
                         <th className="p-3">GST</th>
@@ -130,6 +132,7 @@ export default function QuotationDetail({ role, mode }) {
                             {!(quotation.mainService || []).includes(item.mainService) && <span className="ml-2 rounded-full bg-purple/10 px-2 py-0.5 text-xs font-bold text-purple">Added by accountant</span>}
                           </td>
                           <td className="p-3">{item.subService || item.subServiceName || '-'}</td>
+                          <td className="p-3">{item.sacCode || getSacCode(item.subService || item.subServiceName)}</td>
                           <td className="p-3">{currency(item.basePrice)}</td>
                           <td className="p-3">{item.discountPercentage || 0}%</td>
                           <td className="p-3">{currency(item.gstAmount)} ({item.gstPercentage || 0}%)</td>

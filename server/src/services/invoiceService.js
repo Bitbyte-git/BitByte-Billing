@@ -6,7 +6,7 @@ import { changeQuotationStatus } from './workflowService.js';
 import { nextInvoiceId, nextPaymentId } from '../utils/idGenerator.js';
 import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { sendNotificationEmail } from '../utils/email.js';
-import PdfPrinter from 'pdfmake';
+import { buildInvoiceLineFromQuotationItem, invoicePdfBuffer } from '../utils/invoicePdf.js';
 
 export async function createInitialPaymentStage(invoice) {
   const existing = await Payment.countDocuments({ invoiceId: invoice._id });
@@ -59,14 +59,7 @@ export async function createInvoiceForQuotation(quotationId, user, options = {})
     quotationId: quotation._id,
     clientId: quotation.clientId,
     dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-    items: items.map((item) => ({
-      serviceId: item.serviceId,
-      service: item.subService || item.subServiceName || item.serviceId?.name,
-      description: item.description,
-      amount: (item.basePrice * item.quantity) - (item.discountAmount || 0),
-      gstPercentage: item.gstPercentage,
-      total: item.totalAmount
-    })),
+    items: items.map((item) => buildInvoiceLineFromQuotationItem(item)),
     subtotal: baseSubtotal,
     discountType,
     discountValue,
@@ -113,100 +106,3 @@ async function emailInvoiceToClient(invoiceId) {
   return invoice;
 }
 
-function createInvoicePdfDocument(invoice) {
-  const fonts = {
-    Roboto: {
-      normal: 'Helvetica',
-      bold: 'Helvetica-Bold',
-      italics: 'Helvetica-Oblique',
-      bolditalics: 'Helvetica-BoldOblique'
-    }
-  };
-  const printer = new PdfPrinter(fonts);
-  const docDefinition = {
-    content: [
-      { text: 'INVOICE', style: 'header', alignment: 'center' },
-      { text: '\n' },
-      {
-        columns: [
-          {
-            width: '*',
-            text: [
-              { text: 'Bit Byte Technologies\n', bold: true },
-              '123 Tech Park, Suite 400\n',
-              'Bangalore, KA 560001\n',
-              'GSTIN: 29ABCDE1234F1Z5\n'
-            ]
-          },
-          {
-            width: '*',
-            alignment: 'right',
-            text: [
-              { text: `Invoice No: ${invoice.invoiceId}\n`, bold: true },
-              `Date: ${new Date(invoice.invoiceDate).toLocaleDateString()}\n`,
-              `Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}\n`
-            ]
-          }
-        ]
-      },
-      { text: '\n\nBilled To:', bold: true },
-      { text: `${invoice.clientId.companyName || invoice.clientId.fullName}\n${invoice.clientId.email}\nPhone: ${invoice.clientId.phone}\n` },
-      { text: '\n' },
-      {
-        table: {
-          headerRows: 1,
-          widths: ['*', 'auto', 'auto', 'auto'],
-          body: [
-            [
-              { text: 'Description', bold: true },
-              { text: 'Amount', bold: true },
-              { text: 'GST %', bold: true },
-              { text: 'Total', bold: true }
-            ],
-            ...(invoice.items || []).map((item) => [
-              `${item.service}\n${item.description || ''}`,
-              `Rs ${item.amount}`,
-              `${item.gstPercentage}%`,
-              `Rs ${item.total}`
-            ])
-          ]
-        }
-      },
-      { text: '\n' },
-      {
-        columns: [
-          { width: '*', text: '' },
-          {
-            width: 'auto',
-            table: {
-              widths: [100, 100],
-              body: [
-                ['Base Amount', `Rs ${invoice.subtotal}`],
-                ['Discount', `Rs ${invoice.discountedAmount || 0}`],
-                ['Subtotal', `Rs ${invoice.finalSubtotal || invoice.subtotal}`],
-                ['GST Amount', `Rs ${invoice.gstAmount}`],
-                [{ text: 'Total Amount', bold: true }, { text: `Rs ${invoice.totalAmount}`, bold: true }]
-              ]
-            },
-            layout: 'noBorders'
-          }
-        ]
-      },
-      { text: '\n\nThank you for your business!', alignment: 'center', italics: true }
-    ],
-    styles: { header: { fontSize: 22, bold: true } },
-    defaultStyle: { font: 'Roboto' }
-  };
-  return printer.createPdfKitDocument(docDefinition);
-}
-
-function invoicePdfBuffer(invoice) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    const doc = createInvoicePdfDocument(invoice);
-    doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-    doc.end();
-  });
-}

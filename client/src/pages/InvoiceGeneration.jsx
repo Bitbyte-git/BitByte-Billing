@@ -3,6 +3,7 @@ import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import api, { downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
+import { enrichInvoiceItem } from '../utils/invoiceItems.js';
 
 export default function InvoiceGeneration() {
   const [quotations, setQuotations] = useState([]);
@@ -121,11 +122,40 @@ export default function InvoiceGeneration() {
             <input className="rounded-xl border border-line px-4 py-3" value={formatDate(invoice?.invoiceDate)} readOnly />
             <input className="rounded-xl border border-line px-4 py-3" value={formatDate(invoice?.dueDate)} readOnly />
           </div>
-          <div className="mt-6 rounded-2xl border border-line">
-            <div className="grid grid-cols-4 border-b border-line bg-slate-50 p-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <span>Service</span><span>Description</span><span>GST</span><span>Total</span>
-            </div>
-            {(invoice?.items || []).map((row) => <div key={`${row.service}-${row.description}`} className="grid grid-cols-4 p-3 text-sm"><span>{row.service}</span><span>{row.description}</span><span>{row.gstPercentage}%</span><strong>{currency(row.total)}</strong></div>)}
+          <div className="mt-6 mobile-table overflow-hidden rounded-2xl border border-line">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="p-3">S.No</th>
+                  <th className="p-3">Service</th>
+                  <th className="p-3">SAC</th>
+                  <th className="p-3">Qty</th>
+                  <th className="p-3">Taxable</th>
+                  <th className="p-3">CGST</th>
+                  <th className="p-3">SGST</th>
+                  <th className="p-3">IGST</th>
+                  <th className="p-3">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(invoice?.items || []).map((row, index) => {
+                  const line = enrichInvoiceItem(row);
+                  return (
+                    <tr key={`${line.service}-${index}`} className="border-t border-line">
+                      <td className="p-3">{index + 1}</td>
+                      <td className="p-3 font-semibold">{line.service}</td>
+                      <td className="p-3">{line.sacCode}</td>
+                      <td className="p-3">{line.quantity}</td>
+                      <td className="p-3">{currency(line.taxableValue)}</td>
+                      <td className="p-3">{currency(line.cgstAmount)}</td>
+                      <td className="p-3">{currency(line.sgstAmount)}</td>
+                      <td className="p-3">{currency(line.igstAmount)}</td>
+                      <td className="p-3 font-bold">{currency(line.total)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
             {!invoice?.items?.length && <p className="p-4 text-sm font-semibold text-slate-500">Generate an invoice to view line items.</p>}
           </div>
           <div className="mt-6 flex flex-wrap gap-3">

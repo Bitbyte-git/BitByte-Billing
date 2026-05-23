@@ -18,6 +18,7 @@ const nav = {
     ['Add Pricing', '/accountant/pricing', CircleDollarSign],
     ['Clarifications', '/accountant/clarifications', FileCheck2],
     ['Invoices', '/accountant/invoices', ReceiptText],
+    ['Payments', '/accountant/payments', CircleDollarSign],
     ['Reports', '/accountant/reports', ChartNoAxesCombined],
     ['Profile & Settings', '/accountant/settings', Settings]
   ],

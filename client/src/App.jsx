@@ -12,6 +12,7 @@ import InvoiceGeneration from './pages/InvoiceGeneration.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import AccountantManagement from './pages/AccountantManagement.jsx';
 import ClientStatusTracking from './pages/ClientStatusTracking.jsx';
+import PaymentOverview from './pages/PaymentOverview.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 
 function RequireAuth({ roles, children }) {
@@ -45,7 +46,7 @@ export default function App() {
         <Route path="/client/quotations/:id" element={<QuotationDetail role="Client" />} />
         <Route path="/client/status-tracking" element={<ClientStatusTracking />} />
         <Route path="/client/invoices" element={<TablePage type="invoices" role="Client" />} />
-        <Route path="/client/payments" element={<TablePage type="payments" role="Client" />} />
+        <Route path="/client/payments" element={<PaymentOverview role="Client" />} />
         <Route path="/client/settings" element={<SettingsPage role="Client" />} />
       </Route>
 
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/accountant/pricing" element={<PricingPage />} />
         <Route path="/accountant/clarifications" element={<QuotationDetail role="Accountant" mode="clarification" />} />
         <Route path="/accountant/invoices" element={<TablePage type="invoices" role="Accountant" />} />
+        <Route path="/accountant/payments" element={<PaymentOverview role="Accountant" />} />
         <Route path="/accountant/reports" element={<Dashboard role="Accountant" reports />} />
         <Route path="/accountant/settings" element={<SettingsPage role="Accountant" />} />
       </Route>

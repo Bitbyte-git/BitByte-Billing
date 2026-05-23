@@ -4,8 +4,15 @@ const invoiceItemSchema = new mongoose.Schema({
   serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
   service: String,
   description: String,
+  sacCode: String,
+  quantity: { type: Number, default: 1 },
+  taxableValue: Number,
   amount: Number,
   gstPercentage: Number,
+  gstAmount: Number,
+  cgstAmount: Number,
+  sgstAmount: Number,
+  igstAmount: Number,
   total: Number
 }, { _id: false });
 
