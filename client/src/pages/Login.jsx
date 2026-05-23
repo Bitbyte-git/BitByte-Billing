@@ -24,6 +24,8 @@ function ShortcutIcons({ setEmail, setPassword }) {
 
 import { motion } from 'framer-motion';
 import { useAuth } from '../state/AuthContext.jsx';
+import BrandLogo from '../components/BrandLogo.jsx';
+import { COMPANY_NAME } from '../config/brand.js';
 
 const roles = {
   Admin: ShieldCheck,
@@ -60,20 +62,26 @@ export default function Login() {
           <p className="mt-2 text-3xl font-black">₹7.8M</p>
           <p className="text-sm text-slate-300">pipeline reviewed this quarter</p>
         </div>
+        <div className="absolute left-10 top-10">
+          <BrandLogo size="lg" theme="dark" tagline="Billing & Quotation Management" />
+        </div>
         <div className="absolute bottom-10 left-10 max-w-2xl">
           <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">Quotation workflow automation for software services</p>
-          <h1 className="text-6xl font-black leading-tight">Bit Byte Technologies Billing & Quotation Management System</h1>
+          <h1 className="text-6xl font-black leading-tight">{COMPANY_NAME}</h1>
+          <p className="mt-3 text-2xl font-bold text-lavender">Billing & Quotation Management System</p>
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">Client requests, accountant costing, admin approvals, invoices, payments, reports, notifications, and audit logs in one premium enterprise workspace.</p>
         </div>
       </section>
       <section className="grid place-items-center p-4">
-        <div className="mb-8 w-full max-w-md text-center lg:hidden">
-          <h1 className="text-2xl font-black text-white">Bit Byte Technologies</h1>
+        <div className="mb-8 flex w-full max-w-md justify-center lg:hidden">
+          <BrandLogo size="md" theme="dark" tagline="Client & team portal" />
         </div>
         <ShortcutIcons setEmail={setEmail} setPassword={setPassword} />
         <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={submit} className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-8 shadow-premium">
           <div className="mb-8">
-            <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-purple to-lavender font-black text-white">BB</div>
+            <div className="mb-4">
+              <BrandLogo size="md" theme="light" tagline="" showName={false} />
+            </div>
             <h2 className="text-2xl font-black text-slate-950">Secure role login</h2>
             <p className="mt-2 text-sm text-slate-500">Sign in with your workspace account to continue.</p>
           </div>

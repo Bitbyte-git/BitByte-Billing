@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Activity, Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LayoutGrid, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.jsx';
+import BrandLogo from '../components/BrandLogo.jsx';
 
 const nav = {
   Client: [
@@ -47,13 +48,7 @@ export default function AppLayout() {
     <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[280px_1fr]">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] overflow-y-auto bg-navy p-4 text-white lg:block">
         <div className="rounded-2xl bg-gradient-to-br from-ink to-panel p-4 shadow-glow">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-purple to-lavender text-sm font-black">BB</div>
-            <div>
-              <p className="text-sm font-extrabold leading-tight">Bit Byte Technologies</p>
-              <p className="text-xs text-slate-300">Billing Operations</p>
-            </div>
-          </div>
+          <BrandLogo size="md" theme="dark" />
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
             <p className="text-xs uppercase tracking-widest text-slate-400">{user.role} portal</p>
             <p className="mt-1 font-bold">{user.name}</p>
@@ -74,6 +69,9 @@ export default function AppLayout() {
         <header className="sticky top-0 z-20 border-b border-line bg-white/90 px-4 py-3 backdrop-blur md:px-8">
           <div className="flex items-center gap-4">
             <button className="rounded-xl border border-line p-2 lg:hidden"><Menu size={20} /></button>
+            <div className="lg:hidden">
+              <BrandLogo size="sm" theme="light" tagline="" />
+            </div>
             <label className="hidden flex-1 items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-2 md:flex">
               <Search size={18} className="text-slate-400" />
               <input className="w-full bg-transparent text-sm outline-none" placeholder="Search quotations, invoices, clients..." />

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FileText, Sparkles, X } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo.jsx';
 
 const CANVA_EMBED_URL = 'https://www.canva.com/design/DAHKXndWpBA/kHHf-YXFc7gfFcxmtbbpUQ/view?embed';
 
@@ -32,14 +33,14 @@ export default function ServiceShowcase() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-10 flex flex-col items-center px-4 text-center"
       >
-        <motion.p
+        <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="mb-8 text-sm font-bold uppercase tracking-[0.35em] text-purple/80"
+          className="mb-8"
         >
-          Bit Byte Technologies
-        </motion.p>
+          <BrandLogo size="md" theme="light" tagline="Service portfolio" className="justify-center" />
+        </motion.div>
 
         <div className="showcase-button-wrap relative">
           <motion.span
