@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CheckCircle2, Clock3, FileText, IndianRupee, ReceiptText, ShieldAlert, TrendingUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
 import ChartCard from '../components/ChartCard.jsx';
 import DataTable from '../components/DataTable.jsx';
@@ -77,6 +77,17 @@ export default function Dashboard({ role, reports = false }) {
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cards.map(([label, value, Icon, tone]) => <StatCard key={label} label={label} value={state.loading ? '...' : value} icon={Icon} tone={tone} />)}
       </div>
+
+      {role === 'Client' && (
+        <Link to="/client/services" className="mb-6 flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-purple/20 bg-gradient-to-r from-purple/10 via-white to-violet/10 p-6 shadow-sm transition hover:shadow-premium md:flex-row md:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-purple">New</p>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Explore service samples & portfolio</h2>
+            <p className="mt-1 text-sm text-slate-600">Browse six core services with live work samples before you request a quotation.</p>
+          </div>
+          <span className="gradient-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold">View showcase</span>
+        </Link>
+      )}
 
       {state.error && <p className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
 

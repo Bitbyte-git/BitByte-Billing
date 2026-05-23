@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Activity, Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
+import { Activity, Bell, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, CircleDollarSign, FileCheck2, FileText, Home, LayoutGrid, LogOut, Menu, ReceiptText, Search, Settings, ShieldCheck, UserCog, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../state/AuthContext.jsx';
 
 const nav = {
   Client: [
     ['Dashboard', '/client/dashboard', Home],
+    ['Service Showcase', '/client/services', LayoutGrid],
     ['New Quotation', '/client/new-quotation', FileCheck2],
     ['My Quotations', '/client/quotations', FileText],
     ['Status Tracking', '/client/status-tracking', Activity],

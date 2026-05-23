@@ -46,6 +46,36 @@ button, input, textarea, select {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.showcase-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(141, 107, 226, 0.45), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 90% 20%, rgba(66, 38, 152, 0.5), transparent 50%),
+    linear-gradient(145deg, #111436 0%, #1b1a47 45%, #2a1f5e 100%);
+}
+
+.showcase-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.showcase-orb-a {
+  width: 280px;
+  height: 280px;
+  top: -80px;
+  right: 10%;
+  background: rgba(141, 107, 226, 0.35);
+}
+
+.showcase-orb-b {
+  width: 200px;
+  height: 200px;
+  bottom: -40px;
+  left: 5%;
+  background: rgba(236, 72, 153, 0.2);
+}
+
 @media (max-width: 900px) {
   .mobile-table {
     display: block;

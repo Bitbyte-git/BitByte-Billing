@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage.jsx';
 import AccountantManagement from './pages/AccountantManagement.jsx';
 import ClientStatusTracking from './pages/ClientStatusTracking.jsx';
 import PaymentOverview from './pages/PaymentOverview.jsx';
+import ServiceShowcase from './pages/ServiceShowcase.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 
 function RequireAuth({ roles, children }) {
@@ -41,6 +42,7 @@ export default function App() {
 
       <Route element={<RoleLayout role="Client" />}>
         <Route path="/client/dashboard" element={<Dashboard role="Client" />} />
+        <Route path="/client/services" element={<ServiceShowcase />} />
         <Route path="/client/new-quotation" element={<NewQuotation />} />
         <Route path="/client/quotations" element={<TablePage type="quotations" role="Client" />} />
         <Route path="/client/quotations/:id" element={<QuotationDetail role="Client" />} />
