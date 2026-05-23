@@ -89,7 +89,6 @@ export default function AdminApproval() {
             <div className="mt-5 rounded-xl bg-surface p-4 text-sm leading-6 text-slate-600">
               <p>{selected.projectDescription}</p>
               <p className="mt-2"><strong>Services:</strong> {serviceNames(selected)}</p>
-              <p className="mt-2"><strong>Accountant remarks:</strong> {selected.accountantRemarks || '-'}</p>
             </div>
             {!!selected.costingItems?.length && (
               <div className="mobile-table mt-5 overflow-hidden rounded-xl border border-line">
@@ -152,7 +151,9 @@ export default function AdminApproval() {
           <div><p className="text-xs font-bold uppercase text-slate-400">GST</p><strong>{currency(pricing.gst)}</strong></div>
           <div><p className="text-xs font-bold uppercase text-slate-400">Final Total</p><strong className="text-purple">{currency(pricing.finalSubtotal + pricing.gst)}</strong></div>
         </div>
-        <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} className="mt-4 min-h-24 w-full rounded-xl border border-line px-4 py-3 outline-purple" placeholder="Admin remarks..." />
+        <label className="mt-4 block text-sm font-bold text-slate-600">Remarks for Accountant <span className="font-semibold text-slate-400">(not visible to client)</span>
+          <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-line px-4 py-3 outline-purple" placeholder="Notes for the accountant team..." />
+        </label>
         <div className="mt-5 flex flex-wrap gap-3">
           <button disabled={!selected} onClick={() => setModal('Approve Quotation')} className="gradient-button rounded-xl px-5 py-3 font-bold disabled:opacity-50">Approve</button>
           <button disabled={!selected} onClick={() => setModal('Reject Quotation')} className="rounded-xl bg-red-500 px-5 py-3 font-bold text-white disabled:opacity-50">Reject</button>

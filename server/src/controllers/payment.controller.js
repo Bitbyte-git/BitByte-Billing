@@ -36,7 +36,36 @@ async function recalculateInvoicePayments(invoiceId, user) {
   return invoice;
 }
 
-function normalizePaymentPayload(payload) {
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
+
+function parseAttachment(payload, existing = null) {
+  if (payload.clearAttachment) {
+    return { attachmentFileName: '', attachmentMimeType: '', attachmentData: '' };
+  }
+  if (!payload.attachmentData) {
+    if (existing) {
+      return {
+        attachmentFileName: existing.attachmentFileName || '',
+        attachmentMimeType: existing.attachmentMimeType || '',
+        attachmentData: existing.attachmentData || ''
+      };
+    }
+    return { attachmentFileName: '', attachmentMimeType: '', attachmentData: '' };
+  }
+  const raw = String(payload.attachmentData);
+  const base64 = raw.includes(',') ? raw.split(',')[1] : raw;
+  const bytes = Buffer.byteLength(base64, 'base64');
+  if (bytes > MAX_ATTACHMENT_BYTES) {
+    throw Object.assign(new Error('Payment attachment must be 2MB or smaller'), { status: 422 });
+  }
+  return {
+    attachmentFileName: payload.attachmentFileName || 'attachment',
+    attachmentMimeType: payload.attachmentMimeType || 'application/octet-stream',
+    attachmentData: base64
+  };
+}
+
+function normalizePaymentPayload(payload, existing = null) {
   const paymentStatus = payload.paymentStatus || payload.status || 'Pending';
   return {
     paymentLabel: payload.paymentLabel || 'Payment',
@@ -47,7 +76,8 @@ function normalizePaymentPayload(payload) {
     paymentDate: payload.paymentDate || undefined,
     transactionReference: payload.transactionReference || '',
     notes: payload.notes || '',
-    paymentStageOrder: Number(payload.paymentStageOrder || 1)
+    paymentStageOrder: Number(payload.paymentStageOrder || 1),
+    ...parseAttachment(payload, existing)
   };
 }
 
@@ -55,7 +85,14 @@ export async function listPayments(req, res, next) {
   try {
     const client = req.user.role === 'Client' ? await Client.findOne({ email: req.user.email }) : null;
     const query = req.user.role === 'Client' ? (client ? { clientId: client._id } : { _id: null }) : {};
-    res.json(await Payment.find(query).populate('invoiceId quotationId clientId').sort({ paymentStageOrder: 1, paymentDate: -1 }));
+    const payments = await Payment.find(query)
+      .select('-attachmentData')
+      .populate('invoiceId quotationId clientId')
+      .sort({ paymentStageOrder: 1, paymentDate: -1 });
+    res.json(payments.map((payment) => ({
+      ...payment.toObject(),
+      hasAttachment: Boolean(payment.attachmentFileName)
+    })));
   } catch (err) { next(err); }
 }
 
@@ -69,17 +106,18 @@ export async function createPayment(req, res, next) {
     const payment = await Payment.create({
       ...payload,
       paymentId: await nextPaymentId(),
+      invoiceId: invoice._id,
       quotationId: invoice.quotationId,
       clientId: invoice.clientId
     });
     const updatedInvoice = await recalculateInvoicePayments(invoice._id, req.user);
 
-    await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Payment Added', payment, adminRemarks: req.body.adminRemarks });
+    await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Payment Added', payment });
     if (payload.paymentStatus === 'Paid') {
-      await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Payment Paid', payment, adminRemarks: req.body.adminRemarks });
+      await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Payment Paid', payment });
     }
     if (updatedInvoice.paymentStatus === 'Paid') {
-      await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Final Payment Completed', payment, adminRemarks: req.body.adminRemarks });
+      await sendClientWorkflowEmail({ quotationId: invoice.quotationId, invoiceId: invoice._id, stage: 'Final Payment Completed', payment });
     }
 
     res.status(201).json(await Payment.findById(payment._id).populate('invoiceId quotationId clientId'));
@@ -92,21 +130,32 @@ export async function updatePayment(req, res, next) {
     if (!payment) return res.status(404).json({ message: 'Payment not found' });
 
     const previousStatus = payment.paymentStatus || payment.status;
-    const payload = normalizePaymentPayload({ ...payment.toObject(), ...req.body });
+    const payload = normalizePaymentPayload({ ...payment.toObject(), ...req.body }, payment);
     Object.assign(payment, payload);
     await payment.save();
     const invoice = await recalculateInvoicePayments(payment.invoiceId, req.user);
 
     if (payload.paymentStatus === 'Paid' && previousStatus !== 'Paid') {
-      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Payment Paid', payment, adminRemarks: req.body.adminRemarks });
+      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Payment Paid', payment });
     } else {
-      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Payment Added', payment, adminRemarks: req.body.adminRemarks });
+      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Payment Added', payment });
     }
     if (invoice.paymentStatus === 'Paid') {
-      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Final Payment Completed', payment, adminRemarks: req.body.adminRemarks });
+      await sendClientWorkflowEmail({ quotationId: payment.quotationId, invoiceId: payment.invoiceId, stage: 'Final Payment Completed', payment });
     }
 
     res.json(await Payment.findById(payment._id).populate('invoiceId quotationId clientId'));
+  } catch (err) { next(err); }
+}
+
+export async function downloadPaymentAttachment(req, res, next) {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment?.attachmentData) return res.status(404).json({ message: 'No attachment found for this payment' });
+    const buffer = Buffer.from(payment.attachmentData, 'base64');
+    res.setHeader('Content-Type', payment.attachmentMimeType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${payment.attachmentFileName || 'payment-attachment'}"`);
+    res.send(buffer);
   } catch (err) { next(err); }
 }
 

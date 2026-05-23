@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import api, { downloadPdf } from '../api.js';
+import api, { downloadPaymentAttachment, downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId, serviceNames } from '../utils/format.js';
 
 export default function TablePage({ type, role }) {
@@ -62,25 +62,24 @@ export default function TablePage({ type, role }) {
 
   useEffect(() => {
     if (type !== 'payments' || role !== 'Admin') return;
-    setPaymentEdits((current) => {
-      const next = { ...current };
-      let changed = false;
-      rows.forEach((row) => {
-        if (!next[recordId(row)]) {
-          changed = true;
-          next[recordId(row)] = {
-            paymentLabel: row.paymentLabel || 'Payment',
-            amount: row.amount || 0,
-            paymentStatus: row.paymentStatus || row.status || 'Pending',
-            paymentMethod: row.paymentMethod || '',
-            paymentDate: row.paymentDate ? String(row.paymentDate).slice(0, 10) : '',
-            transactionReference: row.transactionReference || '',
-            notes: row.notes || ''
-          };
-        }
-      });
-      return changed ? next : current;
+    const next = {};
+    rows.forEach((row) => {
+      const id = recordId(row);
+      next[id] = {
+        paymentLabel: row.paymentLabel || 'Payment',
+        amount: row.amount ?? 0,
+        paymentStatus: row.paymentStatus || row.status || 'Pending',
+        paymentMethod: row.paymentMethod || '',
+        paymentDate: row.paymentDate ? String(row.paymentDate).slice(0, 10) : '',
+        transactionReference: row.transactionReference || '',
+        notes: row.notes || '',
+        attachmentFileName: row.attachmentFileName || '',
+        attachmentMimeType: row.attachmentMimeType || '',
+        attachmentData: '',
+        hasAttachment: Boolean(row.hasAttachment || row.attachmentFileName)
+      };
     });
+    setPaymentEdits(next);
   }, [rows, type, role]);
 
   const deleteUser = async (id) => {
@@ -123,8 +122,7 @@ export default function TablePage({ type, role }) {
 
   const markPaymentPaid = async (row) => {
     try {
-      // Use row._id (MongoDB ObjectId) — the server uses findById
-      await api.put(`/payments/${row._id}`, { paymentStatus: 'Paid', status: 'Paid' });
+      await api.put(`/payments/${recordId(row)}`, { paymentStatus: 'Paid', status: 'Paid' });
       loadData();
       if (type === 'payments' && role === 'Admin') {
         api.get('/invoices').then(({ data }) => setInvoiceOptions(data)).catch(() => {});
@@ -164,13 +162,26 @@ export default function TablePage({ type, role }) {
   const savePaymentStage = async (payment) => {
     const id = recordId(payment);
     const draft = paymentEdits[id];
+    if (!draft) return;
+    const payload = {
+      paymentLabel: draft.paymentLabel,
+      amount: Number(draft.amount || 0),
+      paymentStatus: draft.paymentStatus,
+      status: draft.paymentStatus,
+      paymentMethod: draft.paymentMethod,
+      paymentDate: draft.paymentDate || undefined,
+      transactionReference: draft.transactionReference,
+      notes: draft.notes
+    };
+    if (draft.attachmentData) {
+      payload.attachmentFileName = draft.attachmentFileName;
+      payload.attachmentMimeType = draft.attachmentMimeType;
+      payload.attachmentData = draft.attachmentData;
+    } else if (draft.clearAttachment) {
+      payload.clearAttachment = true;
+    }
     try {
-      await api.put(`/payments/${id}`, {
-        ...draft,
-        amount: Number(draft.amount || 0),
-        status: draft.paymentStatus,
-        paymentStatus: draft.paymentStatus
-      });
+      await api.put(`/payments/${id}`, payload);
       await refreshPayments();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to save payment stage');
@@ -271,7 +282,7 @@ export default function TablePage({ type, role }) {
                     <div>
                       <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Invoice {invoice.invoiceId}</p>
                       <h2 className="text-xl font-black">{getClientName(invoice)}</h2>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">{getQuotationNumber(invoice)} · Due {formatDate(invoice.dueDate)}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">{getQuotationNumber(invoice)} · Due {formatDate(invoice.dueDate)} · Quotation status: <StatusBadge status={invoice.quotationId?.status || 'Invoice Generated'} /></p>
                     </div>
                     <div className="grid gap-2 text-sm sm:grid-cols-4 lg:min-w-[520px]">
                       <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold uppercase text-slate-400">Total</p><strong>{currency(total)}</strong></div>
@@ -330,6 +341,44 @@ export default function TablePage({ type, role }) {
                           </label>
                           <label className="text-xs font-bold uppercase text-slate-400 md:col-span-2">Notes
                             <input value={draft.notes || ''} onChange={(event) => updateDraft('notes', event.target.value)} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold normal-case text-slate-900 outline-purple" />
+                          </label>
+                          <label className="text-xs font-bold uppercase text-slate-400 md:col-span-2">Payment Attachment <span className="normal-case text-slate-300">(optional)</span>
+                            <input
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg,.webp"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (!file) return;
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert('Attachment must be 2MB or smaller.');
+                                  event.target.value = '';
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  updateDraft('attachmentData', reader.result);
+                                  updateDraft('attachmentFileName', file.name);
+                                  updateDraft('attachmentMimeType', file.type || 'application/octet-stream');
+                                  updateDraft('hasAttachment', true);
+                                  updateDraft('clearAttachment', false);
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                              className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold normal-case text-slate-900 outline-purple"
+                            />
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {(draft.hasAttachment || payment.hasAttachment || payment.attachmentFileName) && (
+                                <button type="button" onClick={() => downloadPaymentAttachment(id, draft.attachmentFileName || payment.attachmentFileName || 'payment-attachment')} className="rounded-lg border border-purple/30 px-3 py-1 text-xs font-bold text-purple">
+                                  Download attachment
+                                </button>
+                              )}
+                              {(draft.hasAttachment || payment.hasAttachment || payment.attachmentFileName) && (
+                                <button type="button" onClick={() => { updateDraft('attachmentData', ''); updateDraft('attachmentFileName', ''); updateDraft('attachmentMimeType', ''); updateDraft('hasAttachment', false); updateDraft('clearAttachment', true); }} className="rounded-lg border border-red-100 px-3 py-1 text-xs font-bold text-red-600">
+                                  Remove attachment
+                                </button>
+                              )}
+                              {draft.attachmentFileName && <span className="text-xs font-semibold text-slate-500">{draft.attachmentFileName}</span>}
+                            </div>
                           </label>
                         </div>
                       </div>

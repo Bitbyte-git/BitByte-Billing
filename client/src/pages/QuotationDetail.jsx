@@ -151,16 +151,18 @@ export default function QuotationDetail({ role, mode }) {
                 </div>
               )}
             </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
-              <h2 className="text-lg font-black">Accountant Remarks</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{quotation.accountantRemarks || 'No accountant remarks yet.'}</p>
-            </div>
+          {role === 'Accountant' && (
             <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
               <h2 className="text-lg font-black">Admin Remarks</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">{quotation.adminRemarks || 'No admin remarks yet.'}</p>
             </div>
-          </div>
+          )}
+          {role === 'Admin' && quotation.adminRemarks && (
+            <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+              <h2 className="text-lg font-black">Remarks for Accountant</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{quotation.adminRemarks}</p>
+            </div>
+          )}
           {mode === 'clarification' && (
             <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
               <h2 className="text-lg font-black">Return for Clarification</h2>

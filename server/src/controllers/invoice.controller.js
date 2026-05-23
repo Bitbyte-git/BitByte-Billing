@@ -1,12 +1,9 @@
 import Invoice from '../models/Invoice.js';
 import Client from '../models/Client.js';
-import Quotation from '../models/Quotation.js';
-import QuotationItem from '../models/QuotationItem.js';
-import { changeQuotationStatus, recordAudit } from '../services/workflowService.js';
-import { nextInvoiceId } from '../utils/idGenerator.js';
+import { recordAudit } from '../services/workflowService.js';
+import { createInvoiceForQuotation } from '../services/invoiceService.js';
 import { sendNotificationEmail } from '../utils/email.js';
 import PdfPrinter from 'pdfmake';
-import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 
 export async function listInvoices(req, res, next) {
   try {
@@ -23,48 +20,10 @@ export async function getInvoice(req, res, next) {
 
 export async function generateInvoice(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.quotationId).populate('servicesSelected clientId');
-    if (!quotation || quotation.status !== 'Approved') throw Object.assign(new Error('Only approved quotations can generate invoices'), { status: 422 });
-    const items = await QuotationItem.find({ quotationId: quotation._id }).populate('serviceId');
-    const baseSubtotal = Number(quotation.subtotal || 0);
-    const discountType = req.body.discountType || quotation.finalDiscountType || 'None';
-    const rawDiscountValue = Math.max(Number(req.body.discountValue ?? quotation.finalDiscountValue ?? 0), 0);
-    const discountValue = discountType === 'Percentage' ? Math.min(rawDiscountValue, 100) : rawDiscountValue;
-    const discountedAmount = discountType === 'Percentage'
-      ? baseSubtotal * discountValue / 100
-      : discountType === 'Fixed Amount'
-        ? Math.min(discountValue, baseSubtotal)
-        : 0;
-    const finalSubtotal = Math.max(baseSubtotal - discountedAmount, 0);
-    const gstRate = baseSubtotal ? Number(quotation.gstAmount || 0) / baseSubtotal : 0;
-    const finalGst = finalSubtotal * gstRate;
-    const finalTotal = finalSubtotal + finalGst;
-    const invoice = await Invoice.create({
-      invoiceId: await nextInvoiceId(),
-      quotationId: quotation._id,
-      clientId: quotation.clientId,
-      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-      items: items.map((item) => ({
-        serviceId: item.serviceId,
-        service: item.subService || item.subServiceName || item.serviceId?.name,
-        description: item.description,
-        amount: (item.basePrice * item.quantity) - (item.discountAmount || 0),
-        gstPercentage: item.gstPercentage,
-        total: item.totalAmount
-      })),
-      subtotal: baseSubtotal,
-      discountType,
-      discountValue,
-      discountedAmount,
-      finalSubtotal,
-      gstAmount: finalGst,
-      finalTotal,
-      totalAmount: finalTotal,
-      balanceDue: finalTotal
+    const invoice = await createInvoiceForQuotation(req.params.quotationId, req.user, {
+      discountType: req.body.discountType,
+      discountValue: req.body.discountValue
     });
-    await emailInvoiceToClient(invoice._id);
-    await changeQuotationStatus({ quotation, status: 'Invoice Generated', user: req.user });
-    await sendClientWorkflowEmail({ quotationId: quotation._id, invoiceId: invoice._id, stage: 'Invoice Generated' });
     res.status(201).json(await Invoice.findById(invoice._id).populate('clientId quotationId'));
   } catch (err) { next(err); }
 }

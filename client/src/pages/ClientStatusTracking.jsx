@@ -33,10 +33,6 @@ export default function ClientStatusTracking() {
         <div className="space-y-4">
           {quotations.map((quotation) => {
             const currentIndex = Math.max(0, trackingStages.indexOf(quotation.status));
-            const remarks = [
-              quotation.accountantRemarks && { role: 'Accountant', message: quotation.accountantRemarks },
-              quotation.adminRemarks && { role: 'Admin', message: quotation.adminRemarks }
-            ].filter(Boolean);
             const assignedAccountant = quotation.costingItems?.find((item) => item.addedByAccountantName)?.addedByAccountantName || 'Pending assignment';
             return (
               <div key={recordId(quotation)} className="rounded-2xl border border-line bg-surface p-5">
@@ -59,12 +55,6 @@ export default function ClientStatusTracking() {
                       </div>
                     );
                   })}
-                </div>
-                <div className="mt-4 rounded-xl border border-line bg-white p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Remarks History</p>
-                  {remarks.length ? remarks.map((remark, index) => (
-                    <p key={`${remark.role}-${index}`} className="mt-2 text-sm text-slate-600"><strong>{remark.role}:</strong> {remark.message}</p>
-                  )) : <p className="mt-2 text-sm font-semibold text-slate-400">No remarks yet.</p>}
                 </div>
               </div>
             );

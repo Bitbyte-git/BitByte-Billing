@@ -7,7 +7,8 @@ import { nextQuotationId } from '../utils/idGenerator.js';
 import { priceMap } from '../utils/priceList.js';
 import { sendNotificationEmail } from '../utils/email.js';
 import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
-import { changeQuotationStatus, recordAudit } from '../services/workflowService.js';
+import { changeQuotationStatus, recordAudit, notifyRole } from '../services/workflowService.js';
+import { createInvoiceForQuotation } from '../services/invoiceService.js';
 
 export async function listQuotations(req, res, next) {
   try {
@@ -141,7 +142,6 @@ export async function addCosting(req, res, next) {
     quotation.subtotal = subtotal;
     quotation.gstAmount = totalGst;
     quotation.totalAmount = totalAmount;
-    quotation.accountantRemarks = req.body.accountantRemarks;
     quotation.costingItems = insertedItems.map((item) => ({
       serviceId: item.serviceId,
       mainService: item.mainService,
@@ -170,7 +170,7 @@ export async function addCosting(req, res, next) {
       entityId: quotation._id,
       newValue: { subtotal, totalAmount }
     });
-    await sendPricingEmailToAdmins({ quotation, items: insertedItems, accountantRemarks: req.body.accountantRemarks });
+    await sendPricingEmailToAdmins({ quotation, items: insertedItems });
 
     res.json({ quotation, items: insertedItems });
   } catch (err) {
@@ -181,8 +181,6 @@ export async function addCosting(req, res, next) {
 export async function clarification(req, res, next) {
   try {
     const quotation = await Quotation.findById(req.params.id);
-    quotation.accountantRemarks = req.body.message;
-    await quotation.save();
     res.json(await changeQuotationStatus({ quotation, status: 'Needs Clarification', user: req.user, message: req.body.message }));
   } catch (err) { next(err); }
 }
@@ -202,7 +200,7 @@ export async function forwardToAdmin(req, res, next) {
     }
 
     const updated = await changeQuotationStatus({ quotation, status: 'Forwarded to Admin', user: req.user });
-    await sendPricingEmailToAdmins({ quotation: updated, items, accountantRemarks: quotation.accountantRemarks });
+    await sendPricingEmailToAdmins({ quotation: updated, items });
     res.json(updated);
   } catch (err) { next(err); }
 }
@@ -222,7 +220,20 @@ export async function approve(req, res, next) {
         : 0;
     await quotation.save();
     const updated = await changeQuotationStatus({ quotation, status: 'Approved', user: req.user });
-    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Approved', adminRemarks: req.body.adminRemarks });
+    try {
+      await createInvoiceForQuotation(updated._id, req.user);
+    } catch (invoiceErr) {
+      console.error('Auto invoice generation after approval failed:', invoiceErr.message);
+    }
+    if (req.body.adminRemarks?.trim()) {
+      await notifyRole({
+        role: 'Accountant',
+        title: `Admin remarks on ${updated.quotationId}`,
+        message: req.body.adminRemarks.trim(),
+        type: 'Quotation'
+      });
+    }
+    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Approved' });
     res.json(updated);
   } catch (err) { next(err); }
 }
@@ -233,7 +244,15 @@ export async function reject(req, res, next) {
     quotation.adminRemarks = req.body.adminRemarks;
     await quotation.save();
     const updated = await changeQuotationStatus({ quotation, status: 'Rejected', user: req.user });
-    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Rejected', adminRemarks: req.body.adminRemarks });
+    if (req.body.adminRemarks?.trim()) {
+      await notifyRole({
+        role: 'Accountant',
+        title: `Admin remarks on ${updated.quotationId}`,
+        message: req.body.adminRemarks.trim(),
+        type: 'Quotation'
+      });
+    }
+    await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Rejected' });
     res.json(updated);
   } catch (err) { next(err); }
 }
@@ -251,7 +270,7 @@ function adminReviewUrl() {
   return baseUrl ? `${baseUrl.replace(/\/$/, '')}/admin/approvals` : '/admin/approvals';
 }
 
-function buildPricingEmail({ quotation, items, accountantRemarks }) {
+function buildPricingEmail({ quotation, items }) {
   const clientName = quotation.clientId?.companyName || quotation.clientId?.fullName || 'Client';
   const mainService = (quotation.mainService || []).join(', ') || '-';
   const selectedSubServices = items.map((item) => item.subService || item.subServiceName).filter(Boolean).join(', ') || '-';
@@ -264,7 +283,6 @@ function buildPricingEmail({ quotation, items, accountantRemarks }) {
     `Main Service: ${mainService}`,
     `Selected Sub-Services: ${selectedSubServices}`,
     `Total Amount: ${formatCurrency(quotation.totalAmount)}`,
-    `Accountant Remarks: ${accountantRemarks || '-'}`,
     `Review quotation in Admin panel: ${reviewUrl}`
   ].join('\n');
 
@@ -276,7 +294,6 @@ function buildPricingEmail({ quotation, items, accountantRemarks }) {
       <p><strong>Main Service:</strong> ${mainService}</p>
       <p><strong>Selected Sub-Services:</strong> ${selectedSubServices}</p>
       <p><strong>Total Amount:</strong> ${formatCurrency(quotation.totalAmount)}</p>
-      <p><strong>Accountant Remarks:</strong> ${accountantRemarks || '-'}</p>
       <p><a href="${reviewUrl}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700">Review quotation in Admin panel</a></p>
     </div>
   `;
@@ -284,11 +301,11 @@ function buildPricingEmail({ quotation, items, accountantRemarks }) {
   return { text, html };
 }
 
-async function sendPricingEmailToAdmins({ quotation, items, accountantRemarks }) {
+async function sendPricingEmailToAdmins({ quotation, items }) {
   try {
     const admins = await User.find({ role: 'Admin', status: 'Active' });
     if (!admins.length) return;
-    const email = buildPricingEmail({ quotation, items, accountantRemarks });
+    const email = buildPricingEmail({ quotation, items });
     await Promise.all(admins.map((admin) => sendNotificationEmail({
       to: admin.email,
       subject: 'Quotation Pricing Added - Review Required',

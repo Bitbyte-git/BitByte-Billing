@@ -3,7 +3,7 @@ import Invoice from '../models/Invoice.js';
 import Quotation from '../models/Quotation.js';
 import { sendNotificationEmail } from './email.js';
 
-export async function sendClientWorkflowEmail({ quotationId, invoiceId, stage, payment, adminRemarks }) {
+export async function sendClientWorkflowEmail({ quotationId, invoiceId, stage, payment }) {
   try {
     const invoice = invoiceId ? await Invoice.findById(invoiceId).populate('clientId quotationId') : null;
     const quotation = quotationId
@@ -25,7 +25,6 @@ export async function sendClientWorkflowEmail({ quotationId, invoiceId, stage, p
       `Quotation ID: ${quotation?.quotationId || '-'}`,
       `Invoice ID: ${invoice?.invoiceId || '-'}`,
       `Remaining balance: Rs ${remaining || 0}`,
-      `Admin remarks: ${adminRemarks || quotation?.adminRemarks || '-'}`,
       paymentLine,
       '',
       `Login/View: ${reviewUrl}`
@@ -42,7 +41,6 @@ export async function sendClientWorkflowEmail({ quotationId, invoiceId, stage, p
             <tr><td style="padding:8px;color:#64748b">Current stage</td><td style="padding:8px;font-weight:700">${stage}</td></tr>
             <tr><td style="padding:8px;color:#64748b">Remaining balance</td><td style="padding:8px;font-weight:700">Rs ${remaining || 0}</td></tr>
             ${payment ? `<tr><td style="padding:8px;color:#64748b">Payment details</td><td style="padding:8px;font-weight:700">${payment.paymentLabel || 'Payment'} - Rs ${payment.amount || 0} - ${payment.status || payment.paymentStatus || '-'}</td></tr>` : ''}
-            <tr><td style="padding:8px;color:#64748b">Admin remarks</td><td style="padding:8px;font-weight:700">${adminRemarks || quotation?.adminRemarks || '-'}</td></tr>
           </table>
           <a href="${reviewUrl}" style="display:inline-block;background:linear-gradient(135deg,#7444DC,#8D6BE2);color:#fff;text-decoration:none;border-radius:12px;padding:12px 18px;font-weight:800">Login / View</a>
         </div>

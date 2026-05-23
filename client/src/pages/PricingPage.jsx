@@ -73,7 +73,7 @@ export default function PricingPage() {
   const [quotations, setQuotations] = useState([]);
   const [services, setServices] = useState([]);
   const [quotationId, setQuotationId] = useState('');
-  const [remarks, setRemarks] = useState('');
+  const [clarificationMessage, setClarificationMessage] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [rows, setRows] = useState([]);
 
@@ -190,7 +190,6 @@ export default function PricingPage() {
     }
     try {
       const { data } = await api.post(`/quotations/${quotationId}/costing`, {
-        accountantRemarks: remarks,
         items: rows.map((row) => ({
           serviceId: row.serviceId,
           mainService: row.mainService,
@@ -216,9 +215,9 @@ export default function PricingPage() {
   };
 
   const requestClarification = async () => {
-    if (!quotationId || !remarks.trim()) return;
+    if (!quotationId || !clarificationMessage.trim()) return;
     try {
-      await api.post(`/quotations/${quotationId}/clarification`, { message: remarks });
+      await api.post(`/quotations/${quotationId}/clarification`, { message: clarificationMessage });
       setMessage({ type: 'success', text: 'Clarification request submitted.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to submit clarification.' });
@@ -291,10 +290,12 @@ export default function PricingPage() {
             onMainServiceChange={applyMainServiceSelection}
             onSubServiceChange={applySubServiceSelection}
           />
-          <textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} className="mt-5 min-h-28 w-full rounded-2xl border border-line bg-white p-4 shadow-sm outline-purple" placeholder="Accountant remarks..." />
+          <label className="mt-5 block rounded-2xl border border-orange-100 bg-orange-50/40 p-4 text-sm font-bold text-slate-600">Clarification questions for client <span className="font-semibold text-slate-400">(only used when requesting clarification)</span>
+            <textarea value={clarificationMessage} onChange={(event) => setClarificationMessage(event.target.value)} className="mt-2 min-h-20 w-full rounded-xl border border-line bg-white px-4 py-3 font-medium outline-purple" placeholder="List questions for the client..." />
+          </label>
           <div className="mt-5 flex flex-wrap gap-3">
             <button onClick={() => saveCosting(false)} disabled={!quotationId || !rows.length} className="rounded-xl border border-line bg-white px-5 py-3 font-bold disabled:opacity-50">Save Pricing</button>
-            <button onClick={requestClarification} disabled={!quotationId || !remarks.trim()} className="rounded-xl border border-orange-200 bg-orange-50 px-5 py-3 font-bold text-orange-700 disabled:opacity-50">Request Clarification</button>
+            <button onClick={requestClarification} disabled={!quotationId || !clarificationMessage.trim()} className="rounded-xl border border-orange-200 bg-orange-50 px-5 py-3 font-bold text-orange-700 disabled:opacity-50">Request Clarification</button>
             <button onClick={() => saveCosting(true)} disabled={!quotationId || !rows.length} className="gradient-button rounded-xl px-5 py-3 font-bold disabled:opacity-50">Forward to Admin</button>
           </div>
         </section>

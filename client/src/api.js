@@ -11,6 +11,22 @@ api.interceptors.request.use((config) => {
 
 export default api;
 
+export const downloadPaymentAttachment = async (paymentId, fileName = 'payment-attachment') => {
+  try {
+    const response = await api.get(`/payments/${paymentId}/attachment`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+  } catch (error) {
+    console.error('Error downloading attachment', error);
+    alert('Unable to download attachment. Please try again.');
+  }
+};
+
 export const downloadPdf = async (invoiceId, invoiceNumber = 'Invoice') => {
   try {
     const response = await api.get(`/invoices/${invoiceId}/pdf`, { responseType: 'blob' });

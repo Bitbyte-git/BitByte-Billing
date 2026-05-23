@@ -11,6 +11,9 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: { type: String, required: true },
   transactionReference: String,
   notes: String,
+  attachmentFileName: String,
+  attachmentMimeType: String,
+  attachmentData: String,
   paymentDate: { type: Date, default: Date.now },
   status: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Failed'], default: 'Pending' },
   paymentStatus: { type: String, enum: ['Pending', 'Partial', 'Paid', 'Failed'], default: 'Pending' }
