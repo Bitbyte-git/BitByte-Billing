@@ -80,7 +80,6 @@ export default function AppLayout() {
               <p className="text-xs text-slate-300">Billing Operations</p>
             </div>
           </div>
-          ||||||| 3a61a949
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-purple to-lavender text-sm font-black">
               BB
@@ -92,7 +91,6 @@ export default function AppLayout() {
               <p className="text-xs text-slate-300">Billing Operations</p>
             </div>
           </div>
-          =======
           <BrandLogo size="md" theme="dark" />
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
             <p className="text-xs uppercase tracking-widest text-slate-400">
