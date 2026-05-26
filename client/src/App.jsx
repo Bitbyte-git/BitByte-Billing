@@ -15,6 +15,8 @@ import ClientStatusTracking from './pages/ClientStatusTracking.jsx';
 import PaymentOverview from './pages/PaymentOverview.jsx';
 import ServiceShowcase from './pages/ServiceShowcase.jsx';
 import { useAuth } from './state/AuthContext.jsx';
+import BrandLogo from './components/BrandLogo.jsx';
+import { COMPANY_NAME } from './config/brand.js';
 
 function RequireAuth({ roles, children }) {
   const { user } = useAuth();
@@ -33,7 +35,16 @@ function RoleLayout({ role }) {
 
 export default function App() {
   const { user, booting, roleHome } = useAuth();
-  if (booting) return <div className="grid min-h-screen place-items-center bg-surface text-sm font-bold text-slate-500">Loading secure workspace...</div>;
+  if (booting) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-surface px-4">
+        <div className="flex flex-col items-center gap-4">
+          <BrandLogo size="lg" theme="light" tagline={COMPANY_NAME} />
+          <p className="text-sm font-semibold text-slate-500">Loading secure workspace...</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Login />} />

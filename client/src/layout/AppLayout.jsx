@@ -12,7 +12,6 @@ import {
   LogOut,
   Menu,
   ReceiptText,
-  Search,
   Settings,
   ShieldCheck,
   UserCog,
@@ -20,6 +19,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import BrandLogo from "../components/BrandLogo.jsx";
 import { useAuth } from "../state/AuthContext.jsx";
 
 const nav = {
@@ -80,6 +80,20 @@ export default function AppLayout() {
               <p className="text-xs text-slate-300">Billing Operations</p>
             </div>
           </div>
+          ||||||| 3a61a949
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-purple to-lavender text-sm font-black">
+              BB
+            </div>
+            <div>
+              <p className="text-sm font-extrabold leading-tight">
+                Bit Byte Technologies
+              </p>
+              <p className="text-xs text-slate-300">Billing Operations</p>
+            </div>
+          </div>
+          =======
+          <BrandLogo size="md" theme="dark" />
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
             <p className="text-xs uppercase tracking-widest text-slate-400">
               {user.role} portal
@@ -116,6 +130,9 @@ export default function AppLayout() {
             <button className="rounded-xl border border-line p-2 lg:hidden">
               <Menu size={20} />
             </button>
+            <div className="lg:hidden">
+              <BrandLogo size="sm" theme="light" tagline="" />
+            </div>
             <label className="hidden flex-1 items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-2 md:flex">
               <img src="/Logo.png" alt="Search" className="h-5 w-5 rounded" />
               <input

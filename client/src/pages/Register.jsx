@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import BrandLogo from "../components/BrandLogo.jsx";
+import { COMPANY_NAME } from "../config/brand.js";
 import { useAuth } from "../state/AuthContext.jsx";
 
 export default function Register() {
@@ -53,12 +55,36 @@ export default function Register() {
   return (
     <main className="grid min-h-screen bg-navy p-4 lg:grid-cols-[1.15fr_.85fr]">
       <section className="relative hidden overflow-hidden rounded-[2rem] bg-gradient-to-br from-ink via-panel to-violet p-10 text-white lg:block">
+        <div className="absolute left-10 top-10">
+          <BrandLogo size="lg" theme="dark" tagline="Client portal" />
+        </div>
         <div className="absolute bottom-10 left-10 max-w-2xl">
           <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
             Client Portal Registration
           </p>
           <h1 className="text-6xl font-black leading-tight">
             Join Bit Byte Technologies
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
+            Create your business account to request quotations, view project
+            pricing, approve scopes, and manage invoices securely.
+          </p>
+          <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
+            Client Portal Registration
+          </p>
+          <h1 className="text-6xl font-black leading-tight">
+            Join Bit Byte Technologies
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
+            Create your business account to request quotations, view project
+            pricing, approve scopes, and manage invoices securely.
+          </p>
+          =======
+          <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
+            Client Portal Registration
+          </p>
+          <h1 className="text-6xl font-black leading-tight">
+            Join {COMPANY_NAME}
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
             Create your business account to request quotations, view project
@@ -80,6 +106,25 @@ export default function Register() {
               alt="Bit Byte Technologies"
               className="mx-auto mb-4 h-12 w-12 rounded-2xl"
             />
+            <h2 className="text-2xl font-black text-slate-950">
+              Create your account
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Enter your details to register as a client.
+            </p>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-purple to-lavender font-black text-white">
+              BB
+            </div>
+            <h2 className="text-2xl font-black text-slate-950">
+              Create your account
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Enter your details to register as a client.
+            </p>
+            =======
+            <div className="mx-auto mb-4 flex justify-center">
+              <BrandLogo size="md" theme="light" tagline="" showName={false} />
+            </div>
             <h2 className="text-2xl font-black text-slate-950">
               Create your account
             </h2>

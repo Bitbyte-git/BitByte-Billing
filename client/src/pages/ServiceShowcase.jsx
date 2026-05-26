@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { FileText, Sparkles, X } from 'lucide-react';
+import { AnimatePresence, motion } from "framer-motion";
+import { FileText, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const CANVA_EMBED_URL = 'https://www.canva.com/design/DAHKXndWpBA/kHHf-YXFc7gfFcxmtbbpUQ/view?embed';
+const CANVA_EMBED_URL =
+  "https://www.canva.com/design/DAHKXndWpBA/kHHf-YXFc7gfFcxmtbbpUQ/view?embed";
 
 export default function ServiceShowcase() {
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -10,13 +11,13 @@ export default function ServiceShowcase() {
   useEffect(() => {
     if (!viewerOpen) return undefined;
     const onKey = (event) => {
-      if (event.key === 'Escape') setViewerOpen(false);
+      if (event.key === "Escape") setViewerOpen(false);
     };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKey);
     };
   }, [viewerOpen]);
 
@@ -25,7 +26,6 @@ export default function ServiceShowcase() {
       <div className="showcase-stage-glow showcase-stage-glow-a" />
       <div className="showcase-stage-glow showcase-stage-glow-b" />
       <div className="showcase-stage-grid" />
-
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -45,17 +45,22 @@ export default function ServiceShowcase() {
           <motion.span
             className="showcase-button-ring showcase-button-ring-1"
             animate={{ scale: [1, 1.12, 1], opacity: [0.5, 0.15, 0.5] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.span
             className="showcase-button-ring showcase-button-ring-2"
             animate={{ scale: [1.05, 1.2, 1.05], opacity: [0.35, 0.08, 0.35] }}
-            transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+            transition={{
+              duration: 3.4,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.4,
+            }}
           />
           <motion.span
             className="showcase-button-shimmer"
             animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
           />
 
           <motion.button
@@ -65,12 +70,17 @@ export default function ServiceShowcase() {
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.97 }}
             animate={{ y: [0, -6, 0] }}
-            transition={{ y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' } }}
+            transition={{
+              y: { duration: 3.2, repeat: Infinity, ease: "easeInOut" },
+            }}
           >
             <span className="showcase-cta-button-bg" />
             <Sparkles className="relative z-10 shrink-0" size={22} />
             <span className="relative z-10">See the showcase</span>
-            <FileText className="relative z-10 shrink-0 opacity-80 transition group-hover:opacity-100" size={22} />
+            <FileText
+              className="relative z-10 shrink-0 opacity-80 transition group-hover:opacity-100"
+              size={22}
+            />
           </motion.button>
         </div>
 
@@ -109,7 +119,10 @@ export default function ServiceShowcase() {
                 scrolling="yes"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-              <div className="canva-chrome-mask canva-chrome-mask-corner" aria-hidden />
+              <div
+                className="canva-chrome-mask canva-chrome-mask-corner"
+                aria-hidden
+              />
             </div>
           </motion.div>
         )}
