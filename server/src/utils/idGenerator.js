@@ -5,20 +5,36 @@ import Quotation from '../models/Quotation.js';
 
 const pad = (number) => String(number).padStart(4, '0');
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function nextSequentialId(Model, field, prefix) {
+  const regex = new RegExp(`^${escapeRegex(prefix)}\\d+$`);
+  const records = await Model.find({ [field]: regex }).select(field).lean();
+  const max = records.reduce((highest, record) => {
+    const match = String(record[field] || '').match(/(\d+)$/);
+    const value = match ? Number(match[1]) : 0;
+    return Number.isFinite(value) && value > highest ? value : highest;
+  }, 0);
+
+  return `${prefix}${pad(max + 1)}`;
+}
+
 export async function nextClientId() {
-  return `BBT-CLI-${pad(await Client.countDocuments() + 1)}`;
+  return nextSequentialId(Client, 'clientId', 'BBT-CLI-');
 }
 
 export async function nextQuotationId() {
   const year = new Date().getFullYear();
-  return `BBT-QT-${year}-${pad(await Quotation.countDocuments({ quotationId: new RegExp(`BBT-QT-${year}`) }) + 1)}`;
+  return nextSequentialId(Quotation, 'quotationId', `BBT-QT-${year}-`);
 }
 
 export async function nextInvoiceId() {
   const year = new Date().getFullYear();
-  return `BBT-INV-${year}-${pad(await Invoice.countDocuments({ invoiceId: new RegExp(`BBT-INV-${year}`) }) + 1)}`;
+  return nextSequentialId(Invoice, 'invoiceId', `BBT-INV-${year}-`);
 }
 
 export async function nextPaymentId() {
-  return `PAY-${pad(await Payment.countDocuments() + 1)}`;
+  return nextSequentialId(Payment, 'paymentId', 'PAY-');
 }

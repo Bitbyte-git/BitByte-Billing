@@ -11,13 +11,14 @@ import paymentRoutes from "./routes/payment.routes.js";
 import quotationRoutes from "./routes/quotation.routes.js";
 import reportRoutes from "./routes/report.routes.js";
 import serviceRoutes from "./routes/service.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
 
 const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.options("*", cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "12mb" }));
 app.use(morgan("dev"));
 
 app.get("/api/health", (_req, res) =>
@@ -31,6 +32,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 app.use(errorHandler);
 

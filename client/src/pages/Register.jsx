@@ -101,29 +101,12 @@ export default function Register() {
           className="w-full max-w-md rounded-3xl border border-white/10 bg-white p-8 shadow-premium my-8"
         >
           <div className="mb-8 text-center">
-            <img
-              src="/Logo.png"
-              alt="Bit Byte Technologies"
-              className="mx-auto mb-4 h-12 w-12 rounded-2xl"
-            />
-            <h2 className="text-2xl font-black text-slate-950">
-              Create your account
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Enter your details to register as a client.
-            </p>
-            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-purple to-lavender font-black text-white">
-              BB
-            </div>
-            <h2 className="text-2xl font-black text-slate-950">
-              Create your account
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Enter your details to register as a client.
-            </p>
-            =======
             <div className="mx-auto mb-4 flex justify-center">
-              <BrandLogo size="md" theme="light" tagline="" showName={false} />
+              <BrandLogo
+                size="md"
+                theme="light"
+                tagline="Client Registration"
+              />
             </div>
             <h2 className="text-2xl font-black text-slate-950">
               Create your account

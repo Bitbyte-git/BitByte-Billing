@@ -1,9 +1,25 @@
 import PdfPrinter from 'pdfmake';
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { getSacCode } from './sacCodes.js';
 
 function formatMoney(value) {
   return Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+function formatDate(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-IN');
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const logoPath = path.resolve(__dirname, '../../../client/public/logo.png');
+const companyLogo = existsSync(logoPath)
+  ? `data:image/png;base64,${readFileSync(logoPath).toString('base64')}`
+  : null;
 
 export function enrichInvoiceItem(item) {
   const serviceName = item.service || item.subService || '';
@@ -87,42 +103,91 @@ export function createInvoicePdfDocument(invoice) {
     pageSize: 'A4',
     pageMargins: [28, 28, 28, 28],
     content: [
-      { text: 'TAX INVOICE', style: 'header', alignment: 'center' },
-      { text: 'Bit Byte Technologies', style: 'subheader', alignment: 'center' },
-      { text: '\n' },
       {
-        columns: [
-          {
-            width: '*',
-            text: [
-              { text: 'Bit Byte Technologies\n', bold: true },
-              '123 Tech Park, Suite 400\n',
-              'Bangalore, KA 560001\n',
-              'GSTIN: 29ABCDE1234F1Z5\n'
+        margin: [0, 0, 0, 14],
+        table: {
+          widths: ['33%', '34%', '33%'],
+          body: [
+            [
+              {
+                stack: [
+                  ...(companyLogo ? [{ image: companyLogo, width: 46, margin: [0, 0, 0, 6] }] : []),
+                  { text: 'Bit Byte Tech', bold: true, fontSize: 12, color: '#111827' },
+                  { text: '2nd Floor, Raja Complex', fontSize: 8.5, margin: [0, 3, 0, 0] },
+                  { text: 'Salem, Tamil Nadu', fontSize: 8.5 },
+                  { text: 'Pincode: 636302', fontSize: 8.5 },
+                  { text: 'GST No:', fontSize: 8.5 }
+                ],
+                margin: [12, 12, 8, 14]
+              },
+              {
+                stack: [
+                  { text: 'TAX INVOICE', bold: true, fontSize: 15, color: '#111827', margin: [0, 28, 0, 6] },
+                  { text: 'Bit Byte Tech', bold: true, fontSize: 11, color: '#4f32c8' }
+                ],
+                alignment: 'center',
+                margin: [8, 12, 8, 14]
+              },
+              {
+                stack: [
+                  {
+                    table: {
+                      widths: [72, '*'],
+                      body: [
+                        [{ text: 'Invoice No', bold: true }, { text: invoice.invoiceId || '-', alignment: 'right' }],
+                        [{ text: 'Date', bold: true }, { text: formatDate(invoice.invoiceDate), alignment: 'right' }],
+                        [{ text: 'Payment', bold: true }, { text: `Rs ${formatMoney(invoice.amountPaid || 0)}`, alignment: 'right' }],
+                        [{ text: 'Status', bold: true }, { text: invoice.paymentStatus || 'Pending', alignment: 'right' }],
+                        [{ text: 'Balance', bold: true }, { text: `Rs ${formatMoney(invoice.balanceDue)}`, bold: true, color: '#b91c1c', alignment: 'right' }]
+                      ]
+                    },
+                    layout: 'noBorders',
+                    fontSize: 8.5
+                  }
+                ],
+                margin: [8, 18, 12, 14]
+              }
             ],
-            fontSize: 9
-          },
-          {
-            width: '*',
-            alignment: 'right',
-            text: [
-              { text: `Invoice No: ${invoice.invoiceId}\n`, bold: true },
-              `Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}\n`,
-              `Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}\n`,
-              `Payment Status: ${invoice.paymentStatus || 'Pending'}\n`,
-              { text: `Balance Due: Rs ${formatMoney(invoice.balanceDue)}\n`, color: '#b91c1c', bold: true }
+            [
+              {
+                text: 'Billed To',
+                colSpan: 3,
+                bold: true,
+                fontSize: 10,
+                color: '#111827',
+                margin: [12, 8, 12, 2]
+              },
+              {},
+              {}
             ],
-            fontSize: 9
-          }
-        ]
+            [
+              {
+                colSpan: 3,
+                stack: [
+                  { text: invoice.clientId?.companyName || invoice.clientId?.fullName || 'Client', bold: true, fontSize: 9.5 },
+                  { text: invoice.clientId?.email || '', fontSize: 8.5, margin: [0, 2, 0, 0] },
+                  { text: `Phone: ${invoice.clientId?.phone || '-'}`, fontSize: 8.5 }
+                ],
+                margin: [12, 0, 12, 12]
+              },
+              {},
+              {}
+            ]
+          ]
+        },
+        layout: {
+          hLineWidth: (rowIndex, node) => ([0, 1, node.table.body.length].includes(rowIndex) ? 0.9 : 0),
+          vLineWidth: (colIndex, node) => ([0, node.table.widths.length].includes(colIndex) ? 0.9 : 0),
+          hLineColor: () => '#64748b',
+          vLineColor: () => '#64748b',
+          paddingLeft: () => 0,
+          paddingRight: () => 0,
+          paddingTop: () => 0,
+          paddingBottom: () => 0
+        }
       },
-      { text: '\nBilled To:', bold: true, fontSize: 10 },
       {
-        text: `${invoice.clientId?.companyName || invoice.clientId?.fullName || 'Client'}\n${invoice.clientId?.email || ''}\nPhone: ${invoice.clientId?.phone || '-'}`,
-        fontSize: 9,
-        margin: [0, 0, 0, 10]
-      },
-      {
+        margin: [0, 0, 0, 10],
         table: {
           headerRows: 1,
           widths: [22, '*', 42, 22, 52, 42, 42, 42, 52],
