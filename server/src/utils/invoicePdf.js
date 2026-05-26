@@ -1,32 +1,37 @@
-import PdfPrinter from 'pdfmake';
-import { existsSync, readFileSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { getSacCode } from './sacCodes.js';
+import { existsSync, readFileSync } from "fs";
+import path from "path";
+import PdfPrinter from "pdfmake";
+import { fileURLToPath } from "url";
+import { getSacCode } from "./sacCodes.js";
 
 function formatMoney(value) {
-  return Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatDate(value) {
-  if (!value) return '-';
+  if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-IN');
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("en-IN");
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const logoPath = path.resolve(__dirname, '../../../client/public/logo.png');
+const logoPath = path.resolve(__dirname, "../../../client/public/logo.png");
 const companyLogo = existsSync(logoPath)
-  ? `data:image/png;base64,${readFileSync(logoPath).toString('base64')}`
+  ? `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
   : null;
 
 export function enrichInvoiceItem(item) {
-  const serviceName = item.service || item.subService || '';
+  const serviceName = item.service || item.subService || "";
   const quantity = Number(item.quantity || 1);
   const taxableValue = Number(item.taxableValue ?? item.amount ?? 0);
   const gstPercentage = Number(item.gstPercentage ?? 18);
-  const gstTotal = Number(item.gstAmount ?? taxableValue * gstPercentage / 100);
+  const gstTotal = Number(
+    item.gstAmount ?? (taxableValue * gstPercentage) / 100,
+  );
   const cgstAmount = Number(item.cgstAmount ?? gstTotal / 2);
   const sgstAmount = Number(item.sgstAmount ?? gstTotal / 2);
   const igstAmount = Number(item.igstAmount ?? 0);
@@ -41,20 +46,26 @@ export function enrichInvoiceItem(item) {
     cgstAmount,
     sgstAmount,
     igstAmount,
-    total
+    total,
   };
 }
 
 export function buildInvoiceLineFromQuotationItem(item) {
-  const serviceName = item.subService || item.subServiceName || item.serviceId?.name || 'Service';
+  const serviceName =
+    item.subService || item.subServiceName || item.serviceId?.name || "Service";
   const quantity = Number(item.quantity || 1);
-  const taxableValue = Math.max((item.basePrice * quantity) - (item.discountAmount || 0), 0);
+  const taxableValue = Math.max(
+    item.basePrice * quantity - (item.discountAmount || 0),
+    0,
+  );
   const gstPercentage = Number(item.gstPercentage || 18);
-  const gstTotal = Number(item.gstAmount ?? taxableValue * gstPercentage / 100);
+  const gstTotal = Number(
+    item.gstAmount ?? (taxableValue * gstPercentage) / 100,
+  );
   return {
     serviceId: item.serviceId,
     service: serviceName,
-    description: item.description || '',
+    description: item.description || "",
     sacCode: getSacCode(serviceName),
     quantity,
     taxableValue,
@@ -64,187 +75,305 @@ export function buildInvoiceLineFromQuotationItem(item) {
     cgstAmount: gstTotal / 2,
     sgstAmount: gstTotal / 2,
     igstAmount: 0,
-    total: Number(item.totalAmount ?? taxableValue + gstTotal)
+    total: Number(item.totalAmount ?? taxableValue + gstTotal),
   };
 }
 
 export function createInvoicePdfDocument(invoice) {
   const fonts = {
     Roboto: {
-      normal: 'Helvetica',
-      bold: 'Helvetica-Bold',
-      italics: 'Helvetica-Oblique',
-      bolditalics: 'Helvetica-BoldOblique'
-    }
+      normal: "Helvetica",
+      bold: "Helvetica-Bold",
+      italics: "Helvetica-Oblique",
+      bolditalics: "Helvetica-BoldOblique",
+    },
   };
   const printer = new PdfPrinter(fonts);
   const items = (invoice.items || []).map(enrichInvoiceItem);
-  const itemRows = items.map((item, index) => ([
-    { text: String(index + 1), alignment: 'center' },
-    { text: [item.service, item.description ? `\n${item.description}` : ''].filter(Boolean).join(''), fontSize: 8 },
-    { text: item.sacCode, alignment: 'center', fontSize: 8 },
-    { text: String(item.quantity), alignment: 'center' },
-    { text: formatMoney(item.taxableValue), alignment: 'right' },
-    { text: formatMoney(item.cgstAmount), alignment: 'right' },
-    { text: formatMoney(item.sgstAmount), alignment: 'right' },
-    { text: formatMoney(item.igstAmount), alignment: 'right' },
-    { text: formatMoney(item.total), alignment: 'right', bold: true }
-  ]));
+  const itemRows = items.map((item, index) => [
+    { text: String(index + 1), alignment: "center" },
+    {
+      text: [item.service, item.description ? `\n${item.description}` : ""]
+        .filter(Boolean)
+        .join(""),
+      fontSize: 8,
+    },
+    { text: item.sacCode, alignment: "center", fontSize: 8 },
+    { text: String(item.quantity), alignment: "center" },
+    { text: formatMoney(item.taxableValue), alignment: "right" },
+    { text: formatMoney(item.cgstAmount), alignment: "right" },
+    { text: formatMoney(item.sgstAmount), alignment: "right" },
+    { text: formatMoney(item.igstAmount), alignment: "right" },
+    { text: formatMoney(item.total), alignment: "right", bold: true },
+  ]);
 
-  const totals = items.reduce((acc, item) => ({
-    taxable: acc.taxable + item.taxableValue,
-    cgst: acc.cgst + item.cgstAmount,
-    sgst: acc.sgst + item.sgstAmount,
-    igst: acc.igst + item.igstAmount,
-    total: acc.total + item.total
-  }), { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 });
+  const totals = items.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 },
+  );
 
   const docDefinition = {
-    pageSize: 'A4',
+    pageSize: "A4",
     pageMargins: [28, 28, 28, 28],
     content: [
       {
         margin: [0, 0, 0, 14],
         table: {
-          widths: ['33%', '34%', '33%'],
+          widths: ["33%", "34%", "33%"],
           body: [
             [
               {
                 stack: [
-                  ...(companyLogo ? [{ image: companyLogo, width: 46, margin: [0, 0, 0, 6] }] : []),
-                  { text: 'Bit Byte Tech', bold: true, fontSize: 12, color: '#111827' },
-                  { text: '2nd Floor, Raja Complex', fontSize: 8.5, margin: [0, 3, 0, 0] },
-                  { text: 'Salem, Tamil Nadu', fontSize: 8.5 },
-                  { text: 'Pincode: 636302', fontSize: 8.5 },
-                  { text: 'GST No:', fontSize: 8.5 }
+                  ...(companyLogo
+                    ? [{ image: companyLogo, width: 46, margin: [0, 0, 0, 6] }]
+                    : []),
+                  {
+                    text: "Bit Byte Tech",
+                    bold: true,
+                    fontSize: 12,
+                    color: "#111827",
+                  },
+                  {
+                    text: "2nd Floor, Raja Complex",
+                    fontSize: 8.5,
+                    margin: [0, 3, 0, 0],
+                  },
+                  { text: "Salem, Tamil Nadu", fontSize: 8.5 },
+                  { text: "Pincode: 636302", fontSize: 8.5 },
+                  { text: "GST No:", fontSize: 8.5 },
                 ],
-                margin: [12, 12, 8, 14]
+                margin: [12, 12, 8, 14],
               },
               {
                 stack: [
-                  { text: 'TAX INVOICE', bold: true, fontSize: 15, color: '#111827', margin: [0, 28, 0, 6] },
-                  { text: 'Bit Byte Tech', bold: true, fontSize: 11, color: '#4f32c8' }
+                  {
+                    text: "TAX INVOICE",
+                    bold: true,
+                    fontSize: 15,
+                    color: "#111827",
+                    margin: [0, 28, 0, 6],
+                  },
+                  {
+                    text: "Bit Byte Tech",
+                    bold: true,
+                    fontSize: 11,
+                    color: "#4f32c8",
+                  },
                 ],
-                alignment: 'center',
-                margin: [8, 12, 8, 14]
+                alignment: "center",
+                margin: [8, 12, 8, 14],
               },
               {
                 stack: [
                   {
                     table: {
-                      widths: [72, '*'],
+                      widths: [72, "*"],
                       body: [
-                        [{ text: 'Invoice No', bold: true }, { text: invoice.invoiceId || '-', alignment: 'right' }],
-                        [{ text: 'Date', bold: true }, { text: formatDate(invoice.invoiceDate), alignment: 'right' }],
-                        [{ text: 'Payment', bold: true }, { text: `Rs ${formatMoney(invoice.amountPaid || 0)}`, alignment: 'right' }],
-                        [{ text: 'Status', bold: true }, { text: invoice.paymentStatus || 'Pending', alignment: 'right' }],
-                        [{ text: 'Balance', bold: true }, { text: `Rs ${formatMoney(invoice.balanceDue)}`, bold: true, color: '#b91c1c', alignment: 'right' }]
-                      ]
+                        [
+                          { text: "Invoice No", bold: true },
+                          {
+                            text: invoice.invoiceId || "-",
+                            alignment: "right",
+                          },
+                        ],
+                        [
+                          { text: "Date", bold: true },
+                          {
+                            text: formatDate(invoice.invoiceDate),
+                            alignment: "right",
+                          },
+                        ],
+                        [
+                          { text: "Payment", bold: true },
+                          {
+                            text: `Rs ${formatMoney(invoice.amountPaid || 0)}`,
+                            alignment: "right",
+                          },
+                        ],
+                        [
+                          { text: "Status", bold: true },
+                          {
+                            text: invoice.paymentStatus || "Pending",
+                            alignment: "right",
+                          },
+                        ],
+                        [
+                          { text: "Balance", bold: true },
+                          {
+                            text: `Rs ${formatMoney(invoice.balanceDue)}`,
+                            bold: true,
+                            color: "#b91c1c",
+                            alignment: "right",
+                          },
+                        ],
+                      ],
                     },
-                    layout: 'noBorders',
-                    fontSize: 8.5
-                  }
+                    layout: "noBorders",
+                    fontSize: 8.5,
+                  },
                 ],
-                margin: [8, 18, 12, 14]
-              }
+                margin: [8, 18, 12, 14],
+              },
             ],
             [
               {
-                text: 'Billed To',
+                text: "Billed To",
                 colSpan: 3,
                 bold: true,
                 fontSize: 10,
-                color: '#111827',
-                margin: [12, 8, 12, 2]
+                color: "#111827",
+                margin: [12, 8, 12, 2],
               },
               {},
-              {}
+              {},
             ],
             [
               {
                 colSpan: 3,
                 stack: [
-                  { text: invoice.clientId?.companyName || invoice.clientId?.fullName || 'Client', bold: true, fontSize: 9.5 },
-                  { text: invoice.clientId?.email || '', fontSize: 8.5, margin: [0, 2, 0, 0] },
-                  { text: `Phone: ${invoice.clientId?.phone || '-'}`, fontSize: 8.5 }
+                  {
+                    text:
+                      invoice.clientId?.companyName ||
+                      invoice.clientId?.fullName ||
+                      "Client",
+                    bold: true,
+                    fontSize: 9.5,
+                  },
+                  {
+                    text: invoice.clientId?.email || "",
+                    fontSize: 8.5,
+                    margin: [0, 2, 0, 0],
+                  },
+                  {
+                    text: `Phone: ${invoice.clientId?.phone || "-"}`,
+                    fontSize: 8.5,
+                  },
                 ],
-                margin: [12, 0, 12, 12]
+                margin: [12, 0, 12, 12],
               },
               {},
-              {}
-            ]
-          ]
+              {},
+            ],
+          ],
         },
         layout: {
-          hLineWidth: (rowIndex, node) => ([0, 1, node.table.body.length].includes(rowIndex) ? 0.9 : 0),
-          vLineWidth: (colIndex, node) => ([0, node.table.widths.length].includes(colIndex) ? 0.9 : 0),
-          hLineColor: () => '#64748b',
-          vLineColor: () => '#64748b',
+          hLineWidth: (rowIndex, node) =>
+            [0, 1, node.table.body.length].includes(rowIndex) ? 0.9 : 0,
+          vLineWidth: (colIndex, node) =>
+            [0, node.table.widths.length].includes(colIndex) ? 0.9 : 0,
+          hLineColor: () => "#64748b",
+          vLineColor: () => "#64748b",
           paddingLeft: () => 0,
           paddingRight: () => 0,
           paddingTop: () => 0,
-          paddingBottom: () => 0
-        }
+          paddingBottom: () => 0,
+        },
       },
       {
         margin: [0, 0, 0, 10],
         table: {
           headerRows: 1,
-          widths: [22, '*', 42, 22, 52, 42, 42, 42, 52],
+          widths: [22, "*", 42, 22, 52, 42, 42, 42, 52],
           body: [
             [
-              { text: 'S.No', bold: true, fontSize: 7, alignment: 'center' },
-              { text: 'Description of Service', bold: true, fontSize: 7 },
-              { text: 'SAC', bold: true, fontSize: 7, alignment: 'center' },
-              { text: 'Qty', bold: true, fontSize: 7, alignment: 'center' },
-              { text: 'Taxable Value (Rs)', bold: true, fontSize: 7, alignment: 'right' },
-              { text: 'CGST (9%)', bold: true, fontSize: 7, alignment: 'right' },
-              { text: 'SGST (9%)', bold: true, fontSize: 7, alignment: 'right' },
-              { text: 'IGST (18%)', bold: true, fontSize: 7, alignment: 'right' },
-              { text: 'Total (Rs)', bold: true, fontSize: 7, alignment: 'right' }
+              { text: "S.No", bold: true, fontSize: 7, alignment: "center" },
+              { text: "Description of Service", bold: true, fontSize: 7 },
+              { text: "SAC", bold: true, fontSize: 7, alignment: "center" },
+              { text: "Qty", bold: true, fontSize: 7, alignment: "center" },
+              {
+                text: "Taxable Value (Rs)",
+                bold: true,
+                fontSize: 7,
+                alignment: "right",
+              },
+              {
+                text: "CGST (9%)",
+                bold: true,
+                fontSize: 7,
+                alignment: "right",
+              },
+              {
+                text: "SGST (9%)",
+                bold: true,
+                fontSize: 7,
+                alignment: "right",
+              },
+              {
+                text: "IGST (18%)",
+                bold: true,
+                fontSize: 7,
+                alignment: "right",
+              },
+              {
+                text: "Total (Rs)",
+                bold: true,
+                fontSize: 7,
+                alignment: "right",
+              },
             ],
-            ...itemRows
-          ]
+            ...itemRows,
+          ],
         },
         layout: {
-          fillColor: (rowIndex) => (rowIndex === 0 ? '#f1f5f9' : null),
+          fillColor: (rowIndex) => (rowIndex === 0 ? "#f1f5f9" : null),
           hLineWidth: () => 0.5,
           vLineWidth: () => 0.5,
-          hLineColor: () => '#e2e8f0',
-          vLineColor: () => '#e2e8f0'
-        }
+          hLineColor: () => "#e2e8f0",
+          vLineColor: () => "#e2e8f0",
+        },
       },
-      { text: '\n' },
+      { text: "\n" },
       {
         columns: [
-          { width: '*', text: '' },
+          { width: "*", text: "" },
           {
             width: 220,
             table: {
               widths: [120, 100],
               body: [
-                ['Taxable Subtotal', formatMoney(totals.taxable)],
-                ['CGST Total', formatMoney(totals.cgst)],
-                ['SGST Total', formatMoney(totals.sgst)],
-                ['IGST Total', formatMoney(totals.igst)],
-                ['Discount', formatMoney(invoice.discountedAmount || 0)],
-                ['Invoice Total', formatMoney(invoice.totalAmount)],
-                [{ text: 'Amount Paid', bold: true }, formatMoney(invoice.amountPaid || 0)],
-                [{ text: 'Balance Pending', bold: true, color: '#b91c1c' }, { text: formatMoney(invoice.balanceDue), bold: true, color: '#b91c1c' }]
-              ]
+                ["Taxable Subtotal", formatMoney(totals.taxable)],
+                ["CGST Total", formatMoney(totals.cgst)],
+                ["SGST Total", formatMoney(totals.sgst)],
+                ["IGST Total", formatMoney(totals.igst)],
+                ["Discount", formatMoney(invoice.discountedAmount || 0)],
+                ["Invoice Total", formatMoney(invoice.totalAmount)],
+                [
+                  { text: "Amount Paid", bold: true },
+                  formatMoney(invoice.amountPaid || 0),
+                ],
+                [
+                  { text: "Balance Pending", bold: true, color: "#b91c1c" },
+                  {
+                    text: formatMoney(invoice.balanceDue),
+                    bold: true,
+                    color: "#b91c1c",
+                  },
+                ],
+              ],
             },
-            layout: 'noBorders',
-            fontSize: 9
-          }
-        ]
+            layout: "noBorders",
+            fontSize: 9,
+          },
+        ],
       },
-      { text: '\nThank you for your business.', alignment: 'center', italics: true, fontSize: 9 }
+      {
+        text: "\nThank you for your business.",
+        alignment: "center",
+        italics: true,
+        fontSize: 9,
+      },
     ],
     styles: {
       header: { fontSize: 18, bold: true },
-      subheader: { fontSize: 11, color: '#4f32c8' }
+      subheader: { fontSize: 11, color: "#4f32c8" },
     },
-    defaultStyle: { font: 'Roboto', fontSize: 8 }
+    defaultStyle: { font: "Roboto", fontSize: 8 },
   };
 
   return printer.createPdfKitDocument(docDefinition);
@@ -254,9 +383,9 @@ export function invoicePdfBuffer(invoice) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     const doc = createInvoicePdfDocument(invoice);
-    doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
     doc.end();
   });
 }
