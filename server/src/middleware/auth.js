@@ -1,11 +1,13 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+const MAX_SESSION_AGE = '3m';
+
 export async function authenticate(req, _res, next) {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) throw Object.assign(new Error('Authentication required'), { status: 401 });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret', { maxAge: MAX_SESSION_AGE });
     const user = await User.findById(decoded.sub);
     if (!user || user.status !== 'Active') throw Object.assign(new Error('Invalid session'), { status: 401 });
     req.user = user;

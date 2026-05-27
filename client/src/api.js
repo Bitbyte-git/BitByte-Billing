@@ -9,6 +9,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('bbt_user');
+      localStorage.removeItem('bbt_token');
+      window.dispatchEvent(new Event('bbt-session-expired'));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 export const downloadPaymentAttachment = async (paymentId, fileName = 'payment-attachment') => {

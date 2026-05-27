@@ -3,8 +3,27 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
 
+const MAX_SESSION_SECONDS = 3 * 60;
+
+function sessionDurationSeconds() {
+  const value = process.env.JWT_EXPIRES_IN?.trim();
+  const match = value?.match(/^(\d+)([smhd])?$/i);
+
+  if (!match) return MAX_SESSION_SECONDS;
+
+  const amount = Number(match[1]);
+  const unit = match[2]?.toLowerCase() || 's';
+  const multiplier = { s: 1, m: 60, h: 3600, d: 86400 }[unit];
+
+  return Math.min(amount * multiplier, MAX_SESSION_SECONDS);
+}
+
 function sign(user) {
-  return jwt.sign({ sub: user._id, role: user.role }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+  return jwt.sign(
+    { sub: user._id, role: user.role },
+    process.env.JWT_SECRET || 'dev-secret',
+    { expiresIn: sessionDurationSeconds() }
+  );
 }
 
 export async function register(req, res, next) {
@@ -108,4 +127,3 @@ export async function viewCredentials(req, res, next) {
     next(err);
   }
 }
-

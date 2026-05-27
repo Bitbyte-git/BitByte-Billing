@@ -9,6 +9,31 @@ const roleHome = {
   Client: '/client/dashboard'
 };
 
+const MAX_SESSION_MS = 3 * 60 * 1000;
+
+function decodeTokenExpiry(token) {
+  try {
+    const [, payload] = token.split('.');
+    const normalized = payload
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    const decoded = JSON.parse(window.atob(normalized));
+    const expiresAt = decoded.exp ? decoded.exp * 1000 : null;
+    const maxAgeExpiresAt = decoded.iat ? decoded.iat * 1000 + MAX_SESSION_MS : null;
+
+    if (expiresAt && maxAgeExpiresAt) return Math.min(expiresAt, maxAgeExpiresAt);
+    return expiresAt || maxAgeExpiresAt;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession() {
+  localStorage.removeItem('bbt_user');
+  localStorage.removeItem('bbt_token');
+}
+
 export function AuthProvider({ children }) {
   const [booting, setBooting] = useState(true);
   const [user, setUser] = useState(() => {
@@ -16,9 +41,23 @@ export function AuthProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const applySession = (sessionUser, token) => {
+    localStorage.setItem('bbt_user', JSON.stringify(sessionUser));
+    localStorage.setItem('bbt_token', token);
+    setUser(sessionUser);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('bbt_token');
     if (!token) {
+      setBooting(false);
+      return;
+    }
+
+    const expiresAt = decodeTokenExpiry(token);
+    if (expiresAt && expiresAt <= Date.now()) {
+      clearSession();
+      setUser(null);
       setBooting(false);
       return;
     }
@@ -29,34 +68,53 @@ export function AuthProvider({ children }) {
         setUser(data.user);
       })
       .catch(() => {
-        localStorage.removeItem('bbt_user');
-        localStorage.removeItem('bbt_token');
+        clearSession();
         setUser(null);
       })
       .finally(() => setBooting(false));
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem('bbt_token');
+    if (!token || !user) return undefined;
+
+    const expiresAt = decodeTokenExpiry(token);
+    if (!expiresAt) return undefined;
+
+    const timeout = window.setTimeout(() => {
+      clearSession();
+      setUser(null);
+    }, Math.max(expiresAt - Date.now(), 0));
+
+    return () => window.clearTimeout(timeout);
+  }, [user]);
+
+  useEffect(() => {
+    const expire = () => {
+      clearSession();
+      setUser(null);
+    };
+
+    window.addEventListener('bbt-session-expired', expire);
+    return () => window.removeEventListener('bbt-session-expired', expire);
+  }, []);
+
   const login = async ({ email, password }) => {
     const { data } = await api.post('/auth/login', { email, password });
     const sessionUser = data.user;
-    localStorage.setItem('bbt_user', JSON.stringify(sessionUser));
-    localStorage.setItem('bbt_token', data.token);
-    setUser(sessionUser);
+    applySession(sessionUser, data.token);
     return roleHome[sessionUser.role];
   };
 
   const registerClient = async (form) => {
     const { data } = await api.post('/auth/register/client', form);
     const sessionUser = data.user;
-    localStorage.setItem('bbt_user', JSON.stringify(sessionUser));
-    localStorage.setItem('bbt_token', data.token);
-    setUser(sessionUser);
+    applySession(sessionUser, data.token);
     return roleHome[sessionUser.role];
   };
 
   const logout = () => {
-    localStorage.removeItem('bbt_user');
-    localStorage.removeItem('bbt_token');
+    clearSession();
     setUser(null);
   };
 
