@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo.jsx";
+import { LOGO_SOURCES } from "../config/brand.js";
 import { useAuth } from "../state/AuthContext.jsx";
 
 const nav = {
@@ -110,7 +111,11 @@ export default function AppLayout() {
               <BrandLogo size="sm" theme="light" tagline="" />
             </div>
             <label className="hidden flex-1 items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-2 md:flex">
-              <img src="/logo.png" alt="Search" className="h-5 w-5 rounded" />
+              <img
+                src={LOGO_SOURCES[0]}
+                alt=""
+                className="h-5 w-5 rounded object-contain"
+              />
               <input
                 className="w-full bg-transparent text-sm outline-none"
                 placeholder="Search quotations, invoices, clients..."
