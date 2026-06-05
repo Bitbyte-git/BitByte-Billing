@@ -50,7 +50,7 @@ export async function sendInvoiceEmail(req, res, next) {
     const invoice = await emailInvoiceToClient(req.params.id);
     await recordAudit({ userId: req.user._id, action: 'Invoice email sent', entityType: 'Invoice', entityId: req.params.id, newValue: { status: invoice.emailDeliveryStatus, sentAt: invoice.sentAt } });
     const messages = {
-      Sent: 'Invoice Sent Successfully',
+      Sent: invoice.emailError ? `Invoice Sent Successfully. ${invoice.emailError}` : 'Invoice Sent Successfully',
       Skipped: 'Invoice email skipped because SMTP is not configured',
       Failed: invoice.emailError || 'Invoice email failed',
       Pending: 'Invoice email is pending'

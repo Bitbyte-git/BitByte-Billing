@@ -107,7 +107,12 @@ export async function emailInvoiceToClient(invoiceId) {
     });
     invoice.emailDeliveryStatus = result?.skipped ? 'Skipped' : 'Sent';
     invoice.sentAt = result?.skipped ? undefined : new Date();
-    invoice.emailError = '';
+    invoice.emailError = result?.provider
+      ? `Delivered via ${result.provider}${result.messageId ? ` (${result.messageId})` : ''}`
+      : '';
+    if (!result?.skipped) {
+      console.log(`[Mail] Invoice ${invoice.invoiceId} sent to ${invoice.clientId.email} via ${result?.provider || 'smtp'}.`);
+    }
   } catch (err) {
     invoice.emailDeliveryStatus = 'Failed';
     invoice.emailError = err.message;

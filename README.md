@@ -21,7 +21,31 @@ Backend: `http://localhost:5000/api/health`
 
 ## Email delivery on Render
 
-Render free web services block outbound SMTP ports `25`, `465`, and `587`. For production on Render, use an HTTPS email provider instead of SMTP:
+Render free web services block outbound SMTP ports `25`, `465`, and `587`. For production on Render, use an HTTPS email provider instead of SMTP.
+
+SendGrid can reuse the same env style as the HRMS project. The server detects `SMTP_HOST=smtp.sendgrid.net` and sends through SendGrid's HTTPS API, which works on Render free services:
+
+```env
+EMAIL_PROVIDER=sendgrid
+SMTP_HOST=smtp.sendgrid.net
+SMTP_USER=apikey
+SMTP_PASS=SG_xxxxxxxxx
+EMAIL_FROM=dev.iamselva@gmail.com
+EMAIL_FROM_NAME=Bit Byte Technologies
+```
+
+You can also use the clearer API-key name instead of `SMTP_PASS`:
+
+```env
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=SG_xxxxxxxxx
+EMAIL_FROM=dev.iamselva@gmail.com
+EMAIL_FROM_NAME=Bit Byte Technologies
+```
+
+The SendGrid sender in `EMAIL_FROM` must be a verified Single Sender or belong to an authenticated SendGrid domain.
+
+Resend is also supported:
 
 ```env
 RESEND_API_KEY=re_xxxxxxxxx
