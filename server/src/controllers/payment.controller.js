@@ -26,10 +26,11 @@ async function recalculateInvoicePayments(invoiceId, user) {
       : 'Pending';
   await invoice.save();
 
-  if (invoice.paymentStatus === 'Paid') {
-    const quotation = await Quotation.findById(invoice.quotationId);
-    if (quotation && quotation.status !== 'Paid') {
-      await changeQuotationStatus({ quotation, status: 'Paid', user });
+  const quotation = await Quotation.findById(invoice.quotationId);
+  if (quotation) {
+    const targetStatus = invoice.paymentStatus === 'Paid' ? 'Paid' : 'Invoice Generated';
+    if (quotation.status !== targetStatus && ['Approved', 'Invoice Generated', 'Paid'].includes(quotation.status)) {
+      await changeQuotationStatus({ quotation, status: targetStatus, user });
     }
   }
 

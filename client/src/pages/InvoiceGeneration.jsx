@@ -34,8 +34,8 @@ export default function InvoiceGeneration() {
   useEffect(() => {
     api.get('/quotations')
       .then(({ data }) => {
-        // Show both Approved and Invoice Generated — matches the backend's allowed statuses
-        const eligible = data.filter((item) => ['Approved', 'Invoice Generated'].includes(item.status));
+        // Show Approved, Invoice Generated, and Paid — matches the backend's allowed statuses
+        const eligible = data.filter((item) => ['Approved', 'Invoice Generated', 'Paid'].includes(item.status));
         setQuotations(eligible);
         if (eligible[0]) setQuotationId(recordId(eligible[0]));
       })
@@ -133,7 +133,7 @@ export default function InvoiceGeneration() {
 
           {/* Quotation selector */}
           <label className="mt-6 block text-sm font-bold">
-            Approved / Invoice Generated quotation
+            Approved / Invoice Generated / Paid quotation
             <select
               value={quotationId}
               onChange={(event) => { setQuotationId(event.target.value); setInvoice(null); }}
@@ -143,7 +143,7 @@ export default function InvoiceGeneration() {
               {quotations.map((quotation) => (
                 <option key={recordId(quotation)} value={recordId(quotation)}>
                   {quotation.quotationId} - {quotation.projectTitle} - {getClientName(quotation)}
-                  {quotation.status === 'Invoice Generated' ? ' [Invoice Generated]' : ''}
+                  {quotation.status === 'Invoice Generated' ? ' [Invoice Generated]' : quotation.status === 'Paid' ? ' [Paid]' : ''}
                 </option>
               ))}
             </select>

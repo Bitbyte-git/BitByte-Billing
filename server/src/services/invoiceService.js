@@ -30,6 +30,13 @@ export async function createInvoiceForQuotation(quotationId, user, options = {})
   const existing = await Invoice.findOne({ quotationId });
   if (existing) {
     await createInitialPaymentStage(existing);
+    const quotation = await Quotation.findById(quotationId);
+    if (quotation && ['Approved', 'Invoice Generated'].includes(quotation.status)) {
+      const targetStatus = existing.paymentStatus === 'Paid' ? 'Paid' : 'Invoice Generated';
+      if (quotation.status !== targetStatus) {
+        await changeQuotationStatus({ quotation, status: targetStatus, user });
+      }
+    }
     return existing;
   }
 
