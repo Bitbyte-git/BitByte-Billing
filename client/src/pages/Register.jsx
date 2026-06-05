@@ -58,38 +58,40 @@ export default function Register() {
         <div className="absolute left-10 top-10">
           <BrandLogo size="lg" theme="dark" tagline="Client portal" />
         </div>
-        <div className="absolute bottom-10 left-10 max-w-2xl">
+
+        {/* Decorative background orbs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple/20 blur-3xl" />
+          <div className="absolute -bottom-16 left-8 h-56 w-56 rounded-full bg-violet/25 blur-2xl" />
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(116,68,220,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(116,68,220,0.06) 1px,transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+        </div>
+
+        <div className="absolute bottom-10 left-10 max-w-xl">
           <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
             Client Portal Registration
           </p>
-          <h1 className="text-6xl font-black leading-tight">
-            Join Bit Byte Technologies
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
-            Create your business account to request quotations, view project
-            pricing, approve scopes, and manage invoices securely.
-          </p>
-          <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
-            Client Portal Registration
-          </p>
-          <h1 className="text-6xl font-black leading-tight">
-            Join Bit Byte Technologies
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
-            Create your business account to request quotations, view project
-            pricing, approve scopes, and manage invoices securely.
-          </p>
-          =======
-          <p className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold">
-            Client Portal Registration
-          </p>
-          <h1 className="text-6xl font-black leading-tight">
+          <h1 className="text-5xl font-black leading-tight">
             Join {COMPANY_NAME}
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
+          <p className="mt-5 max-w-md text-base leading-7 text-slate-300">
             Create your business account to request quotations, view project
             pricing, approve scopes, and manage invoices securely.
           </p>
+          <ul className="mt-6 space-y-2">
+            {['Request quotations instantly', 'Track every project stage', 'Download & pay invoices online'].map((feat) => (
+              <li key={feat} className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple/40 text-xs text-white">✓</span>
+                {feat}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

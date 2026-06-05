@@ -1,19 +1,100 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CheckCircle2, Clock3, FileText, IndianRupee, ReceiptText, ShieldAlert, TrendingUp } from 'lucide-react';
+import {
+  CheckCircle2, FileText, IndianRupee, ReceiptText, ShieldAlert,
+  Sparkles, Star, TrendingUp, Zap, Clock, ArrowRight, Plus,
+  BarChart2, Users, ShieldCheck, Bell
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
 import ChartCard from '../components/ChartCard.jsx';
 import DataTable from '../components/DataTable.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api from '../api.js';
+import { useAuth } from '../state/AuthContext.jsx';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
 
 const colors = ['#7444DC', '#8D6BE2', '#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
+  if (hour < 17) return { text: 'Good afternoon', emoji: '🌤️' };
+  return { text: 'Good evening', emoji: '🌙' };
+}
+
+function getFirstName(name = '') {
+  return name.split(' ')[0] || name;
+}
+
+const roleConfig = {
+  Client: {
+    gradient: 'from-[#111436] via-[#1B1A47] to-[#422698]',
+    accentGradient: 'from-purple-500/20 to-violet-600/20',
+    badge: 'Client Portal',
+    badgeColor: 'bg-lavender/20 text-lavender border-lavender/30',
+    subtitle: 'Your personal billing hub — track quotations, invoices, and payments in real-time.',
+    quickActions: [
+      { label: 'New Quotation', icon: Plus, to: '/client/new-quotation', gradient: 'from-purple to-violet' },
+      { label: 'My Quotations', icon: FileText, to: '/client/quotations', gradient: 'from-blue-500 to-indigo-600' },
+      { label: 'Track Status', icon: Clock, to: '/client/status-tracking', gradient: 'from-emerald-500 to-teal-600' },
+    ],
+    tip: 'Tip: You can track every stage of your quotation — from submission to payment.',
+  },
+  Accountant: {
+    gradient: 'from-[#0f2027] via-[#1B1A47] to-[#203a43]',
+    accentGradient: 'from-blue-500/20 to-teal-600/20',
+    badge: 'Accountant Portal',
+    badgeColor: 'bg-blue-400/20 text-blue-300 border-blue-400/30',
+    subtitle: 'Review quotations, manage pricing, and track revenue — all in one place.',
+    quickActions: [
+      { label: 'Review Quotations', icon: FileText, to: '/accountant/quotations', gradient: 'from-blue-500 to-indigo-600' },
+      { label: 'Add Pricing', icon: IndianRupee, to: '/accountant/pricing', gradient: 'from-emerald-500 to-teal-600' },
+      { label: 'Reports', icon: BarChart2, to: '/accountant/reports', gradient: 'from-purple to-violet' },
+    ],
+    tip: 'You have pending quotations awaiting pricing review. Check the queue.',
+  },
+  Admin: {
+    gradient: 'from-[#0a0a1a] via-[#111436] to-[#2d1b69]',
+    accentGradient: 'from-violet-500/20 to-purple-600/20',
+    badge: 'Admin Portal',
+    badgeColor: 'bg-violet-400/20 text-violet-300 border-violet-400/30',
+    subtitle: 'Full system control — manage clients, approvals, invoices, users, and analytics.',
+    quickActions: [
+      { label: 'Approvals', icon: ShieldCheck, to: '/admin/approvals', gradient: 'from-amber-500 to-orange-600' },
+      { label: 'All Clients', icon: Users, to: '/admin/clients', gradient: 'from-blue-500 to-indigo-600' },
+      { label: 'Notifications', icon: Bell, to: '/admin/notifications', gradient: 'from-purple to-violet' },
+    ],
+    tip: 'Admin view: All pending approvals require your attention to proceed.',
+  },
+};
+
+const floatVariants = {
+  animate: {
+    y: [0, -10, 0],
+    transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
+  },
+};
+
+const pulseVariants = {
+  animate: {
+    scale: [1, 1.15, 1],
+    opacity: [0.6, 1, 0.6],
+    transition: { duration: 2.5, repeat: Infinity, ease: 'easeInOut' },
+  },
+};
+
 export default function Dashboard({ role, reports = false }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [state, setState] = useState({ loading: true, error: '', summary: null, quotations: [] });
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -58,40 +139,154 @@ export default function Dashboard({ role, reports = false }) {
         ['Total revenue', currency(paid), IndianRupee, 'green']
       ];
 
+  const greeting = getGreeting();
+  const firstName = getFirstName(user?.name || role);
+  const config = roleConfig[role] || roleConfig.Admin;
+
+  const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
   return (
     <div>
-      <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-navy via-ink to-violet p-6 text-white shadow-premium">
-        <p className="text-sm font-bold uppercase tracking-widest text-lavender">{role} Control Center</p>
-        <div className="mt-3 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <h1 className="text-3xl font-black">{reports ? 'Reports & Analytics' : `Welcome to ${role} Dashboard`}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">Track quotation movement from client request to accountant review, admin approval, invoice generation, payment, notification, and audit trail.</p>
+      {/* ── Welcome Hero Banner ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className={`relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br ${config.gradient} p-6 text-white shadow-premium`}
+      >
+        {/* Animated background orbs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <motion.div
+            variants={floatVariants}
+            animate="animate"
+            className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-purple/20 blur-3xl"
+          />
+          <motion.div
+            variants={floatVariants}
+            animate="animate"
+            style={{ animationDelay: '1.5s' }}
+            className="absolute -bottom-10 left-10 h-48 w-48 rounded-full bg-violet/25 blur-2xl"
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(141,107,226,0.15),transparent_60%)]" />
+        </div>
+
+        {/* Live pulse dot */}
+        <div className="absolute right-6 top-6 flex items-center gap-2">
+          <motion.span
+            variants={pulseVariants}
+            animate="animate"
+            className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+          />
+          <span className="text-xs font-semibold text-emerald-300">Live</span>
+        </div>
+
+        <div className="relative z-10">
+          {/* Role badge */}
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${config.badgeColor}`}>
+            <Zap size={11} className="shrink-0" />
+            {config.badge}
+          </span>
+
+          {/* Greeting + name */}
+          <div className="mt-4 flex flex-col gap-1 md:flex-row md:items-end md:gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-300">
+                {greeting.emoji} {greeting.text}
+              </p>
+              <h1 className="mt-1 text-4xl font-black tracking-tight">
+                {reports ? 'Reports & Analytics' : (
+                  <>
+                    Welcome back,{' '}
+                    <span className="bg-gradient-to-r from-lavender to-purple-300 bg-clip-text text-transparent">
+                      {firstName}
+                    </span>
+                    !
+                  </>
+                )}
+              </h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">{config.subtitle}</p>
+            </div>
           </div>
-          <div className="glass rounded-2xl px-5 py-4">
-            <p className="text-xs text-slate-300">Outstanding</p>
-            <p className="text-2xl font-black">{currency(outstanding)}</p>
+
+          {/* Bottom row: date/time + outstanding */}
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Clock size={13} />
+              <span>{dateStr} &nbsp;·&nbsp; {timeStr}</span>
+            </div>
+            <div className="glass rounded-2xl px-5 py-3">
+              <p className="text-xs text-slate-300">Outstanding Balance</p>
+              <p className="text-2xl font-black">{currency(outstanding)}</p>
+            </div>
+          </div>
+
+          {/* Quick action pills */}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {config.quickActions.map(({ label, icon: Icon, to, gradient }) => (
+              <motion.div key={to} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
+                <Link
+                  to={to}
+                  className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${gradient} px-4 py-2 text-xs font-bold text-white shadow-md transition hover:opacity-90`}
+                >
+                  <Icon size={14} />
+                  {label}
+                  <ArrowRight size={12} />
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Tip bar */}
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <Sparkles size={14} className="mt-0.5 shrink-0 text-amber-300" />
+            <p className="text-xs leading-5 text-slate-300">{config.tip}</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value, Icon, tone]) => <StatCard key={label} label={label} value={state.loading ? '...' : value} icon={Icon} tone={tone} />)}
-      </div>
+      {/* ── Stat Cards ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+      >
+        {cards.map(([label, value, Icon, tone]) => (
+          <StatCard key={label} label={label} value={state.loading ? '...' : value} icon={Icon} tone={tone} />
+        ))}
+      </motion.div>
 
+      {/* ── Client showcase CTA ── */}
       {role === 'Client' && (
-        <Link to="/client/services" className="mb-6 flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-purple/20 bg-gradient-to-r from-purple/10 via-white to-violet/10 p-6 shadow-sm transition hover:shadow-premium md:flex-row md:items-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-purple">New</p>
-            <h2 className="mt-1 text-xl font-black text-slate-900">Explore service samples & portfolio</h2>
-            <p className="mt-1 text-sm text-slate-600">Open our full service portfolio presentation before you request a quotation.</p>
-          </div>
-          <span className="gradient-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold">View showcase</span>
-        </Link>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <Link
+            to="/client/services"
+            className="mb-6 flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-purple/20 bg-gradient-to-r from-purple/10 via-white to-violet/10 p-6 shadow-sm transition hover:shadow-premium md:flex-row md:items-center"
+          >
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-purple">New</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">Explore service samples & portfolio</h2>
+              <p className="mt-1 text-sm text-slate-600">Open our full service portfolio presentation before you request a quotation.</p>
+            </div>
+            <span className="gradient-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold">View showcase</span>
+          </Link>
+        </motion.div>
       )}
 
       {state.error && <p className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
 
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
+      {/* ── Charts ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.25 }}
+        className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]"
+      >
         <ChartCard title={role === 'Client' ? 'Quotation Status Chart' : 'Revenue Trend'}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={primaryChartData.length ? primaryChartData : [{ month: 'No data', value: 0 }]}>
@@ -105,19 +300,41 @@ export default function Dashboard({ role, reports = false }) {
         <ChartCard title="Quotation Status Distribution">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={statusData.length ? statusData : [{ name: 'No data', value: 1 }]} dataKey="value" nameKey="name" innerRadius={65} outerRadius={100} paddingAngle={4}>
-                {(statusData.length ? statusData : [{ name: 'No data' }]).map((_, index) => <Cell key={index} fill={colors[index % colors.length]} />)}
+              <Pie
+                data={statusData.length ? statusData : [{ name: 'No data', value: 1 }]}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={65}
+                outerRadius={100}
+                paddingAngle={4}
+              >
+                {(statusData.length ? statusData : [{ name: 'No data' }]).map((_, index) => (
+                  <Cell key={index} fill={colors[index % colors.length]} />
+                ))}
               </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
-      </div>
+      </motion.div>
 
-      <div className="mt-6">
+      {/* ── Recent Activity ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.3 }}
+        className="mt-6"
+      >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-black">Recent Activity</h2>
-          {role === 'Client' && <button onClick={() => navigate('/client/new-quotation')} className="gradient-button rounded-xl px-4 py-2 text-sm font-bold">Create New Quotation</button>}
+          {role === 'Client' && (
+            <button
+              onClick={() => navigate('/client/new-quotation')}
+              className="gradient-button rounded-xl px-4 py-2 text-sm font-bold"
+            >
+              Create New Quotation
+            </button>
+          )}
         </div>
         <DataTable
           columns={[
@@ -131,7 +348,7 @@ export default function Dashboard({ role, reports = false }) {
           rows={quotations.slice(0, 5)}
           actions={(row) => <StatusBadge status={row.priorityLevel} key={recordId(row)} />}
         />
-      </div>
+      </motion.div>
     </div>
   );
 }
