@@ -14,15 +14,43 @@ function formatMoney(value) {
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("en-IN");
+  return Number.isNaN(date.getTime())
+    ? "-"
+    : date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+}
+
+function formatDateTime(value = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const logoPath = path.resolve(__dirname, "../../../client/public/logo.png");
-const companyLogo = existsSync(logoPath)
+const logoPath = ["Logo.png", "logo.png", "logo.svg"]
+  .map((file) => path.resolve(__dirname, "../../../client/public", file))
+  .find((file) => existsSync(file));
+const companyLogo = logoPath && existsSync(logoPath)
   ? `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
   : null;
+
+const COMPANY = {
+  name: "Bit Byte Technologies",
+  office: "Corporate Office",
+  address: ["2nd Floor, Raja Complex", "Salem, Tamil Nadu - 636302", "India"],
+  gstin: process.env.COMPANY_GSTIN || "",
+};
 
 export function enrichInvoiceItem(item) {
   const serviceName = item.service || item.subService || "";
@@ -90,21 +118,27 @@ export function createInvoicePdfDocument(invoice) {
   };
   const printer = new PdfPrinter(fonts);
   const items = (invoice.items || []).map(enrichInvoiceItem);
+  const clientName =
+    invoice.clientId?.companyName || invoice.clientId?.fullName || "Client";
+  const quotationLabel =
+    invoice.quotationId?.quotationId || invoice.quotationId?.projectTitle || "-";
   const itemRows = items.map((item, index) => [
-    { text: String(index + 1), alignment: "center" },
+    { text: String(index + 1), alignment: "center", margin: [0, 5, 0, 5] },
     {
       text: [item.service, item.description ? `\n${item.description}` : ""]
         .filter(Boolean)
         .join(""),
       fontSize: 8,
+      bold: true,
+      margin: [0, 5, 0, 5],
     },
-    { text: item.sacCode, alignment: "center", fontSize: 8 },
-    { text: String(item.quantity), alignment: "center" },
-    { text: formatMoney(item.taxableValue), alignment: "right" },
-    { text: formatMoney(item.cgstAmount), alignment: "right" },
-    { text: formatMoney(item.sgstAmount), alignment: "right" },
-    { text: formatMoney(item.igstAmount), alignment: "right" },
-    { text: formatMoney(item.total), alignment: "right", bold: true },
+    { text: item.sacCode, alignment: "center", fontSize: 8, margin: [0, 5, 0, 5] },
+    { text: String(item.quantity), alignment: "center", margin: [0, 5, 0, 5] },
+    { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 5, 0, 5] },
+    { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 5, 0, 5] },
+    { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 5, 0, 5] },
+    { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 5, 0, 5] },
+    { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 5, 0, 5] },
   ]);
 
   const totals = items.reduce(
@@ -118,202 +152,139 @@ export function createInvoicePdfDocument(invoice) {
     { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 },
   );
 
+  if (!itemRows.length) {
+    itemRows.push([
+      {
+        text: "No invoice line items available.",
+        colSpan: 9,
+        alignment: "center",
+        color: "#64748b",
+        margin: [0, 12, 0, 12],
+      },
+      {}, {}, {}, {}, {}, {}, {}, {},
+    ]);
+  }
+
+  const detailCell = (label, value) => ({
+    stack: [
+      { text: label, style: "label" },
+      { text: value || "-", style: "value" },
+    ],
+    margin: [0, 0, 0, 12],
+  });
+
+  const totalRow = (label, value, options = {}) => [
+    { text: label, bold: options.bold || false, color: options.color || "#334155" },
+    {
+      text: `Rs ${formatMoney(value)}`,
+      alignment: "right",
+      bold: options.bold || false,
+      color: options.color || "#0f172a",
+    },
+  ];
+
   const docDefinition = {
     pageSize: "A4",
-    pageMargins: [28, 28, 28, 28],
+    pageMargins: [42, 38, 42, 58],
     content: [
       {
-        margin: [0, 0, 0, 14],
+        columns: [
+          { text: formatDateTime(invoice.createdAt || invoice.invoiceDate), fontSize: 7.5, color: "#0f172a" },
+          { text: invoice.invoiceId || "-", alignment: "right", fontSize: 7.5, color: "#0f172a", bold: true },
+        ],
+        margin: [0, 0, 0, 24],
+      },
+      {
+        columns: [
+          {
+            width: "*",
+            columns: [
+              ...(companyLogo ? [{ image: companyLogo, width: 38, margin: [0, 2, 12, 0] }] : []),
+              {
+                width: "*",
+                stack: [
+                  { text: COMPANY.name, bold: true, fontSize: 16, color: "#a3a3a3" },
+                  { text: COMPANY.office, fontSize: 9, color: "#94a3b8", margin: [0, 3, 0, 0] },
+                  ...COMPANY.address.map((line) => ({ text: line, fontSize: 8.5, color: "#94a3b8" })),
+                  ...(COMPANY.gstin ? [{ text: `GSTIN: ${COMPANY.gstin}`, fontSize: 8.5, color: "#94a3b8" }] : []),
+                ],
+              },
+            ],
+          },
+          {
+            width: 170,
+            stack: [
+              { text: "Tax Invoice", alignment: "right", fontSize: 8.5, color: "#c4c4c4", bold: true },
+              { text: invoice.invoiceId || "-", alignment: "right", fontSize: 16, color: "#a3a3a3", bold: true },
+            ],
+            margin: [0, 14, 0, 0],
+          },
+        ],
+        margin: [24, 0, 24, 36],
+      },
+      {
         table: {
-          widths: ["33%", "34%", "33%"],
+          widths: ["*", "*"],
           body: [
             [
-              {
-                stack: [
-                  ...(companyLogo
-                    ? [{ image: companyLogo, width: 46, margin: [0, 0, 0, 6] }]
-                    : []),
-                  {
-                    text: "Bit Byte Tech",
-                    bold: true,
-                    fontSize: 12,
-                    color: "#111827",
-                  },
-                  {
-                    text: "2nd Floor, Raja Complex",
-                    fontSize: 8.5,
-                    margin: [0, 3, 0, 0],
-                  },
-                  { text: "Salem, Tamil Nadu", fontSize: 8.5 },
-                  { text: "Pincode: 636302", fontSize: 8.5 },
-                  { text: "GST No:", fontSize: 8.5 },
-                ],
-                margin: [12, 12, 8, 14],
-              },
-              {
-                stack: [
-                  {
-                    text: "TAX INVOICE",
-                    bold: true,
-                    fontSize: 15,
-                    color: "#111827",
-                    margin: [0, 28, 0, 6],
-                  },
-                  {
-                    text: "Bit Byte Tech",
-                    bold: true,
-                    fontSize: 11,
-                    color: "#4f32c8",
-                  },
-                ],
-                alignment: "center",
-                margin: [8, 12, 8, 14],
-              },
-              {
-                stack: [
-                  {
-                    table: {
-                      widths: [72, "*"],
-                      body: [
-                        [
-                          { text: "Invoice No", bold: true },
-                          {
-                            text: invoice.invoiceId || "-",
-                            alignment: "right",
-                          },
-                        ],
-                        [
-                          { text: "Date", bold: true },
-                          {
-                            text: formatDate(invoice.invoiceDate),
-                            alignment: "right",
-                          },
-                        ],
-                        [
-                          { text: "Payment", bold: true },
-                          {
-                            text: `Rs ${formatMoney(invoice.amountPaid || 0)}`,
-                            alignment: "right",
-                          },
-                        ],
-                        [
-                          { text: "Status", bold: true },
-                          {
-                            text: invoice.paymentStatus || "Pending",
-                            alignment: "right",
-                          },
-                        ],
-                        [
-                          { text: "Balance", bold: true },
-                          {
-                            text: `Rs ${formatMoney(invoice.balanceDue)}`,
-                            bold: true,
-                            color: "#b91c1c",
-                            alignment: "right",
-                          },
-                        ],
-                      ],
-                    },
-                    layout: "noBorders",
-                    fontSize: 8.5,
-                  },
-                ],
-                margin: [8, 18, 12, 14],
-              },
+              detailCell("CLIENT NAME", clientName),
+              detailCell("INVOICE ID", invoice.invoiceId || "-"),
             ],
             [
-              {
-                text: "Billed To",
-                colSpan: 3,
-                bold: true,
-                fontSize: 10,
-                color: "#111827",
-                margin: [12, 8, 12, 2],
-              },
-              {},
-              {},
+              detailCell("EMAIL", invoice.clientId?.email || "-"),
+              detailCell("INVOICE DATE", formatDate(invoice.invoiceDate)),
             ],
             [
-              {
-                colSpan: 3,
-                stack: [
-                  {
-                    text:
-                      invoice.clientId?.companyName ||
-                      invoice.clientId?.fullName ||
-                      "Client",
-                    bold: true,
-                    fontSize: 9.5,
-                  },
-                  {
-                    text: invoice.clientId?.email || "",
-                    fontSize: 8.5,
-                    margin: [0, 2, 0, 0],
-                  },
-                  {
-                    text: `Phone: ${invoice.clientId?.phone || "-"}`,
-                    fontSize: 8.5,
-                  },
-                ],
-                margin: [12, 0, 12, 12],
-              },
-              {},
-              {},
+              detailCell("PHONE", invoice.clientId?.phone || "-"),
+              detailCell("DUE DATE", formatDate(invoice.dueDate)),
+            ],
+            [
+              detailCell("QUOTATION", quotationLabel),
+              detailCell("PAYMENT STATUS", invoice.paymentStatus || "Pending"),
             ],
           ],
         },
-        layout: {
-          hLineWidth: (rowIndex, node) =>
-            [0, 1, node.table.body.length].includes(rowIndex) ? 0.9 : 0,
-          vLineWidth: (colIndex, node) =>
-            [0, node.table.widths.length].includes(colIndex) ? 0.9 : 0,
-          hLineColor: () => "#64748b",
-          vLineColor: () => "#64748b",
-          paddingLeft: () => 0,
-          paddingRight: () => 0,
-          paddingTop: () => 0,
-          paddingBottom: () => 0,
-        },
+        layout: "noBorders",
+        margin: [24, 0, 24, 8],
       },
       {
-        margin: [0, 0, 0, 10],
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 511, y2: 0, lineWidth: 0.7, lineColor: "#e2e8f0" }],
+        margin: [0, 0, 0, 18],
+      },
+      {
+        margin: [0, 0, 0, 16],
         table: {
           headerRows: 1,
-          widths: [22, "*", 42, 22, 52, 42, 42, 42, 52],
+          widths: [22, "*", 42, 24, 56, 44, 44, 44, 58],
           body: [
             [
-              { text: "S.No", bold: true, fontSize: 7, alignment: "center" },
-              { text: "Description of Service", bold: true, fontSize: 7 },
-              { text: "SAC", bold: true, fontSize: 7, alignment: "center" },
-              { text: "Qty", bold: true, fontSize: 7, alignment: "center" },
+              { text: "S.No", style: "tableHeader", alignment: "center" },
+              { text: "Description of Service", style: "tableHeader" },
+              { text: "SAC", style: "tableHeader", alignment: "center" },
+              { text: "Qty", style: "tableHeader", alignment: "center" },
               {
                 text: "Taxable Value (Rs)",
-                bold: true,
-                fontSize: 7,
+                style: "tableHeader",
                 alignment: "right",
               },
               {
                 text: "CGST (9%)",
-                bold: true,
-                fontSize: 7,
+                style: "tableHeader",
                 alignment: "right",
               },
               {
                 text: "SGST (9%)",
-                bold: true,
-                fontSize: 7,
+                style: "tableHeader",
                 alignment: "right",
               },
               {
                 text: "IGST (18%)",
-                bold: true,
-                fontSize: 7,
+                style: "tableHeader",
                 alignment: "right",
               },
               {
                 text: "Total (Rs)",
-                bold: true,
-                fontSize: 7,
+                style: "tableHeader",
                 alignment: "right",
               },
             ],
@@ -321,59 +292,165 @@ export function createInvoicePdfDocument(invoice) {
           ],
         },
         layout: {
-          fillColor: (rowIndex) => (rowIndex === 0 ? "#f1f5f9" : null),
-          hLineWidth: () => 0.5,
-          vLineWidth: () => 0.5,
+          fillColor: (rowIndex) => (rowIndex === 0 ? "#f8fafc" : null),
+          hLineWidth: (rowIndex) => (rowIndex === 0 ? 0 : 0.6),
+          vLineWidth: () => 0.6,
           hLineColor: () => "#e2e8f0",
           vLineColor: () => "#e2e8f0",
+          paddingLeft: () => 8,
+          paddingRight: () => 8,
+          paddingTop: () => 7,
+          paddingBottom: () => 7,
         },
       },
-      { text: "\n" },
       {
         columns: [
-          { width: "*", text: "" },
           {
-            width: 220,
+            width: "*",
             table: {
-              widths: [120, 100],
+              widths: ["*", "*"],
               body: [
-                ["Taxable Subtotal", formatMoney(totals.taxable)],
-                ["CGST Total", formatMoney(totals.cgst)],
-                ["SGST Total", formatMoney(totals.sgst)],
-                ["IGST Total", formatMoney(totals.igst)],
-                ["Discount", formatMoney(invoice.discountedAmount || 0)],
-                ["Invoice Total", formatMoney(invoice.totalAmount)],
                 [
-                  { text: "Amount Paid", bold: true },
-                  formatMoney(invoice.amountPaid || 0),
-                ],
-                [
-                  { text: "Balance Pending", bold: true, color: "#b91c1c" },
                   {
-                    text: formatMoney(invoice.balanceDue),
-                    bold: true,
-                    color: "#b91c1c",
+                    stack: [
+                      { text: "Payment Terms", style: "boxTitle" },
+                      { text: "1. Payment is due on or before the invoice due date.", margin: [0, 8, 0, 0] },
+                      { text: "2. Please mention the invoice number for all payments." },
+                      { text: "3. Taxes are calculated as per applicable GST rules." },
+                      { text: "4. This is a computer-generated invoice." },
+                    ],
+                    margin: [12, 10, 12, 10],
+                  },
+                  {
+                    stack: [
+                      { text: "Invoice Summary", style: "boxTitle" },
+                      {
+                        table: {
+                          widths: ["*", 88],
+                          body: [
+                            totalRow("Taxable Subtotal", totals.taxable),
+                            totalRow("CGST Total", totals.cgst),
+                            totalRow("SGST Total", totals.sgst),
+                            totalRow("IGST Total", totals.igst),
+                            totalRow("Discount", invoice.discountedAmount || 0),
+                            totalRow("Invoice Total", invoice.totalAmount, { bold: true }),
+                            totalRow("Amount Paid", invoice.amountPaid || 0),
+                            totalRow("Balance Pending", invoice.balanceDue, {
+                              bold: true,
+                              color: "#b91c1c",
+                            }),
+                          ],
+                        },
+                        layout: "noBorders",
+                        margin: [0, 8, 0, 0],
+                      },
+                    ],
+                    margin: [12, 10, 12, 10],
                   },
                 ],
               ],
             },
-            layout: "noBorders",
-            fontSize: 9,
+            layout: {
+              hLineWidth: () => 0.6,
+              vLineWidth: () => 0.6,
+              hLineColor: () => "#e2e8f0",
+              vLineColor: () => "#e2e8f0",
+              paddingLeft: () => 0,
+              paddingRight: () => 0,
+              paddingTop: () => 0,
+              paddingBottom: () => 0,
+            },
           },
         ],
+        fontSize: 8.5,
+        margin: [24, 0, 24, 16],
       },
       {
-        text: "\nThank you for your business.",
-        alignment: "center",
-        italics: true,
-        fontSize: 9,
+        table: {
+          widths: ["*", "*"],
+          body: [
+            [
+              {
+                stack: [
+                  { text: "\n\n", margin: [0, 0, 0, 6] },
+                  { text: "Client Signature", fontSize: 10, color: "#0f172a" },
+                ],
+                margin: [12, 14, 12, 14],
+              },
+              {
+                stack: [
+                  { text: "\n\n", margin: [0, 0, 0, 6] },
+                  { text: "Authorized Company Signature", fontSize: 10, color: "#0f172a" },
+                ],
+                margin: [12, 14, 12, 14],
+              },
+            ],
+          ],
+        },
+        layout: {
+          hLineWidth: () => 0.6,
+          vLineWidth: () => 0.6,
+          hLineColor: () => "#e2e8f0",
+          vLineColor: () => "#e2e8f0",
+        },
+        margin: [24, 0, 24, 0],
       },
     ],
+    footer: (currentPage, pageCount) => ({
+      margin: [42, 0, 42, 24],
+      stack: [
+        { canvas: [{ type: "line", x1: 0, y1: 0, x2: 511, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }] },
+        {
+          columns: [
+            {
+              text: "This invoice uses the Bit Byte Technologies printable document format.",
+              fontSize: 7.5,
+              color: "#0f172a",
+              margin: [24, 12, 0, 0],
+            },
+            {
+              text: `Generated on ${formatDate(invoice.createdAt || new Date())}`,
+              alignment: "right",
+              fontSize: 7.5,
+              color: "#0f172a",
+              margin: [0, 12, 24, 0],
+            },
+          ],
+        },
+        {
+          text: `${currentPage}/${pageCount}`,
+          alignment: "right",
+          fontSize: 7,
+          color: "#0f172a",
+          margin: [0, 16, 0, 0],
+        },
+      ],
+    }),
     styles: {
-      header: { fontSize: 18, bold: true },
-      subheader: { fontSize: 11, color: "#4f32c8" },
+      label: {
+        fontSize: 7.5,
+        color: "#334155",
+        bold: true,
+        characterSpacing: 0.4,
+      },
+      value: {
+        fontSize: 9.5,
+        color: "#0f172a",
+        bold: true,
+        margin: [0, 3, 0, 0],
+      },
+      tableHeader: {
+        bold: true,
+        fontSize: 7,
+        color: "#334155",
+      },
+      boxTitle: {
+        fontSize: 9,
+        bold: true,
+        color: "#0f172a",
+      },
     },
-    defaultStyle: { font: "Roboto", fontSize: 8 },
+    defaultStyle: { font: "Roboto", fontSize: 8, color: "#0f172a" },
   };
 
   return printer.createPdfKitDocument(docDefinition);

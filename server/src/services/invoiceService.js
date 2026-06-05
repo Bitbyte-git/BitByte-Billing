@@ -91,10 +91,13 @@ export async function createInvoiceForQuotation(quotationId, user, options = {})
   return invoice;
 }
 
-async function emailInvoiceToClient(invoiceId) {
+export async function emailInvoiceToClient(invoiceId) {
   const invoice = await Invoice.findById(invoiceId).populate('clientId quotationId');
   if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
   try {
+    if (!invoice.clientId?.email) {
+      throw new Error('Client email address is missing.');
+    }
     const pdf = await invoicePdfBuffer(invoice);
     const result = await sendNotificationEmail({
       to: invoice.clientId.email,
@@ -112,4 +115,3 @@ async function emailInvoiceToClient(invoiceId) {
   await invoice.save();
   return invoice;
 }
-

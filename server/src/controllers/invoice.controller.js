@@ -1,9 +1,8 @@
 import Invoice from '../models/Invoice.js';
 import Client from '../models/Client.js';
 import { recordAudit } from '../services/workflowService.js';
-import { createInvoiceForQuotation } from '../services/invoiceService.js';
-import { sendNotificationEmail } from '../utils/email.js';
-import { createInvoicePdfDocument, invoicePdfBuffer } from '../utils/invoicePdf.js';
+import { createInvoiceForQuotation, emailInvoiceToClient } from '../services/invoiceService.js';
+import { createInvoicePdfDocument } from '../utils/invoicePdf.js';
 
 export async function listInvoices(req, res, next) {
   try {
@@ -50,28 +49,12 @@ export async function sendInvoiceEmail(req, res, next) {
   try {
     const invoice = await emailInvoiceToClient(req.params.id);
     await recordAudit({ userId: req.user._id, action: 'Invoice email sent', entityType: 'Invoice', entityId: req.params.id, newValue: { status: invoice.emailDeliveryStatus, sentAt: invoice.sentAt } });
-    res.json({ message: invoice.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : 'Invoice email skipped', invoice });
+    const messages = {
+      Sent: 'Invoice Sent Successfully',
+      Skipped: 'Invoice email skipped because SMTP is not configured',
+      Failed: invoice.emailError || 'Invoice email failed',
+      Pending: 'Invoice email is pending'
+    };
+    res.json({ message: messages[invoice.emailDeliveryStatus] || 'Invoice email status updated', invoice });
   } catch (err) { next(err); }
-}
-
-async function emailInvoiceToClient(invoiceId) {
-  const invoice = await Invoice.findById(invoiceId).populate('clientId quotationId');
-  if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
-  try {
-    const pdf = await invoicePdfBuffer(invoice);
-    const result = await sendNotificationEmail({
-      to: invoice.clientId.email,
-      subject: `Invoice ${invoice.invoiceId} - Bit Byte Technologies`,
-      text: `Dear ${invoice.clientId.fullName || invoice.clientId.companyName},\n\nYour invoice ${invoice.invoiceId} is attached. Total amount: Rs ${invoice.totalAmount}.\n\nThank you,\nBit Byte Technologies`,
-      attachments: [{ filename: `${invoice.invoiceId}.pdf`, content: pdf, contentType: 'application/pdf' }]
-    });
-    invoice.emailDeliveryStatus = result?.skipped ? 'Skipped' : 'Sent';
-    invoice.sentAt = result?.skipped ? undefined : new Date();
-    invoice.emailError = '';
-  } catch (err) {
-    invoice.emailDeliveryStatus = 'Failed';
-    invoice.emailError = err.message;
-  }
-  await invoice.save();
-  return invoice;
 }
