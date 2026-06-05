@@ -76,9 +76,10 @@ export default function PricingPage() {
   const [clarificationMessage, setClarificationMessage] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [rows, setRows] = useState([]);
+  const [savingAction, setSavingAction] = useState('');
 
   const load = () => {
-    Promise.all([api.get('/quotations'), api.get('/services')])
+    return Promise.all([api.get('/quotations'), api.get('/services')])
       .then(([quotationRes, serviceRes]) => {
         const actionable = quotationRes.data.filter((item) => ['Submitted', 'Under Review', 'Needs Clarification'].includes(item.status));
         setQuotations(actionable);
@@ -162,7 +163,7 @@ export default function PricingPage() {
   };
 
   const saveCosting = async (forward = false) => {
-    if (!quotationId || !rows.length) return;
+    if (!quotationId || !rows.length || savingAction) return;
     const missingMainService = rows.some((row) => !row.mainService);
     if (missingMainService) {
       setMessage({ type: 'error', text: 'Please select a main service for every pricing row.' });
@@ -188,6 +189,8 @@ export default function PricingPage() {
       setMessage({ type: 'error', text: 'Discount must be between 0% and 20%.' });
       return;
     }
+    setSavingAction(forward ? 'forward' : 'save');
+    setMessage({ type: '', text: '' });
     try {
       const { data } = await api.post(`/quotations/${quotationId}/costing`, {
         items: rows.map((row) => ({
@@ -203,14 +206,22 @@ export default function PricingPage() {
           priceType: row.priceType === 'Auto' ? 'Auto' : 'Manual'
         }))
       });
-      if (forward) await api.post(`/quotations/${quotationId}/forward-to-admin`);
-      if (data?.quotation) {
-        setQuotations((current) => current.map((item) => recordId(item) === quotationId ? data.quotation : item));
+      let nextQuotation = data?.quotation;
+      let successText = forward ? 'Costing saved and forwarded to admin.' : 'Costing saved.';
+      if (forward) {
+        const forwardRes = await api.post(`/quotations/${quotationId}/forward-to-admin`);
+        nextQuotation = forwardRes.data?.quotation || forwardRes.data;
+        successText = forwardRes.data?.message || successText;
       }
-      setMessage({ type: 'success', text: forward ? 'Costing saved and forwarded to admin.' : 'Costing saved.' });
+      if (nextQuotation) {
+        setQuotations((current) => current.map((item) => recordId(item) === quotationId ? nextQuotation : item));
+      }
+      setMessage({ type: 'success', text: successText });
       if (forward) await load();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to save costing.' });
+    } finally {
+      setSavingAction('');
     }
   };
 
@@ -294,9 +305,9 @@ export default function PricingPage() {
             <textarea value={clarificationMessage} onChange={(event) => setClarificationMessage(event.target.value)} className="mt-2 min-h-20 w-full rounded-xl border border-line bg-white px-4 py-3 font-medium outline-purple" placeholder="List questions for the client..." />
           </label>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button onClick={() => saveCosting(false)} disabled={!quotationId || !rows.length} className="rounded-xl border border-line bg-white px-5 py-3 font-bold disabled:opacity-50">Save Pricing</button>
+            <button onClick={() => saveCosting(false)} disabled={!quotationId || !rows.length || !!savingAction} className="rounded-xl border border-line bg-white px-5 py-3 font-bold disabled:opacity-50">{savingAction === 'save' ? 'Saving...' : 'Save Pricing'}</button>
             <button onClick={requestClarification} disabled={!quotationId || !clarificationMessage.trim()} className="rounded-xl border border-orange-200 bg-orange-50 px-5 py-3 font-bold text-orange-700 disabled:opacity-50">Request Clarification</button>
-            <button onClick={() => saveCosting(true)} disabled={!quotationId || !rows.length} className="gradient-button rounded-xl px-5 py-3 font-bold disabled:opacity-50">Forward to Admin</button>
+            <button onClick={() => saveCosting(true)} disabled={!quotationId || !rows.length || !!savingAction} className="gradient-button rounded-xl px-5 py-3 font-bold disabled:opacity-50">{savingAction === 'forward' ? 'Forwarding...' : 'Forward to Admin'}</button>
           </div>
         </section>
         <AmountSummaryCard subtotal={subtotal} gst={gst} />

@@ -39,7 +39,8 @@ function resolveMailConfig() {
 
   const port = Number(process.env.MAIL_PORT || 587);
   const secure = process.env.MAIL_SECURE === 'true' || port === 465;
-  return { host, port, secure, user, pass };
+  const timeout = Number(process.env.MAIL_TIMEOUT_MS || 10000);
+  return { host, port, secure, user, pass, timeout };
 }
 
 export function createTransporter() {
@@ -51,6 +52,9 @@ export function createTransporter() {
     port: config.port,
     secure: config.secure,                    // true for port 465 (SSL), false for 587 (STARTTLS)
     requireTLS: !config.secure,               // enforce STARTTLS upgrade on port 587
+    connectionTimeout: config.timeout,
+    greetingTimeout: config.timeout,
+    socketTimeout: config.timeout,
     auth: config.user
       ? { user: config.user, pass: config.pass }
       : undefined,

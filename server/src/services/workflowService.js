@@ -14,9 +14,10 @@ export async function notifyRole({ role, title, message, type = 'Quotation' }) {
       try {
         await Notification.create({ userId: user._id, title, message, type });
       } catch (_) { /* ignore notification errors */ }
-      try {
-        await sendNotificationEmail({ to: user.email, subject: title, text: message });
-      } catch (_) { /* ignore email errors – SMTP may not be configured */ }
+      if (user.email) {
+        sendNotificationEmail({ to: user.email, subject: title, text: message })
+          .catch((err) => console.error(`[Mail] Background role notification failed for ${user.email}:`, err.message));
+      }
     }));
   } catch (_) { /* ignore if user lookup fails */ }
 }

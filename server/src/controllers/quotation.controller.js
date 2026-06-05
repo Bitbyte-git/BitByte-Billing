@@ -203,8 +203,9 @@ export async function forwardToAdmin(req, res, next) {
     }
 
     const updated = await changeQuotationStatus({ quotation, status: 'Forwarded to Admin', user: req.user });
-    await sendPricingEmailToAdmins({ quotation: updated, items });
-    res.json(updated);
+    sendPricingEmailToAdmins({ quotation: updated, items })
+      .catch((err) => console.error(`Pricing email queue failed for ${updated.quotationId}:`, err.message));
+    res.json({ message: 'Quotation forwarded to admin successfully.', quotation: updated });
   } catch (err) { next(err); }
 }
 
@@ -307,14 +308,20 @@ function buildPricingEmail({ quotation, items }) {
 async function sendPricingEmailToAdmins({ quotation, items }) {
   try {
     const admins = await User.find({ role: 'Admin', status: 'Active' });
-    if (!admins.length) return;
+    if (!admins.length) return { queued: 0 };
     const email = buildPricingEmail({ quotation, items });
-    await Promise.all(admins.map((admin) => sendNotificationEmail({
-      to: admin.email,
-      subject: 'Quotation Pricing Added - Review Required',
-      ...email
-    })));
-  } catch (_) {
+    const deliveries = admins
+      .filter((admin) => admin.email)
+      .map((admin) => sendNotificationEmail({
+        to: admin.email,
+        subject: 'Quotation Pricing Added - Review Required',
+        ...email
+      }).catch((err) => console.error(`[Mail] Background pricing email failed for ${admin.email}:`, err.message)));
+    Promise.allSettled(deliveries);
+    return { queued: deliveries.length };
+  } catch (err) {
     // Email delivery should not block pricing workflow when SMTP is unavailable.
+    console.error('Pricing email preparation failed:', err.message);
+    return { queued: 0 };
   }
 }
