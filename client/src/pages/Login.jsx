@@ -10,45 +10,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 // Demo credentials for shortcut login
-const demoCredentials = {
-  Admin: { email: "admin@bitbytetech.com", password: "Admin@123" },
-  Accountant: { email: "accountant@bitbytetech.com", password: "Account@123" },
-  Client: { email: "client@demo.com", password: "Client@123" },
-};
-
-function ShortcutIcons({ setEmail, setPassword }) {
-  return (
-    <div className="mb-6 flex flex-col items-center gap-2">
-      <p className="text-sm font-medium text-slate-600">Demo login:</p>
-      <div className="flex gap-4 text-purple-500">
-        <ShieldCheck
-          className="h-8 w-8 cursor-pointer hover:scale-110 transition"
-          title="Admin"
-          onClick={() => {
-            setEmail(demoCredentials.Admin.email);
-            setPassword(demoCredentials.Admin.password);
-          }}
-        />
-        <Calculator
-          className="h-8 w-8 cursor-pointer hover:scale-110 transition"
-          title="Accountant"
-          onClick={() => {
-            setEmail(demoCredentials.Accountant.email);
-            setPassword(demoCredentials.Accountant.password);
-          }}
-        />
-        <Building2
-          className="h-8 w-8 cursor-pointer hover:scale-110 transition"
-          title="Client"
-          onClick={() => {
-            setEmail(demoCredentials.Client.email);
-            setPassword(demoCredentials.Client.password);
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 
 import { motion } from "framer-motion";
 import BrandLogo from "../components/BrandLogo.jsx";
@@ -122,7 +83,7 @@ export default function Login() {
         <div className="mb-8 flex w-full max-w-md justify-center lg:hidden">
           <BrandLogo size="md" theme="dark" tagline="Client & team portal" />
         </div>
-        <ShortcutIcons setEmail={setEmail} setPassword={setPassword} />
+
         <motion.form
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
