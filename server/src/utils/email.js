@@ -8,6 +8,10 @@ function mailboxDomain(value = '') {
   return match ? match[1].toLowerCase() : '';
 }
 
+function fromDomain(value = '') {
+  return mailboxDomain(value) || '<missing-domain>';
+}
+
 function inferSmtpHost(user = '') {
   const domain = mailboxDomain(user);
   if (['gmail.com', 'googlemail.com'].includes(domain)) {
@@ -122,7 +126,11 @@ async function sendWithResend({ to, subject, text, html, attachments }) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = payload.message || payload.error || `Resend API failed with status ${response.status}`;
-    throw new Error(message);
+    const domain = fromDomain(from);
+    const action = response.status === 403 || /domain.*verified|verify.*domain/i.test(message)
+      ? ` Resend rejected RESEND_FROM because "${domain}" is not verified. Verify "${domain}" in Resend Domains or change RESEND_FROM to an address on a verified domain.`
+      : '';
+    throw new Error(`${message}${action}`);
   }
 
   return {

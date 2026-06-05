@@ -25,8 +25,10 @@ Render free web services block outbound SMTP ports `25`, `465`, and `587`. For p
 
 ```env
 RESEND_API_KEY=re_xxxxxxxxx
-RESEND_FROM=Bit Byte Technologies <billing@your-verified-domain.com>
+RESEND_FROM=Bit Byte Technologies <billing@bitbytetech.com>
 ```
+
+The domain in `RESEND_FROM` must be added and verified in Resend Domains first. For example, use `billing@bitbytetech.com` only after `bitbytetech.com` is verified. Do not use `bitbyte-billing.com` unless that exact domain is owned and verified in Resend.
 
 When `RESEND_API_KEY` is set, the server sends all notification and invoice emails through Resend over HTTPS. If it is not set, the server falls back to SMTP using `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, and `MAIL_FROM`.
 
