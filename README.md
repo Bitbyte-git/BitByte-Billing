@@ -19,6 +19,17 @@ npm run dev
 Frontend: `http://localhost:5173`  
 Backend: `http://localhost:5000/api/health`
 
+## Email delivery on Render
+
+Render free web services block outbound SMTP ports `25`, `465`, and `587`. For production on Render, use an HTTPS email provider instead of SMTP:
+
+```env
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM=Bit Byte Technologies <billing@your-verified-domain.com>
+```
+
+When `RESEND_API_KEY` is set, the server sends all notification and invoice emails through Resend over HTTPS. If it is not set, the server falls back to SMTP using `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, and `MAIL_FROM`.
+
 ## Demo users
 
 - Admin: `admin@bitbytetech.com` / `Admin@123`

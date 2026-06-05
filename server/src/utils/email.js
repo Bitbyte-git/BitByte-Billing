@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 
 const PLACEHOLDER_HOSTS = new Set(['smtp.example.com', 'example.com']);
+const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function mailboxDomain(value = '') {
   const match = String(value).match(/@([^>\s]+)/);
@@ -64,6 +65,10 @@ export function createTransporter() {
 
 export async function verifyTransporter() {
   try {
+    if (process.env.RESEND_API_KEY) {
+      console.log('[Mail] Resend API configured ✓');
+      return true;
+    }
     const transporter = createTransporter();
     if (!transporter) {
       console.log('[Mail] MAIL_HOST not set and no SMTP host could be inferred — email sending disabled.');
@@ -78,22 +83,78 @@ export async function verifyTransporter() {
   }
 }
 
+function buildResendAttachment(attachment) {
+  const content = Buffer.isBuffer(attachment.content)
+    ? attachment.content.toString('base64')
+    : attachment.content;
+
+  return {
+    filename: attachment.filename,
+    content,
+    content_type: attachment.contentType || attachment.content_type
+  };
+}
+
+async function sendWithResend({ to, subject, text, html, attachments }) {
+  const from = process.env.RESEND_FROM || process.env.MAIL_FROM || process.env.MAIL_USER;
+  if (!from) {
+    throw new Error('RESEND_FROM or MAIL_FROM is required for Resend email delivery.');
+  }
+
+  const response = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      text,
+      html,
+      attachments: attachments?.length
+        ? attachments.map(buildResendAttachment)
+        : undefined
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload.message || payload.error || `Resend API failed with status ${response.status}`;
+    throw new Error(message);
+  }
+
+  return {
+    provider: 'resend',
+    accepted: Array.isArray(to) ? to : [to],
+    rejected: [],
+    messageId: payload.id,
+    response: `Resend accepted message ${payload.id || ''}`.trim()
+  };
+}
+
+async function sendWithSmtp({ to, subject, text, html, attachments }) {
+  const transporter = createTransporter();
+  if (!transporter) return { skipped: true };
+  return transporter.sendMail({
+    from: process.env.MAIL_FROM || process.env.MAIL_USER,
+    to,
+    subject,
+    text,
+    html,
+    attachments
+  });
+}
+
 export async function sendNotificationEmail({ to, subject, text, html, attachments }) {
   try {
     if (!to) {
       throw new Error('Recipient email address is required.');
     }
-    const transporter = createTransporter();
-    if (!transporter) return { skipped: true };
-    const result = await transporter.sendMail({
-      from: process.env.MAIL_FROM || process.env.MAIL_USER,
-      to,
-      subject,
-      text,
-      html,
-      attachments
-    });
-    return result;
+    return process.env.RESEND_API_KEY
+      ? sendWithResend({ to, subject, text, html, attachments })
+      : sendWithSmtp({ to, subject, text, html, attachments });
   } catch (err) {
     console.error(`[Mail] Failed to send to ${to}:`, err.message);
     throw err;

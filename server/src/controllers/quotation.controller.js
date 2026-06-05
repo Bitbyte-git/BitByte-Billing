@@ -317,7 +317,11 @@ async function sendPricingEmailToAdmins({ quotation, items }) {
         subject: 'Quotation Pricing Added - Review Required',
         ...email
       }).catch((err) => console.error(`[Mail] Background pricing email failed for ${admin.email}:`, err.message)));
-    Promise.allSettled(deliveries);
+    Promise.allSettled(deliveries).then((results) => {
+      const sent = results.filter((result) => result.status === 'fulfilled').length;
+      const failed = results.length - sent;
+      console.log(`[Mail] Pricing email delivery complete: ${sent} sent, ${failed} failed.`);
+    });
     return { queued: deliveries.length };
   } catch (err) {
     // Email delivery should not block pricing workflow when SMTP is unavailable.
