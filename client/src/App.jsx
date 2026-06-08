@@ -9,6 +9,8 @@ import QuotationDetail from './pages/QuotationDetail.jsx';
 import PricingPage from './pages/PricingPage.jsx';
 import AdminApproval from './pages/AdminApproval.jsx';
 import InvoiceGeneration from './pages/InvoiceGeneration.jsx';
+import InternInvoiceGeneration from './pages/InternInvoiceGeneration.jsx';
+import InternInvoiceManagement from './pages/InternInvoiceManagement.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import AccountantManagement from './pages/AccountantManagement.jsx';
 import ClientStatusTracking from './pages/ClientStatusTracking.jsx';
@@ -70,6 +72,8 @@ export default function App() {
         <Route path="/accountant/pricing" element={<PricingPage />} />
         <Route path="/accountant/clarifications" element={<QuotationDetail role="Accountant" mode="clarification" />} />
         <Route path="/accountant/invoices" element={<TablePage type="invoices" role="Accountant" />} />
+        <Route path="/accountant/intern-invoices/new" element={<InternInvoiceGeneration />} />
+        <Route path="/accountant/intern-invoices" element={<InternInvoiceManagement />} />
         <Route path="/accountant/payments" element={<PaymentOverview role="Accountant" />} />
         <Route path="/accountant/reports" element={<Dashboard role="Accountant" reports />} />
         <Route path="/accountant/settings" element={<SettingsPage role="Accountant" />} />
@@ -81,6 +85,8 @@ export default function App() {
         <Route path="/admin/quotations/:id" element={<QuotationDetail role="Admin" />} />
         <Route path="/admin/approvals" element={<AdminApproval />} />
         <Route path="/admin/invoices/generate" element={<InvoiceGeneration />} />
+        <Route path="/admin/intern-invoices/new" element={<InternInvoiceGeneration />} />
+        <Route path="/admin/intern-invoices" element={<InternInvoiceManagement />} />
         <Route path="/admin/clients" element={<TablePage type="clients" role="Admin" />} />
         <Route path="/admin/payments" element={<TablePage type="payments" role="Admin" />} />
         <Route path="/admin/services" element={<TablePage type="services" role="Admin" />} />

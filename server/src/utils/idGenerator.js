@@ -1,5 +1,6 @@
 import Client from '../models/Client.js';
 import Invoice from '../models/Invoice.js';
+import InternInvoice from '../models/InternInvoice.js';
 import Payment from '../models/Payment.js';
 import Quotation from '../models/Quotation.js';
 
@@ -33,6 +34,11 @@ export async function nextQuotationId() {
 export async function nextInvoiceId() {
   const year = new Date().getFullYear();
   return nextSequentialId(Invoice, 'invoiceId', `BBT-INV-${year}-`);
+}
+
+export async function nextInternInvoiceId() {
+  const year = new Date().getFullYear();
+  return nextSequentialId(InternInvoice, 'invoiceId', `BBT-INT-INV-${year}-`);
 }
 
 export async function nextPaymentId() {
