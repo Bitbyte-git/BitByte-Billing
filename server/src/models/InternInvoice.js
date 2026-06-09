@@ -1,21 +1,27 @@
 import mongoose from 'mongoose';
 
 const internInvoiceSchema = new mongoose.Schema({
-  invoiceId: { type: String, required: true, unique: true },
+  internId: { type: String, unique: true, sparse: true, trim: true },
+  invoiceId: { type: String, unique: true, sparse: true },
   employeeName: { type: String, required: true, trim: true },
   collegeName: { type: String, trim: true },
+  courseMajor: { type: String, trim: true },
   address: { type: String, required: true, trim: true },
   phone: { type: String, required: true, trim: true },
   email: { type: String, trim: true, lowercase: true },
-  position: { type: String, required: true, trim: true },
-  duration: { type: String, required: true, trim: true },
-  amount: { type: Number, required: true, min: 0 },
+  position: { type: String, trim: true },
+  duration: { type: String, trim: true },
+  amount: { type: Number, default: 0, min: 0 },
   invoiceDate: { type: Date, default: Date.now },
-  paymentReceived: { type: Boolean, default: true },
+  paymentReceived: { type: Boolean, default: false },
   termsAndConditions: {
     type: String,
     default: 'This invoice is generated after confirming internship payment.'
   },
+  source: { type: String, enum: ['Manual', 'Google Form'], default: 'Manual' },
+  sourceRowId: { type: String, trim: true },
+  sourceSyncedAt: Date,
+  formResponse: mongoose.Schema.Types.Mixed,
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   emailDeliveryStatus: { type: String, enum: ['Pending', 'Sent', 'Failed', 'Skipped'], default: 'Pending' },
   sentAt: Date,

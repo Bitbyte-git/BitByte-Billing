@@ -1,7 +1,7 @@
 import InternInvoice from '../models/InternInvoice.js';
 import { sendNotificationEmail } from '../utils/email.js';
 import { internInvoicePdfBuffer } from '../utils/invoicePdf.js';
-import { nextInternInvoiceId } from '../utils/idGenerator.js';
+import { nextInternId, nextInternInvoiceId } from '../utils/idGenerator.js';
 
 function clean(value) {
   return String(value || '').trim();
@@ -10,21 +10,32 @@ function clean(value) {
 export function normalizeInternInvoiceInput(body = {}) {
   const amount = Number(body.amount || 0);
   return {
+    internId: clean(body.internId),
     employeeName: clean(body.employeeName),
     collegeName: clean(body.collegeName),
+    courseMajor: clean(body.courseMajor),
     address: clean(body.address),
     phone: clean(body.phone),
     email: clean(body.email).toLowerCase(),
     position: clean(body.position),
     duration: clean(body.duration),
     amount,
-    paymentReceived: body.paymentReceived !== false,
+    paymentReceived: body.paymentReceived === true || body.paymentStatus === 'Paid',
     termsAndConditions: clean(body.termsAndConditions) || undefined
   };
 }
 
+export function validateInternDraftPayload(payload) {
+  const required = ['employeeName', 'address', 'phone'];
+  const missing = required.filter((field) => !payload[field]);
+  if (missing.length) {
+    throw Object.assign(new Error(`Missing required field: ${missing.join(', ')}`), { status: 422 });
+  }
+}
+
 export function validateInternInvoicePayload(payload) {
-  const required = ['employeeName', 'address', 'phone', 'position', 'duration'];
+  validateInternDraftPayload(payload);
+  const required = ['position', 'duration'];
   const missing = required.filter((field) => !payload[field]);
   if (missing.length) {
     throw Object.assign(new Error(`Missing required field: ${missing.join(', ')}`), { status: 422 });
@@ -39,24 +50,64 @@ export function validateInternInvoicePayload(payload) {
 
 export async function createInternInvoice(body, user) {
   const payload = normalizeInternInvoiceInput(body);
-  validateInternInvoicePayload(payload);
+  const isDraft = body.draft === true;
+  if (isDraft) {
+    validateInternDraftPayload(payload);
+  } else {
+    validateInternInvoicePayload(payload);
+  }
 
   const invoice = await InternInvoice.create({
-    invoiceId: await nextInternInvoiceId(),
     ...payload,
+    internId: payload.internId || await nextInternId(),
+    invoiceId: isDraft ? undefined : await nextInternInvoiceId(),
     createdBy: user?._id
   });
 
-  if (body.sendEmail !== false) {
+  if (!isDraft && body.sendEmail !== false) {
     await emailInternInvoice(invoice._id);
   }
 
   return invoice;
 }
 
+export async function updateInternInvoice(invoiceId, body) {
+  const existing = await InternInvoice.findById(invoiceId);
+  if (!existing) throw Object.assign(new Error('Intern invoice not found'), { status: 404 });
+
+  const payload = normalizeInternInvoiceInput(body);
+  const shouldValidateInvoice = Boolean(existing.invoiceId || body.generateInvoice);
+  if (shouldValidateInvoice) {
+    validateInternInvoicePayload(payload);
+  } else {
+    validateInternDraftPayload(payload);
+  }
+
+  Object.assign(existing, payload);
+  await existing.save();
+  return existing.populate('createdBy', 'name email role');
+}
+
+export async function generateInternInvoiceDocument(invoiceId) {
+  const invoice = await InternInvoice.findById(invoiceId).populate('createdBy', 'name email role');
+  if (!invoice) throw Object.assign(new Error('Intern invoice not found'), { status: 404 });
+
+  const payload = normalizeInternInvoiceInput(invoice.toObject());
+  validateInternInvoicePayload(payload);
+
+  if (!invoice.internId) invoice.internId = await nextInternId();
+  if (!invoice.invoiceId) invoice.invoiceId = await nextInternInvoiceId();
+  invoice.invoiceDate = new Date();
+  await invoice.save();
+  return invoice;
+}
+
 export async function emailInternInvoice(invoiceId) {
   const invoice = await InternInvoice.findById(invoiceId).populate('createdBy', 'name email');
   if (!invoice) throw Object.assign(new Error('Intern invoice not found'), { status: 404 });
+  if (!invoice.invoiceId) {
+    throw Object.assign(new Error('Generate the intern invoice before sending email'), { status: 422 });
+  }
 
   try {
     if (!invoice.email) {

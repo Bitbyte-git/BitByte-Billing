@@ -41,6 +41,10 @@ export async function nextInternInvoiceId() {
   return nextSequentialId(InternInvoice, 'invoiceId', `BBT-INT-INV-${year}-`);
 }
 
+export async function nextInternId() {
+  return nextSequentialId(InternInvoice, 'internId', 'BBT-INT-');
+}
+
 export async function nextPaymentId() {
   return nextSequentialId(Payment, 'paymentId', 'PAY-');
 }

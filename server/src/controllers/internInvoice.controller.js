@@ -2,9 +2,10 @@ import InternInvoice from '../models/InternInvoice.js';
 import {
   createInternInvoice as createInternInvoiceDocument,
   emailInternInvoice,
-  normalizeInternInvoiceInput,
-  validateInternInvoicePayload
+  generateInternInvoiceDocument,
+  updateInternInvoice
 } from '../services/internInvoiceService.js';
+import { syncGoogleFormInterns } from '../services/googleFormInternService.js';
 import { recordAudit } from '../services/workflowService.js';
 import { createInternInvoicePdfDocument } from '../utils/invoicePdf.js';
 
@@ -31,10 +32,10 @@ export async function createInternInvoiceRecord(req, res, next) {
     const invoice = await createInternInvoiceDocument(req.body, req.user);
     await recordAudit({
       userId: req.user._id,
-      action: 'Intern invoice generated',
+      action: invoice.invoiceId ? 'Intern invoice generated' : 'Intern details saved',
       entityType: 'InternInvoice',
       entityId: invoice._id,
-      newValue: { invoiceId: invoice.invoiceId, employeeName: invoice.employeeName, amount: invoice.amount }
+      newValue: { internId: invoice.internId, invoiceId: invoice.invoiceId, employeeName: invoice.employeeName, amount: invoice.amount }
     });
     res.status(201).json(await InternInvoice.findById(invoice._id).populate('createdBy', 'name email role'));
   } catch (err) {
@@ -44,17 +45,13 @@ export async function createInternInvoiceRecord(req, res, next) {
 
 export async function updateInternInvoiceRecord(req, res, next) {
   try {
-    const payload = normalizeInternInvoiceInput(req.body);
-    validateInternInvoicePayload(payload);
-    const invoice = await InternInvoice.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
-      .populate('createdBy', 'name email role');
-    if (!invoice) return res.status(404).json({ message: 'Intern invoice not found' });
+    const invoice = await updateInternInvoice(req.params.id, req.body);
     await recordAudit({
       userId: req.user._id,
       action: 'Intern invoice updated',
       entityType: 'InternInvoice',
       entityId: invoice._id,
-      newValue: { invoiceId: invoice.invoiceId, employeeName: invoice.employeeName, amount: invoice.amount }
+      newValue: { internId: invoice.internId, invoiceId: invoice.invoiceId, employeeName: invoice.employeeName, amount: invoice.amount }
     });
     res.json(invoice);
   } catch (err) {
@@ -64,12 +61,30 @@ export async function updateInternInvoiceRecord(req, res, next) {
 
 export async function generateInternInvoice(req, res, next) {
   try {
-    const invoice = await InternInvoice.findById(req.params.id).populate('createdBy', 'name email role');
-    if (!invoice) return res.status(404).json({ message: 'Intern invoice not found' });
-    if (!invoice.paymentReceived) {
-      return res.status(422).json({ message: 'Payment must be marked received before generating an intern invoice' });
-    }
+    const invoice = await generateInternInvoiceDocument(req.params.id);
+    await recordAudit({
+      userId: req.user._id,
+      action: 'Intern invoice generated',
+      entityType: 'InternInvoice',
+      entityId: invoice._id,
+      newValue: { internId: invoice.internId, invoiceId: invoice.invoiceId, employeeName: invoice.employeeName, amount: invoice.amount }
+    });
     res.json(invoice);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function syncGoogleFormInternRecords(req, res, next) {
+  try {
+    const summary = await syncGoogleFormInterns();
+    await recordAudit({
+      userId: req.user._id,
+      action: 'Google Form interns synced',
+      entityType: 'InternInvoice',
+      newValue: summary
+    });
+    res.json({ message: 'Google Form responses synced successfully.', summary });
   } catch (err) {
     next(err);
   }

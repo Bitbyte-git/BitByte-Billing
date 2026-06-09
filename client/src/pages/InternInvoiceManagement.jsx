@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Edit3, GraduationCap, Mail, Plus, ReceiptText, Save, Search, Send, Trash2 } from 'lucide-react';
+import { Download, Edit3, GraduationCap, Mail, Plus, ReceiptText, RefreshCw, Save, Search, Send, Trash2 } from 'lucide-react';
 import api, { downloadInternInvoicePdf } from '../api.js';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { currency, formatDate, recordId } from '../utils/format.js';
 
 const emptyForm = {
+  internId: '',
   employeeName: '',
   email: '',
   collegeName: '',
+  courseMajor: '',
   address: '',
   phone: '',
   position: '',
@@ -18,9 +20,11 @@ const emptyForm = {
 
 function formFromRecord(record) {
   return {
+    internId: record.internId || '',
     employeeName: record.employeeName || record.empName || '',
     email: record.email || '',
     collegeName: record.collegeName || '',
+    courseMajor: record.courseMajor || '',
     address: record.address || '',
     phone: record.phone || record.phoneNo || '',
     position: record.position || '',
@@ -44,6 +48,7 @@ export default function InternInvoiceManagement() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const paidRecords = useMemo(() => records.filter((record) => record.paymentReceived || record.paymentStatus === 'Paid').length, [records]);
@@ -95,6 +100,7 @@ export default function InternInvoiceManagement() {
         ...form,
         amount: Number(form.amount || 0),
         paymentReceived: form.paymentStatus === 'Paid',
+        draft: true,
         sendEmail: false
       };
       const request = editingId
@@ -103,7 +109,7 @@ export default function InternInvoiceManagement() {
       const { data } = await request;
       let saved = data;
 
-      if (generateAfter && editingId) {
+      if (generateAfter) {
         const generated = await api.post(`/intern-invoices/${recordId(saved)}/generate`);
         saved = generated.data;
       }
@@ -120,6 +126,37 @@ export default function InternInvoiceManagement() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const syncGoogleForm = async () => {
+    setMessage({ type: '', text: '' });
+    setSyncing(true);
+    try {
+      const { data } = await api.post('/intern-invoices/sync-google-form');
+      await loadRecords();
+      const summary = data.summary || {};
+      setMessage({
+        type: 'success',
+        text: `Google Form synced. Created ${summary.created || 0}, updated ${summary.updated || 0}, skipped ${summary.skipped || 0}.`
+      });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to sync Google Form responses.' });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const loadByInternId = () => {
+    const internId = form.internId.trim().toLowerCase();
+    if (!internId) return;
+
+    const record = records.find((item) => String(item.internId || '').toLowerCase() === internId);
+    if (!record) {
+      setMessage({ type: 'error', text: 'No fetched intern found for this Intern ID.' });
+      return;
+    }
+
+    editRecord(record);
   };
 
   const editRecord = (record) => {
@@ -170,12 +207,21 @@ export default function InternInvoiceManagement() {
           <p className="text-sm font-bold uppercase tracking-widest text-purple">Intern Billing</p>
           <h1 className="text-3xl font-black">Intern Invoice Management</h1>
         </div>
-        <button
-          onClick={resetForm}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"
-        >
-          <Plus size={18} /> New intern
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            onClick={syncGoogleForm}
+            disabled={syncing}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-purple/30 bg-purple/5 px-4 py-3 text-sm font-bold text-purple hover:bg-purple/10 disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync GForm'}
+          </button>
+          <button
+            onClick={resetForm}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"
+          >
+            <Plus size={18} /> New intern
+          </button>
+        </div>
       </div>
 
       {message.text && (
@@ -215,6 +261,23 @@ export default function InternInvoiceManagement() {
 
           <div className="grid gap-4">
             <label className="block text-sm font-bold text-slate-600">
+              Intern ID
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={form.internId}
+                  onChange={(event) => updateForm('internId', event.target.value)}
+                  className="min-w-0 flex-1 rounded-xl border border-line px-4 py-3 outline-purple"
+                  placeholder="BBT-INT-0001"
+                />
+                <button
+                  onClick={loadByInternId}
+                  className="inline-flex items-center justify-center rounded-xl border border-line px-4 py-3 text-sm font-bold hover:bg-slate-50"
+                >
+                  Load
+                </button>
+              </div>
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
               Employee / intern name
               <input
                 value={form.employeeName}
@@ -240,6 +303,15 @@ export default function InternInvoiceManagement() {
                 onChange={(event) => updateForm('collegeName', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
                 placeholder="College name"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Course major
+              <input
+                value={form.courseMajor}
+                onChange={(event) => updateForm('courseMajor', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="CSE / BCA / MBA"
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
@@ -368,10 +440,12 @@ export default function InternInvoiceManagement() {
                       <p className="font-bold">{record.employeeName || record.empName}</p>
                       <p className="text-xs text-slate-500">{record.email}</p>
                       <p className="mt-1 text-xs font-semibold text-slate-400">{record.internId}</p>
+                      {record.source === 'Google Form' && <p className="mt-1 text-xs font-bold text-purple">Google Form</p>}
                     </td>
                     <td className="p-3">
                       <p className="font-semibold">{record.position}</p>
-                      <p className="text-xs text-slate-500">{record.duration}</p>
+                      <p className="text-xs text-slate-500">{record.courseMajor || record.duration}</p>
+                      {record.courseMajor && <p className="text-xs text-slate-400">{record.duration || 'Duration pending'}</p>}
                     </td>
                     <td className="p-3 font-bold">{currency(record.amount)}</td>
                     <td className="p-3"><StatusBadge status={record.paymentReceived || record.paymentStatus === 'Paid' ? 'Paid' : 'Pending'} /></td>
@@ -413,7 +487,7 @@ export default function InternInvoiceManagement() {
                         </button>
                         <button
                           onClick={() => sendEmail(record)}
-                          disabled={!record.paymentReceived && record.paymentStatus !== 'Paid'}
+                          disabled={!record.invoiceId || (!record.paymentReceived && record.paymentStatus !== 'Paid')}
                           className="grid h-9 w-9 place-items-center rounded-xl border border-line text-purple hover:bg-purple/5 disabled:opacity-40"
                           title="Send email"
                         >
