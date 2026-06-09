@@ -82,16 +82,17 @@ function mapResponse(row) {
   const email = pick(row, ['Email Id', 'Email', 'Email Address', 'Mail Id']).toLowerCase();
   const phone = pick(row, ['Mobile No', 'Mobile Number', 'Phone', 'Phone Number', 'Contact Number', 'Contact No']);
   const timestamp = pick(row, ['Timestamp', 'Submitted At', 'Created At']);
+  const employeeName = pick(row, ['Name', 'Full Name', 'Student Name', 'Intern Name']) || email || phone;
 
   return {
-    employeeName: pick(row, ['Name', 'Full Name', 'Student Name', 'Intern Name']),
+    employeeName,
     email,
     collegeName: pick(row, ['Institution', 'Institution Name', 'College Name', 'College', 'University']),
     courseMajor: pick(row, ['Course Major', 'Course', 'Major', 'Department', 'Branch']),
     address: pick(row, ['Address', 'Residential Address', 'Current Address']),
     phone,
     position: pick(row, ['Position Intern Designation', 'Position: Intern Designation', 'Position', 'Intern Designation', 'Designation', 'Role']),
-    sourceRowId: [timestamp, email, phone].filter(Boolean).join('|'),
+    sourceRowId: [timestamp, email, phone, employeeName].filter(Boolean).join('|'),
     formResponse: row
   };
 }
@@ -120,7 +121,7 @@ export async function syncGoogleFormInterns() {
   for (const row of rows) {
     const payload = mapResponse(row);
     const key = importKey(payload);
-    if (!payload.employeeName || !payload.address || !payload.phone || !key) {
+    if (!payload.employeeName || !key) {
       skipped += 1;
       continue;
     }
@@ -141,7 +142,9 @@ export async function syncGoogleFormInterns() {
     };
 
     if (existing) {
-      Object.assign(existing, update);
+      Object.entries(update).forEach(([field, value]) => {
+        if (value || !existing[field]) existing[field] = value;
+      });
       await existing.save();
       auditEntityId = existing._id;
       updated += 1;

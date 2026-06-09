@@ -26,7 +26,7 @@ export function normalizeInternInvoiceInput(body = {}) {
 }
 
 export function validateInternDraftPayload(payload) {
-  const required = ['employeeName', 'address', 'phone'];
+  const required = ['employeeName'];
   const missing = required.filter((field) => !payload[field]);
   if (missing.length) {
     throw Object.assign(new Error(`Missing required field: ${missing.join(', ')}`), { status: 422 });
@@ -35,7 +35,7 @@ export function validateInternDraftPayload(payload) {
 
 export function validateInternInvoicePayload(payload) {
   validateInternDraftPayload(payload);
-  const required = ['position', 'duration'];
+  const required = ['address', 'phone', 'position', 'duration'];
   const missing = required.filter((field) => !payload[field]);
   if (missing.length) {
     throw Object.assign(new Error(`Missing required field: ${missing.join(', ')}`), { status: 422 });
