@@ -115,6 +115,7 @@ export async function syncGoogleFormInterns() {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let auditEntityId = null;
 
   for (const row of rows) {
     const payload = mapResponse(row);
@@ -142,17 +143,19 @@ export async function syncGoogleFormInterns() {
     if (existing) {
       Object.assign(existing, update);
       await existing.save();
+      auditEntityId = existing._id;
       updated += 1;
     } else {
-      await InternInvoice.create({
+      const createdRecord = await InternInvoice.create({
         internId: await nextInternId(),
         ...update,
         paymentReceived: false,
         amount: 0
       });
+      auditEntityId = createdRecord._id;
       created += 1;
     }
   }
 
-  return { created, updated, skipped, totalRows: rows.length };
+  return { summary: { created, updated, skipped, totalRows: rows.length }, auditEntityId };
 }

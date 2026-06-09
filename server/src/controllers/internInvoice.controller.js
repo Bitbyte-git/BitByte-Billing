@@ -77,13 +77,16 @@ export async function generateInternInvoice(req, res, next) {
 
 export async function syncGoogleFormInternRecords(req, res, next) {
   try {
-    const summary = await syncGoogleFormInterns();
-    await recordAudit({
-      userId: req.user._id,
-      action: 'Google Form interns synced',
-      entityType: 'InternInvoice',
-      newValue: summary
-    });
+    const { summary, auditEntityId } = await syncGoogleFormInterns();
+    if (auditEntityId) {
+      await recordAudit({
+        userId: req.user._id,
+        action: 'Google Form interns synced',
+        entityType: 'InternInvoice',
+        entityId: auditEntityId,
+        newValue: summary
+      });
+    }
     res.json({ message: 'Google Form responses synced successfully.', summary });
   } catch (err) {
     next(err);
