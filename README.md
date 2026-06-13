@@ -1,5 +1,3 @@
-MONGODB_URI=mongodb://127.0.0.1:27017/bbt_billing# Bit Byte Technologies Billing & Quotation Management
-
 Premium role-based SaaS platform for client quotation requests, accountant costing, admin approvals, invoice generation, payment tracking, reporting, notifications, and audit logs.
 
 ## Stack
