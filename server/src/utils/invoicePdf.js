@@ -654,10 +654,10 @@ export function createInternInvoicePdfDocument(invoice) {
     vLineWidth: () => 0.6,
     hLineColor: () => "#cbd5e1",
     vLineColor: () => "#cbd5e1",
-    paddingLeft: () => 8,
-    paddingRight: () => 8,
-    paddingTop: () => 8,
-    paddingBottom: () => 8,
+    paddingLeft: () => 7,
+    paddingRight: () => 7,
+    paddingTop: () => 6,
+    paddingBottom: () => 6,
   };
   const summaryRow = (label, value, options = {}) => [
     {
@@ -677,7 +677,7 @@ export function createInternInvoicePdfDocument(invoice) {
 
   const docDefinition = {
     pageSize: "A4",
-    pageMargins: [36, 36, 36, 56],
+    pageMargins: [28, 24, 28, 36],
     content: [
       {
         table: {
@@ -693,8 +693,8 @@ export function createInternInvoicePdfDocument(invoice) {
                         ? [
                             {
                               image: companyLogo,
-                              width: 66,
-                              margin: [0, 0, 14, 0],
+                              width: 86,
+                              margin: [0, 0, 16, 0],
                             },
                           ]
                         : []),
@@ -702,28 +702,30 @@ export function createInternInvoicePdfDocument(invoice) {
                         width: "auto",
                         stack: [
                           {
-                            text: COMPANY.name,
+                            text: [
+                              { text: "Bit Byte", color: "#1297e0" },
+                              { text: " Technologies", color: "#69bf43" },
+                            ],
                             bold: true,
                             fontSize: 18,
-                            color: "#33b5ff",
                           },
                           {
                             text: COMPANY.office,
                             fontSize: 9,
-                            color: "#93c5fd",
+                            color: "#0f766e",
                             margin: [0, 3, 0, 2],
                           },
                           ...COMPANY.address.map((line) => ({
                             text: line,
                             fontSize: 8.3,
-                            color: "#cbd5e1",
+                            color: "#334155",
                           })),
                           ...(COMPANY.gstin
                             ? [
                                 {
                                   text: `GSTIN: ${COMPANY.gstin}`,
                                   fontSize: 8.3,
-                                  color: "#cbd5e1",
+                                  color: "#334155",
                                 },
                               ]
                             : []),
@@ -734,7 +736,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     columnGap: 0,
                   },
                 ],
-                fillColor: "#07111f",
+                fillColor: "#f8fafc",
               },
             ],
           ],
@@ -742,12 +744,12 @@ export function createInternInvoicePdfDocument(invoice) {
         layout: {
           hLineWidth: () => 0,
           vLineWidth: () => 0,
-          paddingLeft: () => 18,
-          paddingRight: () => 18,
-          paddingTop: () => 18,
-          paddingBottom: () => 18,
+          paddingLeft: () => 12,
+          paddingRight: () => 12,
+          paddingTop: () => 10,
+          paddingBottom: () => 10,
         },
-        margin: [0, 0, 0, 18],
+        margin: [0, 0, 0, 10],
       },
       {
         columns: [
@@ -804,7 +806,7 @@ export function createInternInvoicePdfDocument(invoice) {
           },
         ],
         columnGap: 0,
-        margin: [0, 0, 0, 14],
+        margin: [0, 0, 0, 9],
       },
       {
         table: {
@@ -830,15 +832,15 @@ export function createInternInvoicePdfDocument(invoice) {
           vLineWidth: () => 0.6,
           hLineColor: () => "#dbeafe",
           vLineColor: () => "#dbeafe",
-          paddingLeft: () => 12,
-          paddingRight: () => 12,
-          paddingTop: () => 10,
-          paddingBottom: () => 10,
+          paddingLeft: () => 10,
+          paddingRight: () => 10,
+          paddingTop: () => 7,
+          paddingBottom: () => 7,
         },
-        margin: [0, 0, 0, 16],
+        margin: [0, 0, 0, 10],
       },
       {
-        margin: [0, 0, 0, 18],
+        margin: [0, 0, 0, 10],
         table: {
           headerRows: 1,
           widths: [36, "*", 92, 88],
@@ -854,7 +856,7 @@ export function createInternInvoicePdfDocument(invoice) {
               { text: "Amount (Rs)", style: "tableHeader", alignment: "right" },
             ],
             [
-              { text: "1", alignment: "center", margin: [0, 8, 0, 8] },
+              { text: "1", alignment: "center", margin: [0, 5, 0, 5] },
               {
                 text: [
                   {
@@ -862,23 +864,23 @@ export function createInternInvoicePdfDocument(invoice) {
                     bold: true,
                   },
                   {
-                    text: "\n\nProfessional internship program fee",
+                    text: "\nProfessional internship program fee",
                     color: "#64748b",
                     fontSize: 7.5,
                   },
                 ],
-                margin: [0, 8, 0, 8],
+                margin: [0, 5, 0, 5],
               },
               {
                 text: invoice.duration || "-",
                 alignment: "center",
-                margin: [0, 8, 0, 8],
+                margin: [0, 5, 0, 5],
               },
               {
                 text: formatMoney(amount),
                 alignment: "right",
                 bold: true,
-                margin: [0, 8, 0, 8],
+                margin: [0, 5, 0, 5],
               },
             ],
           ],
@@ -892,8 +894,8 @@ export function createInternInvoicePdfDocument(invoice) {
           vLineColor: () => "#cbd5e1",
           paddingLeft: () => 10,
           paddingRight: () => 10,
-          paddingTop: () => 7,
-          paddingBottom: () => 7,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
         },
       },
       {
@@ -909,7 +911,7 @@ export function createInternInvoicePdfDocument(invoice) {
                 color: "#64748b",
               },
             ],
-            margin: [14, 12, 14, 12],
+            margin: [12, 8, 12, 8],
           },
           {
             width: 180,
@@ -939,12 +941,12 @@ export function createInternInvoicePdfDocument(invoice) {
                 margin: [0, 8, 0, 0],
               },
             ],
-            margin: [14, 12, 14, 12],
+            margin: [12, 8, 12, 8],
           },
         ],
         columnGap: 14,
         fontSize: 8.5,
-        margin: [0, 0, 0, 20],
+        margin: [0, 0, 0, 10],
       },
       {
         table: {
@@ -983,7 +985,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: "#64748b",
                   },
                 ],
-                margin: [14, 18, 14, 18],
+                margin: [14, 10, 14, 10],
               },
             ],
           ],
@@ -994,7 +996,7 @@ export function createInternInvoicePdfDocument(invoice) {
           hLineColor: () => "#e2e8f0",
           vLineColor: () => "#e2e8f0",
         },
-        margin: [0, 0, 0, 18],
+        margin: [0, 0, 0, 10],
       },
       {
         table: {
@@ -1013,10 +1015,10 @@ export function createInternInvoicePdfDocument(invoice) {
                     text: "for choosing Bit Byte Technologies.",
                     fontSize: 8.5,
                     color: "#64748b",
-                    margin: [0, 4, 0, 18],
+                    margin: [0, 4, 0, 8],
                   },
                 ],
-                margin: [14, 14, 14, 14],
+                margin: [14, 10, 14, 10],
               },
               {
                 stack: [
@@ -1028,9 +1030,9 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: "#334155",
                     margin: [0, 0, 0, 6],
                   },
-                  { svg: qrSvg(publicUrl), width: 78, alignment: "center" },
+                  { svg: qrSvg(publicUrl), width: 66, alignment: "center" },
                 ],
-                margin: [8, 10, 8, 10],
+                margin: [8, 8, 8, 8],
               },
             ],
           ],
@@ -1045,7 +1047,7 @@ export function createInternInvoicePdfDocument(invoice) {
       },
     ],
     footer: (currentPage, pageCount) => ({
-      margin: [36, 0, 36, 22],
+      margin: [28, 0, 28, 14],
       stack: [
         {
           canvas: [
