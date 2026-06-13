@@ -51,7 +51,8 @@ const COMPANY = {
   name: "Bit Byte Technologies",
   office: "Corporate Office",
   address: ["2nd Floor, Raja Complex", "Salem, Tamil Nadu - 636302", "India"],
-  gstin: process.env.COMPANY_GSTIN || "",
+  gstin: process.env.COMPANY_GSTIN || "33BLNPN539J1ZL",
+  udyamId: process.env.COMPANY_UDYAM_ID || "UDYAM-TN-20-0234773",
 };
 
 function normalizeAbsoluteUrl(value) {
@@ -681,131 +682,88 @@ export function createInternInvoicePdfDocument(invoice) {
     content: [
       {
         table: {
-          widths: ["*"],
+          widths: [146, "*"],
           body: [
             [
               {
+                stack: companyLogo
+                  ? [{ image: companyLogo, width: 124, alignment: "center" }]
+                  : [{ text: COMPANY.name, alignment: "center", bold: true, color: "#1297e0" }],
+                alignment: "center",
+                fillColor: "#f8fafc",
+                margin: [0, 5, 0, 5],
+              },
+              {
                 stack: [
                   {
-                    columns: [
-                      { width: "*", text: "" },
-                      ...(companyLogo
-                        ? [
-                            {
-                              image: companyLogo,
-                              width: 86,
-                              margin: [0, 0, 16, 0],
-                            },
-                          ]
-                        : []),
-                      {
-                        width: "auto",
-                        stack: [
-                          {
-                            text: [
-                              { text: "Bit Byte", color: "#1297e0" },
-                              { text: " Technologies", color: "#69bf43" },
-                            ],
-                            bold: true,
-                            fontSize: 18,
-                          },
-                          {
-                            text: COMPANY.office,
-                            fontSize: 9,
-                            color: "#0f766e",
-                            margin: [0, 3, 0, 2],
-                          },
-                          ...COMPANY.address.map((line) => ({
-                            text: line,
-                            fontSize: 8.3,
-                            color: "#334155",
-                          })),
-                          ...(COMPANY.gstin
-                            ? [
-                                {
-                                  text: `GSTIN: ${COMPANY.gstin}`,
-                                  fontSize: 8.3,
-                                  color: "#334155",
-                                },
-                              ]
-                            : []),
-                        ],
-                      },
-                      { width: "*", text: "" },
+                    text: [
+                      { text: "Bit Byte", color: "#1297e0" },
+                      { text: " Technologies", color: "#69bf43" },
                     ],
-                    columnGap: 0,
+                    bold: true,
+                    fontSize: 33,
+                    margin: [0, 0, 0, 5],
                   },
+                  { text: COMPANY.office, fontSize: 11, bold: true, color: "#0f766e", margin: [0, 0, 0, 2] },
+                  ...COMPANY.address.map((line) => ({ text: line, fontSize: 10.5, color: "#0f172a" })),
+                  { text: `GST NO : ${COMPANY.gstin}`, fontSize: 9, color: "#334155", margin: [0, 4, 0, 0] },
+                  { text: `Udyam ID : ${COMPANY.udyamId}`, fontSize: 9, color: "#334155" },
                 ],
                 fillColor: "#f8fafc",
+                margin: [18, 7, 0, 7],
               },
             ],
           ],
         },
         layout: {
-          hLineWidth: () => 0,
-          vLineWidth: () => 0,
+          hLineWidth: () => 0.6,
+          vLineWidth: (lineIndex) => (lineIndex === 1 ? 0.8 : 0.6),
+          hLineColor: () => "#cbd5e1",
+          vLineColor: () => "#cbd5e1",
           paddingLeft: () => 12,
           paddingRight: () => 12,
-          paddingTop: () => 10,
-          paddingBottom: () => 10,
+          paddingTop: () => 8,
+          paddingBottom: () => 8,
         },
         margin: [0, 0, 0, 10],
       },
       {
-        columns: [
-          {
-            width: "*",
-            table: {
-              widths: ["*", "*"],
-              body: [
-                [sectionHeaderCell("Intern Details"), {}],
-                [
-                  detailCell("INTERN ID", invoice.internId),
-                  detailCell("INTERN NAME", invoice.employeeName),
-                ],
-                [
-                  detailCell("E-MAIL", invoice.email),
-                  detailCell("PHONE", invoice.phone),
-                ],
-                [
-                  detailCell("COLLEGE", invoice.collegeName),
-                  detailCell("DEPARTMENT", invoice.courseMajor),
-                ],
-                [
-                  detailCell("PASSED OUT", invoice.passedOut),
-                  detailCell(
-                    "ADDRESS REF",
-                    invoice.address ? "Available below" : "-",
-                  ),
-                ],
-              ],
-            },
-            layout: detailTableLayout,
-          },
-          {
-            width: "*",
-            table: {
-              widths: ["*", "*"],
-              body: [
-                [sectionHeaderCell("Invoice & Payment Details"), {}],
-                [
-                  detailCell("INVOICE DT", formatDate(invoice.invoiceDate)),
-                  detailCell("INVOICE ID", invoice.invoiceId),
-                ],
-                [
-                  detailCell("PAYMENT ID", invoice.paymentId),
-                  detailCell("PAYMENT STATUS", paymentStatus),
-                ],
-                [
-                  detailCell("GENERATED BY", generatedBy),
-                  detailCell("BILLING TYPE", "Internship"),
-                ],
-              ],
-            },
-            layout: detailTableLayout,
-          },
-        ],
-        columnGap: 0,
+        table: {
+          widths: ["*", "*", "*", "*"],
+          body: [
+            [
+              { ...sectionHeaderCell("Intern Details"), colSpan: 2 },
+              {},
+              { ...sectionHeaderCell("Invoice & Payment Details"), colSpan: 2 },
+              {},
+            ],
+            [
+              detailCell("INTERN ID", invoice.internId),
+              detailCell("INTERN NAME", invoice.employeeName),
+              detailCell("INVOICE DT", formatDate(invoice.invoiceDate)),
+              detailCell("INVOICE ID", invoice.invoiceId),
+            ],
+            [
+              detailCell("E-MAIL", invoice.email),
+              detailCell("PHONE", invoice.phone),
+              detailCell("PAYMENT ID", invoice.paymentId),
+              detailCell("PAYMENT STATUS", paymentStatus),
+            ],
+            [
+              detailCell("COLLEGE", invoice.collegeName),
+              detailCell("DEPARTMENT", invoice.courseMajor),
+              detailCell("GENERATED BY", generatedBy),
+              detailCell("BILLING TYPE", "Internship"),
+            ],
+            [
+              detailCell("PASSED OUT", invoice.passedOut),
+              detailCell("ADDRESS REF", invoice.address ? "Available below" : "-"),
+              { text: "", colSpan: 2 },
+              {},
+            ],
+          ],
+        },
+        layout: detailTableLayout,
         margin: [0, 0, 0, 9],
       },
       {
