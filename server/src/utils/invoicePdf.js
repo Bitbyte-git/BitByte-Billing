@@ -725,7 +725,7 @@ export function createInternInvoicePdfDocument(invoice) {
                   ? [{ image: companyLogo, width: 116, alignment: "center" }]
                   : [{ text: COMPANY.name, alignment: "center", bold: true, color: COLORS.blue }],
                 alignment: "center",
-                fillColor: COLORS.bg,
+                fillColor: COLORS.navy,
                 margin: [0, 10, 0, 10],
               },
               {
