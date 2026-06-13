@@ -817,7 +817,7 @@ export function createInternInvoicePdfDocument(invoice) {
         margin: [0, 0, 0, 8],
       },
       {
-        margin: [0, 0, 0, 8],
+        margin: [0, 0, 0, 10],
         table: {
           headerRows: 2,
           widths: [36, "*", 92, 88],
@@ -839,7 +839,7 @@ export function createInternInvoicePdfDocument(invoice) {
               { text: "Amount (Rs)", style: "tableHeader", alignment: "right" },
             ],
             [
-              { text: "1", alignment: "center", margin: [0, 5, 0, 5] },
+              { text: "1", alignment: "center", margin: [0, 10, 0, 10] },
               {
                 text: [
                   {
@@ -852,18 +852,18 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 7.5,
                   },
                 ],
-                margin: [0, 5, 0, 5],
+                margin: [0, 10, 0, 10],
               },
               {
                 text: invoice.duration || "-",
                 alignment: "center",
-                margin: [0, 5, 0, 5],
+                margin: [0, 10, 0, 10],
               },
               {
                 text: formatMoney(amount),
                 alignment: "right",
                 bold: true,
-                margin: [0, 5, 0, 5],
+                margin: [0, 10, 0, 10],
               },
             ],
           ],
@@ -877,8 +877,8 @@ export function createInternInvoicePdfDocument(invoice) {
           vLineColor: () => COLORS.border,
           paddingLeft: () => 10,
           paddingRight: () => 10,
-          paddingTop: () => 4,
-          paddingBottom: () => 4,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
         },
       },
       {
@@ -920,7 +920,7 @@ export function createInternInvoicePdfDocument(invoice) {
         },
         layout: cardLayout,
         fontSize: 8.5,
-        margin: [0, 0, 0, 8],
+        margin: [0, 0, 0, 18],
       },
       {
         table: {
