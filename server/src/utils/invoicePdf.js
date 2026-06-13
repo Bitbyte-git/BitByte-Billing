@@ -929,14 +929,14 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: [
-                  { text: "AUTHORIZED SIGNATORY", style: "sectionTitle", margin: [0, 0, 0, 14] },
+                  { text: "AUTHORIZED SIGNATORY", style: "sectionTitle", margin: [0, 0, 0, 34] },
                   {
                     canvas: [
                       {
                         type: "line",
                         x1: 0,
                         y1: 0,
-                        x2: 140,
+                        x2: 170,
                         y2: 0,
                         lineWidth: 0.7,
                         lineColor: COLORS.navy,
@@ -959,13 +959,13 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: COLORS.blue,
                   },
                 ],
-                margin: [14, 8, 14, 8],
+                margin: [14, 10, 14, 14],
               },
             ],
           ],
         },
         layout: cardLayout,
-        margin: [0, 0, 0, 8],
+        margin: [0, 0, 0, 12],
       },
       {
         table: {
