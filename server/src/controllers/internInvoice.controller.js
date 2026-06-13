@@ -9,6 +9,22 @@ import { syncGoogleFormInterns } from '../services/googleFormInternService.js';
 import { recordAudit } from '../services/workflowService.js';
 import { createInternInvoicePdfDocument } from '../utils/invoicePdf.js';
 
+function publicInternPayload(invoice) {
+  return {
+    internId: invoice.internId || '-',
+    invoiceId: invoice.invoiceId || '-',
+    employeeName: invoice.employeeName || '-',
+    email: invoice.email || '',
+    collegeName: invoice.collegeName || '-',
+    department: invoice.courseMajor || '-',
+    passedOut: invoice.passedOut || '-',
+    position: invoice.position || '-',
+    duration: invoice.duration || '-',
+    invoiceDate: invoice.invoiceDate,
+    status: invoice.invoiceId ? 'Generated' : 'Draft'
+  };
+}
+
 export async function listInternInvoices(_req, res, next) {
   try {
     res.json(await InternInvoice.find().populate('createdBy', 'name email role').sort({ createdAt: -1 }));
@@ -22,6 +38,23 @@ export async function getInternInvoice(req, res, next) {
     const invoice = await InternInvoice.findById(req.params.id).populate('createdBy', 'name email role');
     if (!invoice) return res.status(404).json({ message: 'Intern invoice not found' });
     res.json(invoice);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getPublicInternInvoice(req, res, next) {
+  try {
+    const key = String(req.params.id || '').trim();
+    const invoice = await InternInvoice.findOne({
+      $or: [
+        { _id: key.match(/^[a-f\d]{24}$/i) ? key : undefined },
+        { invoiceId: key },
+        { internId: key }
+      ].filter((query) => Object.values(query)[0])
+    });
+    if (!invoice) return res.status(404).json({ message: 'Intern invoice verification not found' });
+    res.json(publicInternPayload(invoice));
   } catch (err) {
     next(err);
   }

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 import PdfPrinter from "pdfmake";
+import QRCode from "qrcode";
 import { fileURLToPath } from "url";
 import { getSacCode } from "./sacCodes.js";
 
@@ -52,6 +53,31 @@ const COMPANY = {
   address: ["2nd Floor, Raja Complex", "Salem, Tamil Nadu - 636302", "India"],
   gstin: process.env.COMPANY_GSTIN || "",
 };
+
+function normalizeAbsoluteUrl(value) {
+  const trimmed = String(value || "").trim().replace(/\/+$/, "");
+  if (!trimmed) return "https://bit-byte-billing-client.vercel.app";
+  return /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function publicInternInvoiceUrl(invoice) {
+  const baseUrl = normalizeAbsoluteUrl(process.env.CLIENT_URL || process.env.APP_URL);
+  const publicId = invoice._id || invoice.id || invoice.invoiceId || invoice.internId;
+  return `${baseUrl}/public/intern-invoice/${encodeURIComponent(String(publicId || ""))}`;
+}
+
+function qrSvg(value) {
+  const qr = QRCode.create(value, { errorCorrectionLevel: "M", margin: 1 });
+  const size = qr.modules.size;
+  const cells = qr.modules.data;
+  const rects = [];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (cells[y * size + x]) rects.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#07111f">${rects.join("")}</g></svg>`;
+}
 
 export function enrichInvoiceItem(item) {
   const serviceName = item.service || item.subService || "";
@@ -607,6 +633,7 @@ export function createInternInvoicePdfDocument(invoice) {
   const termsText =
     invoice.termsAndConditions ||
     "This amount is not refundable. You can get it as a service from Bit Byte Technologies.";
+  const publicUrl = publicInternInvoiceUrl(invoice);
   const detailCell = (label, value, options = {}) => ({
     stack: [
       { text: label, style: "label" },
@@ -971,7 +998,7 @@ export function createInternInvoicePdfDocument(invoice) {
       },
       {
         table: {
-          widths: ["*"],
+          widths: ["*", 116],
           body: [
             [
               {
@@ -990,6 +1017,20 @@ export function createInternInvoicePdfDocument(invoice) {
                   },
                 ],
                 margin: [14, 14, 14, 14],
+              },
+              {
+                stack: [
+                  {
+                    text: "Scan to verify intern details",
+                    alignment: "center",
+                    fontSize: 7.5,
+                    bold: true,
+                    color: "#334155",
+                    margin: [0, 0, 0, 6],
+                  },
+                  { svg: qrSvg(publicUrl), width: 78, alignment: "center" },
+                ],
+                margin: [8, 10, 8, 10],
               },
             ],
           ],

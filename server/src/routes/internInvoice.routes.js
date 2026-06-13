@@ -4,6 +4,7 @@ import {
   deleteInternInvoice,
   generateInternInvoice,
   getInternInvoice,
+  getPublicInternInvoice,
   internInvoicePdf,
   listInternInvoices,
   sendInternInvoiceEmail,
@@ -13,6 +14,8 @@ import {
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
+
+router.get('/public/:id', getPublicInternInvoice);
 
 router.use(authenticate, authorize('Admin', 'Accountant'));
 router.get('/', listInternInvoices);
