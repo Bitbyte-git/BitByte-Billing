@@ -638,24 +638,10 @@ export function createInternInvoicePdfDocument(invoice) {
     green: "#6BCB2D",
     navy: "#0F172A",
     text: "#111827",
-    muted: "#64748B",
-    border: "#E5E7EB",
-    softBorder: "#D7E3F0",
-    bg: "#F8FBFF",
+    muted: "#4B5563",
+    border: "#D9DEE7",
+    bg: "#F8FAFC",
     panel: "#F8FAFC",
-  };
-  const gradientStrip = (height = 5) =>
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 539 ${height}"><rect x="0" y="0" width="108" height="${height}" fill="#0F7CEB"/><rect x="108" y="0" width="108" height="${height}" fill="#1286E7"/><rect x="216" y="0" width="108" height="${height}" fill="#179BD6"/><rect x="324" y="0" width="108" height="${height}" fill="#31B98A"/><rect x="432" y="0" width="107" height="${height}" fill="#6BCB2D"/></svg>`;
-  const iconSvg = (type, color = COLORS.blue, fill = "#EEF6FF") => {
-    const paths = {
-      user: '<circle cx="12" cy="8" r="3.1"/><path d="M5.8 19c.7-3.1 3-5 6.2-5s5.5 1.9 6.2 5"/>',
-      invoice: '<path d="M8 5h7l3 3v11H8z"/><path d="M15 5v4h3"/><path d="M10 12h6M10 15h5"/>',
-      location: '<path d="M12 21s6-5.1 6-10a6 6 0 0 0-12 0c0 4.9 6 10 6 10z"/><circle cx="12" cy="11" r="2"/>',
-      shield: '<path d="M12 3l7 3v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-5"/>',
-      summary: '<path d="M6 5h12v14H6z"/><path d="M9 9h6M9 13h3M14 13h1M9 16h3M14 16h1"/>',
-      heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
-    };
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="${fill}"/><g fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[type] || paths.invoice}</g></svg>`;
   };
   const detailCell = (label, value, options = {}) => ({
     stack: [
@@ -665,24 +651,22 @@ export function createInternInvoicePdfDocument(invoice) {
     fillColor: options.fillColor,
     margin: options.margin || [0, 0, 0, 0],
   });
-  const sectionHeaderCell = (label, icon) => ({
-    columns: [
-      { svg: iconSvg(icon, "#FFFFFF", COLORS.navy), width: 22 },
-      { text: "", width: 10 },
-      { text: label, style: "sectionTitle", margin: [0, 4, 0, 0] },
-    ],
+  const sectionHeaderCell = (label) => ({
+    text: label,
+    style: "sectionTitle",
+    colSpan: 2,
     fillColor: "#FFFFFF",
     margin: [0, 0, 0, 0],
   });
   const detailTableLayout = {
     hLineWidth: () => 0.6,
     vLineWidth: () => 0.6,
-    hLineColor: () => COLORS.softBorder,
-    vLineColor: () => COLORS.softBorder,
-    paddingLeft: () => 10,
-    paddingRight: () => 10,
-    paddingTop: () => 8,
-    paddingBottom: () => 8,
+    hLineColor: () => COLORS.border,
+    vLineColor: () => COLORS.border,
+    paddingLeft: () => 9,
+    paddingRight: () => 9,
+    paddingTop: () => 5,
+    paddingBottom: () => 5,
   };
   const summaryRow = (label, value, options = {}) => [
     {
@@ -709,35 +693,50 @@ export function createInternInvoicePdfDocument(invoice) {
     paddingTop: () => 0,
     paddingBottom: () => 0,
   };
+  const sectionTable = (title, rows) => ({
+    table: {
+      widths: ["*", "*"],
+      body: [
+        [{ ...sectionHeaderCell(title), colSpan: 2 }, {}],
+        ...rows,
+      ],
+    },
+    layout: detailTableLayout,
+  });
 
   const docDefinition = {
     pageSize: "A4",
-    pageMargins: [28, 24, 28, 36],
+    pageMargins: [24, 18, 24, 30],
     content: [
-      { svg: gradientStrip(5), width: 539, margin: [0, 0, 0, 0] },
+      {
+        canvas: [
+          { type: "line", x1: 0, y1: 0, x2: 269.5, y2: 0, lineWidth: 2, lineColor: COLORS.blue },
+          { type: "line", x1: 269.5, y1: 0, x2: 539, y2: 0, lineWidth: 2, lineColor: COLORS.green },
+        ],
+        margin: [0, 0, 0, 0],
+      },
       {
         table: {
-          widths: [142, "*"],
+          widths: [138, "*"],
           body: [
             [
               {
                 stack: companyLogo
-                  ? [{ image: companyLogo, width: 126, alignment: "center" }]
+                  ? [{ image: companyLogo, width: 116, alignment: "center" }]
                   : [{ text: COMPANY.name, alignment: "center", bold: true, color: COLORS.blue }],
                 alignment: "center",
                 fillColor: COLORS.bg,
-                margin: [0, 18, 0, 18],
+                margin: [0, 10, 0, 10],
               },
               {
                 stack: [
                   {
                     text: [
                       { text: "Bit Byte", color: COLORS.blue },
-                      { text: "\nTechnologies", color: COLORS.green },
+                      { text: " Technologies", color: COLORS.green },
                     ],
                     bold: true,
-                    fontSize: 34,
-                    lineHeight: 0.88,
+                    fontSize: 27,
                     margin: [0, 0, 0, 7],
                   },
                   { text: COMPANY.office, fontSize: 10.5, bold: true, color: "#064E9B", margin: [0, 0, 0, 2] },
@@ -746,7 +745,7 @@ export function createInternInvoicePdfDocument(invoice) {
                   { text: `Udyam ID : ${COMPANY.udyamId}`, fontSize: 8.5, color: COLORS.navy },
                 ],
                 fillColor: COLORS.bg,
-                margin: [20, 12, 0, 13],
+                margin: [18, 8, 0, 9],
               },
             ],
           ],
@@ -754,8 +753,8 @@ export function createInternInvoicePdfDocument(invoice) {
         layout: {
           hLineWidth: () => 0.6,
           vLineWidth: (lineIndex) => (lineIndex === 1 ? 0.8 : 0.6),
-          hLineColor: () => COLORS.softBorder,
-          vLineColor: () => COLORS.softBorder,
+          hLineColor: () => COLORS.border,
+          vLineColor: () => COLORS.border,
           paddingLeft: () => 12,
           paddingRight: () => 12,
           paddingTop: () => 0,
@@ -764,45 +763,27 @@ export function createInternInvoicePdfDocument(invoice) {
         margin: [0, 0, 0, 9],
       },
       {
-        table: {
-          widths: ["*", "*", "*", "*"],
-          body: [
-            [
-              { ...sectionHeaderCell("Intern Details", "user"), colSpan: 2 },
-              {},
-              { ...sectionHeaderCell("Invoice & Payment Details", "invoice"), colSpan: 2 },
-              {},
-            ],
-            [
-              detailCell("INTERN ID", invoice.internId),
-              detailCell("INTERN NAME", invoice.employeeName),
-              detailCell("INVOICE DT", formatDate(invoice.invoiceDate)),
-              detailCell("INVOICE ID", invoice.invoiceId),
-            ],
-            [
-              detailCell("E-MAIL", invoice.email),
-              detailCell("PHONE", invoice.phone),
-              detailCell("PAYMENT ID", invoice.paymentId),
-              detailCell("PAYMENT STATUS", paymentStatus, {
-                color: invoice.paymentReceived ? "#16A34A" : "#B45309",
-              }),
-            ],
-            [
-              detailCell("COLLEGE", invoice.collegeName),
-              detailCell("DEPARTMENT", invoice.courseMajor),
-              detailCell("GENERATED BY", generatedBy),
-              detailCell("BILLING TYPE", "Internship"),
-            ],
-            [
-              detailCell("PASSED OUT", invoice.passedOut),
-              detailCell("ADDRESS REF", invoice.address ? "Available below" : "-"),
-              { text: "", colSpan: 2 },
-              {},
-            ],
-          ],
-        },
-        layout: detailTableLayout,
-        margin: [0, 0, 0, 9],
+        columns: [
+          {
+            width: "*",
+            ...sectionTable("INTERN DETAILS", [
+              [detailCell("INTERN ID", invoice.internId), detailCell("INTERN NAME", invoice.employeeName)],
+              [detailCell("E-MAIL", invoice.email), detailCell("PHONE", invoice.phone)],
+              [detailCell("COLLEGE", invoice.collegeName), detailCell("DEPARTMENT", invoice.courseMajor)],
+              [detailCell("PASSED OUT", invoice.passedOut), detailCell("ADDRESS REF", invoice.address ? "Available below" : "-")],
+            ]),
+          },
+          {
+            width: "*",
+            ...sectionTable("INVOICE & PAYMENT DETAILS", [
+              [detailCell("INVOICE DT", formatDate(invoice.invoiceDate)), detailCell("INVOICE ID", invoice.invoiceId)],
+              [detailCell("PAYMENT ID", invoice.paymentId), detailCell("PAYMENT STATUS", paymentStatus)],
+              [detailCell("GENERATED BY", generatedBy), detailCell("BILLING TYPE", "Internship")],
+            ]),
+          },
+        ],
+        columnGap: 12,
+        margin: [0, 0, 0, 8],
       },
       {
         table: {
@@ -810,17 +791,12 @@ export function createInternInvoicePdfDocument(invoice) {
           body: [
             [
               {
-                columns: [
-                  { svg: iconSvg("location", "#FFFFFF", COLORS.blue), width: 22, margin: [0, 2, 10, 0] },
+                stack: [
+                  { text: "ADDRESS OF INTERN", style: "sectionTitle" },
                   {
-                    stack: [
-                      { text: "ADDRESS OF INTERN", style: "label" },
-                      {
-                        text: invoice.address || "-",
-                        style: "value",
-                        margin: [0, 4, 0, 0],
-                      },
-                    ],
+                    text: invoice.address || "-",
+                    style: "value",
+                    margin: [0, 6, 0, 0],
                   },
                 ],
                 fillColor: COLORS.panel,
@@ -831,21 +807,27 @@ export function createInternInvoicePdfDocument(invoice) {
         layout: {
           hLineWidth: () => 0.6,
           vLineWidth: () => 0.6,
-          hLineColor: () => COLORS.softBorder,
-          vLineColor: () => COLORS.softBorder,
+          hLineColor: () => COLORS.border,
+          vLineColor: () => COLORS.border,
           paddingLeft: () => 10,
           paddingRight: () => 10,
-          paddingTop: () => 7,
-          paddingBottom: () => 7,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
         },
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 8],
       },
       {
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 8],
         table: {
-          headerRows: 1,
+          headerRows: 2,
           widths: [36, "*", 92, 88],
           body: [
+            [
+              { text: "PAYMENT DETAILS", style: "sectionTitle", colSpan: 4, fillColor: "#FFFFFF" },
+              {},
+              {},
+              {},
+            ],
             [
               { text: "S.No", style: "tableHeader", alignment: "center" },
               { text: "Description", style: "tableHeader" },
@@ -888,56 +870,39 @@ export function createInternInvoicePdfDocument(invoice) {
         },
         layout: {
           fillColor: (rowIndex) =>
-            rowIndex === 0 ? COLORS.navy : "#FFFFFF",
+            rowIndex === 1 ? COLORS.navy : "#FFFFFF",
           hLineWidth: () => 0.6,
           vLineWidth: () => 0.6,
-          hLineColor: () => COLORS.softBorder,
-          vLineColor: () => COLORS.softBorder,
+          hLineColor: () => COLORS.border,
+          vLineColor: () => COLORS.border,
           paddingLeft: () => 10,
           paddingRight: () => 10,
-          paddingTop: () => 5,
-          paddingBottom: () => 5,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
         },
       },
       {
-        columns: [
-          {
-            width: "*",
-            columns: [
-              { svg: iconSvg("shield", COLORS.blue, "#EEF6FF"), width: 26, margin: [0, 1, 10, 0] },
+        table: {
+          widths: ["*", "*"],
+          body: [
+            [
               {
                 stack: [
-                  { text: "Terms & Conditions", style: "boxTitle" },
-                  { text: termsText, margin: [0, 7, 0, 0], lineHeight: 1.2 },
-                  {
-                    text: "This is a computer-generated invoice.",
-                    margin: [0, 7, 0, 0],
-                    color: COLORS.muted,
-                  },
+                  { text: "TERMS & CONDITIONS", style: "sectionTitle" },
+                  { text: termsText, margin: [0, 9, 0, 0], lineHeight: 1.25 },
+                  { text: "This is a computer-generated invoice.", margin: [0, 8, 0, 0], color: COLORS.muted },
                 ],
+                margin: [10, 8, 10, 8],
               },
-            ],
-            margin: [12, 8, 12, 8],
-          },
-          {
-            width: 1,
-            canvas: [
-              { type: "line", x1: 0, y1: 0, x2: 0, y2: 84, lineWidth: 0.6, lineColor: COLORS.softBorder },
-            ],
-          },
-          {
-            width: 204,
-            columns: [
-              { svg: iconSvg("summary", COLORS.green, "#ECFDF5"), width: 26, margin: [0, 1, 10, 0] },
               {
                 stack: [
-                  { text: "Invoice Summary", style: "boxTitle" },
+                  { text: "INVOICE SUMMARY", style: "sectionTitle" },
                   {
                     table: {
-                      widths: ["*", 86],
+                      widths: ["*", 94],
                       body: [
                         summaryRow("Service Amount", amount),
-                        summaryRow("Amount Paid", invoice.paymentReceived ? amount : 0, { bold: true }),
+                        summaryRow("Amount Paid", invoice.paymentReceived ? amount : 0),
                         summaryRow("Balance", invoice.paymentReceived ? 0 : amount, {
                           bold: true,
                           color: "#16A34A",
@@ -945,15 +910,15 @@ export function createInternInvoicePdfDocument(invoice) {
                       ],
                     },
                     layout: "noBorders",
-                    margin: [0, 7, 0, 0],
+                    margin: [0, 9, 0, 0],
                   },
                 ],
+                margin: [10, 8, 10, 8],
               },
             ],
-            margin: [12, 8, 12, 8],
-          },
-        ],
-        columnGap: 10,
+          ],
+        },
+        layout: cardLayout,
         fontSize: 8.5,
         margin: [0, 0, 0, 8],
       },
@@ -964,7 +929,7 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: [
-                  { text: "\n\n", margin: [0, 0, 0, 2] },
+                  { text: "AUTHORIZED SIGNATORY", style: "sectionTitle", margin: [0, 0, 0, 14] },
                   {
                     canvas: [
                       {
@@ -994,7 +959,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: COLORS.blue,
                   },
                 ],
-                margin: [14, 9, 14, 9],
+                margin: [14, 8, 14, 8],
               },
             ],
           ],
@@ -1008,29 +973,15 @@ export function createInternInvoicePdfDocument(invoice) {
           body: [
             [
               {
-                columns: [
-                  { svg: iconSvg("heart", COLORS.green, "#EEF6FF"), width: 32, margin: [0, 0, 12, 0] },
-                  {
-                    stack: [
-                      {
-                        text: "Thank you",
-                        fontSize: 15,
-                        bold: true,
-                        color: COLORS.navy,
-                      },
-                      {
-                        text: "for choosing Bit Byte Technologies.",
-                        fontSize: 8.5,
-                        color: COLORS.muted,
-                        margin: [0, 4, 0, 0],
-                      },
-                    ],
-                  },
+                stack: [
+                  { text: "Thank you", fontSize: 14, bold: true, color: COLORS.navy },
+                  { text: "for choosing Bit Byte Technologies.", fontSize: 8.5, color: COLORS.muted, margin: [0, 5, 0, 0] },
                 ],
-                margin: [14, 12, 14, 12],
+                margin: [14, 9, 14, 9],
               },
               {
                 stack: [
+                  { text: "QR VERIFICATION", style: "sectionTitle", alignment: "center", margin: [0, 0, 0, 4] },
                   {
                     text: "Scan to verify intern details",
                     alignment: "center",
@@ -1039,9 +990,9 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: COLORS.navy,
                     margin: [0, 0, 0, 6],
                   },
-                  { svg: qrSvg(publicUrl), width: 68, alignment: "center" },
+                  { svg: qrSvg(publicUrl), width: 56, alignment: "center" },
                 ],
-                margin: [8, 8, 8, 8],
+                margin: [8, 6, 8, 6],
               },
             ],
           ],
@@ -1049,10 +1000,9 @@ export function createInternInvoicePdfDocument(invoice) {
         layout: cardLayout,
         margin: [0, 0, 0, 0],
       },
-      { svg: gradientStrip(5), width: 539, margin: [0, 8, 0, 0] },
     ],
     footer: () => ({
-      margin: [28, 0, 28, 14],
+      margin: [24, 0, 24, 10],
       stack: [
         {
           canvas: [
@@ -1073,14 +1023,14 @@ export function createInternInvoicePdfDocument(invoice) {
               text: "Intern invoice generated by Bit Byte Technologies billing system.",
               fontSize: 7.5,
               color: COLORS.muted,
-              margin: [0, 10, 0, 0],
+              margin: [0, 7, 0, 0],
             },
             {
               text: `Generated on ${formatDateTime(invoice.createdAt || new Date())}`,
               alignment: "right",
               fontSize: 7.5,
               color: COLORS.muted,
-              margin: [0, 10, 0, 0],
+              margin: [0, 7, 0, 0],
             },
           ],
         },
@@ -1089,7 +1039,7 @@ export function createInternInvoicePdfDocument(invoice) {
     styles: {
       label: {
         fontSize: 7.3,
-        color: "#1E40AF",
+        color: COLORS.muted,
         bold: true,
         characterSpacing: 0.4,
       },
@@ -1110,7 +1060,7 @@ export function createInternInvoicePdfDocument(invoice) {
         color: COLORS.navy,
       },
       sectionTitle: {
-        fontSize: 10.5,
+        fontSize: 10,
         bold: true,
         color: COLORS.navy,
         margin: [0, 0, 0, 10],
