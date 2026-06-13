@@ -1026,6 +1026,14 @@ export function createInternInvoicePdfDocument(invoice) {
               margin: [0, 7, 0, 0],
             },
             {
+              stack: [
+                { text: "Email Id : reachus@bitbytetech.org", fontSize: 7.5, color: COLORS.navy },
+                { text: "Contact No : 9943743136", fontSize: 7.5, color: COLORS.navy, margin: [0, 2, 0, 0] },
+              ],
+              alignment: "center",
+              margin: [0, 6, 0, 0],
+            },
+            {
               text: `Generated on ${formatDateTime(invoice.createdAt || new Date())}`,
               alignment: "right",
               fontSize: 7.5,
