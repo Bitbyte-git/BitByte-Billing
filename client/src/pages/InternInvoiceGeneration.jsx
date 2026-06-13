@@ -4,16 +4,20 @@ import api, { downloadInternInvoicePdf } from '../api.js';
 import { currency, formatDate, recordId } from '../utils/format.js';
 
 const initialForm = {
+  internId: '',
   employeeName: '',
   collegeName: '',
+  courseMajor: '',
+  passedOut: '',
   address: '',
   phone: '',
   email: '',
   position: '',
   duration: '',
   amount: '',
+  paymentId: '',
   paymentReceived: true,
-  termsAndConditions: 'This invoice is generated after confirming internship payment.'
+  termsAndConditions: 'This amount is not refundable. You can get it as a service from Bit Byte Technologies.'
 };
 
 export default function InternInvoiceGeneration() {
@@ -96,10 +100,25 @@ export default function InternInvoiceGeneration() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-        <form onSubmit={generate} className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+        <form onSubmit={generate} className="overflow-hidden rounded-2xl border border-line bg-white shadow-premium">
+          <div className="border-b border-line bg-gradient-to-r from-slate-950 via-slate-900 to-purple p-6 text-white">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/60">Premium PDF Details</p>
+            <h2 className="mt-2 text-2xl font-black">Corporate Intern Billing Invoice</h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-white/70">Capture all fields required for the enhanced MNC-style PDF invoice.</p>
+          </div>
+          <div className="p-6">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-bold text-slate-600">
-              Employee name
+              Intern ID optional
+              <input
+                value={form.internId}
+                onChange={(event) => updateField('internId', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="Auto generated if empty"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Intern name
               <input
                 value={form.employeeName}
                 onChange={(event) => updateField('employeeName', event.target.value)}
@@ -108,11 +127,39 @@ export default function InternInvoiceGeneration() {
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
-              College name optional
+              E-mail
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => updateField('email', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="Used for invoice email"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              College
               <input
                 value={form.collegeName}
                 onChange={(event) => updateField('collegeName', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Department
+              <input
+                value={form.courseMajor}
+                onChange={(event) => updateField('courseMajor', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="CSE / BCA / MBA"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Passed out
+              <input
+                value={form.passedOut}
+                onChange={(event) => updateField('passedOut', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="2026"
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
@@ -125,32 +172,22 @@ export default function InternInvoiceGeneration() {
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
-              Employee email
-              <input
-                type="email"
-                value={form.email}
-                onChange={(event) => updateField('email', event.target.value)}
-                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
-                placeholder="Used for invoice email"
-              />
-            </label>
-            <label className="block text-sm font-bold text-slate-600">
-              Position
+              Description / position
               <input
                 value={form.position}
                 onChange={(event) => updateField('position', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
-                placeholder="Developer"
+                placeholder="Web Development Internship"
                 required
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
-              Duration
+              Duration in days
               <input
                 value={form.duration}
                 onChange={(event) => updateField('duration', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
-                placeholder="3 months"
+                placeholder="30 days"
                 required
               />
             </label>
@@ -164,6 +201,15 @@ export default function InternInvoiceGeneration() {
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
                 placeholder="9000"
                 required
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Payment ID
+              <input
+                value={form.paymentId}
+                onChange={(event) => updateField('paymentId', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="UPI / Razorpay / bank ref"
               />
             </label>
             <label className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-700">
@@ -219,6 +265,7 @@ export default function InternInvoiceGeneration() {
               <Mail size={18} /> {sending ? 'Sending...' : 'Send Email'}
             </button>
           </div>
+          </div>
         </form>
 
         <aside className="rounded-2xl border border-line bg-white p-6 shadow-premium">
@@ -229,6 +276,7 @@ export default function InternInvoiceGeneration() {
               <p className="text-xs font-bold uppercase text-slate-400">Employee</p>
               <p className="font-bold text-slate-900">{invoice?.employeeName || form.employeeName || '-'}</p>
               <p className="text-slate-500">{invoice?.collegeName || form.collegeName || 'College optional'}</p>
+              <p className="text-slate-500">{invoice?.courseMajor || form.courseMajor || 'Department optional'}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-surface p-3">
@@ -238,6 +286,16 @@ export default function InternInvoiceGeneration() {
               <div className="rounded-xl bg-surface p-3">
                 <p className="text-xs font-bold uppercase text-slate-400">Duration</p>
                 <p className="font-bold">{invoice?.duration || form.duration || '-'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-surface p-3">
+                <p className="text-xs font-bold uppercase text-slate-400">Passed out</p>
+                <p className="font-bold">{invoice?.passedOut || form.passedOut || '-'}</p>
+              </div>
+              <div className="rounded-xl bg-surface p-3">
+                <p className="text-xs font-bold uppercase text-slate-400">Payment ID</p>
+                <p className="break-words font-bold">{invoice?.paymentId || form.paymentId || '-'}</p>
               </div>
             </div>
             <div className="rounded-xl bg-purple/5 p-4">

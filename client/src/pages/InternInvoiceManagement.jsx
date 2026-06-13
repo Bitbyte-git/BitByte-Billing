@@ -10,11 +10,13 @@ const emptyForm = {
   email: '',
   collegeName: '',
   courseMajor: '',
+  passedOut: '',
   address: '',
   phone: '',
   position: '',
   duration: '',
   amount: '',
+  paymentId: '',
   paymentStatus: 'Paid'
 };
 
@@ -25,11 +27,13 @@ function formFromRecord(record) {
     email: record.email || '',
     collegeName: record.collegeName || '',
     courseMajor: record.courseMajor || '',
+    passedOut: record.passedOut || '',
     address: record.address || '',
     phone: record.phone || record.phoneNo || '',
     position: record.position || '',
     duration: record.duration || '',
     amount: record.amount ? String(record.amount) : '',
+    paymentId: record.paymentId || '',
     paymentStatus: record.paymentReceived || record.paymentStatus === 'Paid' ? 'Paid' : 'Pending'
   };
 }
@@ -306,12 +310,21 @@ export default function InternInvoiceManagement() {
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
-              Course major
+              Department
               <input
                 value={form.courseMajor}
                 onChange={(event) => updateForm('courseMajor', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
                 placeholder="CSE / BCA / MBA"
+              />
+            </label>
+            <label className="block text-sm font-bold text-slate-600">
+              Passed out
+              <input
+                value={form.passedOut}
+                onChange={(event) => updateForm('passedOut', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="2026"
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">
@@ -366,6 +379,15 @@ export default function InternInvoiceManagement() {
                 />
               </label>
             </div>
+            <label className="block text-sm font-bold text-slate-600">
+              Payment ID
+              <input
+                value={form.paymentId}
+                onChange={(event) => updateForm('paymentId', event.target.value)}
+                className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
+                placeholder="UPI / Razorpay / bank ref"
+              />
+            </label>
             <label className="block text-sm font-bold text-slate-600">
               Payment status
               <select
@@ -446,6 +468,7 @@ export default function InternInvoiceManagement() {
                       <p className="font-semibold">{record.position}</p>
                       <p className="text-xs text-slate-500">{record.courseMajor || record.duration}</p>
                       {record.courseMajor && <p className="text-xs text-slate-400">{record.duration || 'Duration pending'}</p>}
+                      {record.passedOut && <p className="text-xs text-slate-400">Passed out: {record.passedOut}</p>}
                     </td>
                     <td className="p-3 font-bold">{currency(record.amount)}</td>
                     <td className="p-3"><StatusBadge status={record.paymentReceived || record.paymentStatus === 'Paid' ? 'Paid' : 'Pending'} /></td>

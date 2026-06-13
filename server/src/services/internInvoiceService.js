@@ -13,15 +13,17 @@ export function normalizeInternInvoiceInput(body = {}) {
     internId: clean(body.internId),
     employeeName: clean(body.employeeName),
     collegeName: clean(body.collegeName),
-    courseMajor: clean(body.courseMajor),
+    courseMajor: clean(body.courseMajor || body.department),
+    passedOut: clean(body.passedOut),
     address: clean(body.address),
     phone: clean(body.phone),
     email: clean(body.email).toLowerCase(),
     position: clean(body.position),
     duration: clean(body.duration),
     amount,
+    paymentId: clean(body.paymentId),
     paymentReceived: body.paymentReceived === true || body.paymentStatus === 'Paid',
-    termsAndConditions: clean(body.termsAndConditions) || undefined
+    termsAndConditions: clean(body.termsAndConditions) || 'This amount is not refundable. You can get it as a service from Bit Byte Technologies.'
   };
 }
 

@@ -478,90 +478,141 @@ export function createInternInvoicePdfDocument(invoice) {
   };
   const printer = new PdfPrinter(fonts);
   const amount = Number(invoice.amount || 0);
+  const paymentStatus = invoice.paymentReceived ? "Paid" : "Pending";
+  const generatedBy = invoice.createdBy?.name || invoice.createdBy?.email || "BBTech Billing Team";
+  const termsText = invoice.termsAndConditions || "This amount is not refundable. You can get it as a service from Bit Byte Technologies.";
   const detailCell = (label, value) => ({
     stack: [
       { text: label, style: "label" },
       { text: value || "-", style: "value" },
     ],
-    margin: [0, 0, 0, 12],
+    margin: [0, 0, 0, 10],
   });
-  const totalRow = (label, value, options = {}) => [
-    { text: label, bold: options.bold || false, color: options.color || "#334155" },
+  const summaryRow = (label, value, options = {}) => [
+    { text: label, bold: options.bold || false, color: options.color || "#475569", margin: [0, 4, 0, 4] },
     {
       text: `Rs ${formatMoney(value)}`,
       alignment: "right",
       bold: options.bold || false,
       color: options.color || "#0f172a",
+      margin: [0, 4, 0, 4],
     },
   ];
 
   const docDefinition = {
     pageSize: "A4",
-    pageMargins: [42, 38, 42, 58],
+    pageMargins: [36, 36, 36, 56],
     content: [
       {
-        columns: [
-          { text: formatDateTime(invoice.createdAt || invoice.invoiceDate), fontSize: 7.5, color: "#0f172a" },
-          { text: invoice.invoiceId || "-", alignment: "right", fontSize: 7.5, color: "#0f172a", bold: true },
-        ],
-        margin: [0, 0, 0, 24],
+        table: {
+          widths: ["*", 180],
+          body: [[
+            {
+              stack: [
+                {
+                  columns: [
+                    ...(companyLogo ? [{ image: companyLogo, width: 44, margin: [0, 2, 12, 0] }] : []),
+                    {
+                      width: "*",
+                      stack: [
+                        { text: COMPANY.name, bold: true, fontSize: 18, color: "#ffffff" },
+                        { text: COMPANY.office, fontSize: 9, color: "#93c5fd", margin: [0, 3, 0, 2] },
+                        ...COMPANY.address.map((line) => ({ text: line, fontSize: 8.3, color: "#cbd5e1" })),
+                        ...(COMPANY.gstin ? [{ text: `GSTIN: ${COMPANY.gstin}`, fontSize: 8.3, color: "#cbd5e1" }] : []),
+                      ],
+                    },
+                  ],
+                },
+              ],
+              fillColor: "#07111f",
+            },
+            {
+              stack: [
+                { text: "INTERN BILLING INVOICE", alignment: "right", fontSize: 8, color: "#93c5fd", bold: true },
+                { text: invoice.invoiceId || "DRAFT", alignment: "right", fontSize: 17, color: "#ffffff", bold: true, margin: [0, 8, 0, 8] },
+                { text: `Invoice Dt: ${formatDate(invoice.invoiceDate)}`, alignment: "right", fontSize: 8, color: "#cbd5e1" },
+                { text: `Generated: ${formatDateTime(invoice.createdAt || new Date())}`, alignment: "right", fontSize: 7.5, color: "#94a3b8", margin: [0, 3, 0, 0] },
+              ],
+              fillColor: "#07111f",
+            },
+          ]],
+        },
+        layout: {
+          hLineWidth: () => 0,
+          vLineWidth: () => 0,
+          paddingLeft: () => 18,
+          paddingRight: () => 18,
+          paddingTop: () => 18,
+          paddingBottom: () => 18,
+        },
+        margin: [0, 0, 0, 18],
       },
       {
         columns: [
           {
             width: "*",
-            columns: [
-              ...(companyLogo ? [{ image: companyLogo, width: 38, margin: [0, 2, 12, 0] }] : []),
+            stack: [
+              { text: "Intern Details", style: "sectionTitle" },
               {
-                width: "*",
-                stack: [
-                  { text: COMPANY.name, bold: true, fontSize: 16, color: "#a3a3a3" },
-                  { text: COMPANY.office, fontSize: 9, color: "#94a3b8", margin: [0, 3, 0, 0] },
-                  ...COMPANY.address.map((line) => ({ text: line, fontSize: 8.5, color: "#94a3b8" })),
-                  ...(COMPANY.gstin ? [{ text: `GSTIN: ${COMPANY.gstin}`, fontSize: 8.5, color: "#94a3b8" }] : []),
-                ],
+                table: {
+                  widths: ["*", "*"],
+                  body: [
+                    [detailCell("INTERN ID", invoice.internId), detailCell("INTERN NAME", invoice.employeeName)],
+                    [detailCell("E-MAIL", invoice.email), detailCell("COLLEGE", invoice.collegeName)],
+                    [detailCell("DEPARTMENT", invoice.courseMajor), detailCell("PASSED OUT", invoice.passedOut)],
+                  ],
+                },
+                layout: "noBorders",
               },
             ],
+            margin: [0, 0, 12, 0],
           },
           {
-            width: 170,
+            width: "*",
             stack: [
-              { text: "Paid Internship Invoice", alignment: "right", fontSize: 8.5, color: "#c4c4c4", bold: true },
-              { text: invoice.invoiceId || "-", alignment: "right", fontSize: 16, color: "#a3a3a3", bold: true },
+              { text: "Invoice & Payment Details", style: "sectionTitle" },
+              {
+                table: {
+                  widths: ["*", "*"],
+                  body: [
+                    [detailCell("INVOICE DT", formatDate(invoice.invoiceDate)), detailCell("INVOICE ID", invoice.invoiceId)],
+                    [detailCell("PAYMENT ID", invoice.paymentId), detailCell("PAYMENT STATUS", paymentStatus)],
+                    [detailCell("GENERATED BY", generatedBy), detailCell("PHONE", invoice.phone)],
+                  ],
+                },
+                layout: "noBorders",
+              },
             ],
-            margin: [0, 14, 0, 0],
+            margin: [12, 0, 0, 0],
           },
         ],
-        margin: [24, 0, 24, 36],
+        columnGap: 12,
+        margin: [0, 0, 0, 14],
       },
       {
         table: {
-          widths: ["*", "*"],
-          body: [
-            [
-              detailCell("EMPLOYEE NAME", invoice.employeeName),
-              detailCell("INVOICE DATE", formatDate(invoice.invoiceDate)),
-            ],
-            [
-              detailCell("EMAIL", invoice.email || "-"),
-              detailCell("PHONE", invoice.phone),
-            ],
-            [
-              detailCell("COLLEGE", invoice.collegeName || "Optional"),
-              detailCell("PAYMENT STATUS", invoice.paymentReceived ? "Paid" : "Pending"),
-            ],
-            [
-              detailCell("ADDRESS", invoice.address),
-              detailCell("GENERATED BY", invoice.createdBy?.name || "-"),
-            ],
-          ],
+          widths: ["*"],
+          body: [[
+            {
+              stack: [
+                { text: "ADDRESS OF INTERN", style: "label" },
+                { text: invoice.address || "-", style: "value", margin: [0, 3, 0, 0] },
+              ],
+              fillColor: "#f8fafc",
+            },
+          ]],
         },
-        layout: "noBorders",
-        margin: [24, 0, 24, 8],
-      },
-      {
-        canvas: [{ type: "line", x1: 0, y1: 0, x2: 511, y2: 0, lineWidth: 0.7, lineColor: "#e2e8f0" }],
-        margin: [0, 0, 0, 18],
+        layout: {
+          hLineWidth: () => 0.6,
+          vLineWidth: () => 0.6,
+          hLineColor: () => "#dbeafe",
+          vLineColor: () => "#dbeafe",
+          paddingLeft: () => 12,
+          paddingRight: () => 12,
+          paddingTop: () => 10,
+          paddingBottom: () => 10,
+        },
+        margin: [0, 0, 0, 16],
       },
       {
         margin: [0, 0, 0, 18],
@@ -571,26 +622,32 @@ export function createInternInvoicePdfDocument(invoice) {
           body: [
             [
               { text: "S.No", style: "tableHeader", alignment: "center" },
-              { text: "Designation", style: "tableHeader" },
-              { text: "Duration", style: "tableHeader", alignment: "center" },
+              { text: "Description", style: "tableHeader" },
+              { text: "Duration in Days", style: "tableHeader", alignment: "center" },
               { text: "Amount (Rs)", style: "tableHeader", alignment: "right" },
             ],
             [
               { text: "1", alignment: "center", margin: [0, 8, 0, 8] },
-              { text: invoice.position || "-", bold: true, margin: [0, 8, 0, 8] },
+              {
+                text: [
+                  { text: invoice.position || "Internship Service", bold: true },
+                  { text: "\nProfessional internship program fee", color: "#64748b", fontSize: 7.5 },
+                ],
+                margin: [0, 8, 0, 8],
+              },
               { text: invoice.duration || "-", alignment: "center", margin: [0, 8, 0, 8] },
               { text: formatMoney(amount), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
             ],
           ],
         },
         layout: {
-          fillColor: (rowIndex) => (rowIndex === 0 ? "#f8fafc" : null),
+          fillColor: (rowIndex) => (rowIndex === 0 ? "#07111f" : rowIndex % 2 === 0 ? "#f8fafc" : null),
           hLineWidth: () => 0.6,
           vLineWidth: () => 0.6,
-          hLineColor: () => "#e2e8f0",
-          vLineColor: () => "#e2e8f0",
-          paddingLeft: () => 8,
-          paddingRight: () => 8,
+          hLineColor: () => "#cbd5e1",
+          vLineColor: () => "#cbd5e1",
+          paddingLeft: () => 10,
+          paddingRight: () => 10,
           paddingTop: () => 7,
           paddingBottom: () => 7,
         },
@@ -601,10 +658,10 @@ export function createInternInvoicePdfDocument(invoice) {
             width: "*",
             stack: [
               { text: "Terms & Conditions", style: "boxTitle" },
-              { text: invoice.termsAndConditions || "This invoice is generated after confirming internship payment.", margin: [0, 8, 0, 0] },
+              { text: termsText, margin: [0, 8, 0, 0], lineHeight: 1.25 },
               { text: "This is a computer-generated invoice.", margin: [0, 8, 0, 0], color: "#64748b" },
             ],
-            margin: [12, 10, 12, 10],
+            margin: [14, 12, 14, 12],
           },
           {
             width: 180,
@@ -614,21 +671,21 @@ export function createInternInvoicePdfDocument(invoice) {
                 table: {
                   widths: ["*", 88],
                   body: [
-                    totalRow("Internship Amount", amount),
-                    totalRow("Amount Paid", amount, { bold: true }),
-                    totalRow("Balance", 0, { bold: true, color: "#15803d" }),
+                    summaryRow("Service Amount", amount),
+                    summaryRow("Amount Paid", invoice.paymentReceived ? amount : 0, { bold: true }),
+                    summaryRow("Balance", invoice.paymentReceived ? 0 : amount, { bold: true, color: invoice.paymentReceived ? "#15803d" : "#b45309" }),
                   ],
                 },
                 layout: "noBorders",
                 margin: [0, 8, 0, 0],
               },
             ],
-            margin: [12, 10, 12, 10],
+            margin: [14, 12, 14, 12],
           },
         ],
         columnGap: 14,
         fontSize: 8.5,
-        margin: [24, 0, 24, 22],
+        margin: [0, 0, 0, 20],
       },
       {
         table: {
@@ -637,17 +694,20 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: [
-                  { text: "\n\n", margin: [0, 0, 0, 6] },
-                  { text: "Employee Signature", fontSize: 10, color: "#0f172a" },
+                  { text: "Thank you", fontSize: 16, bold: true, color: "#0f172a" },
+                  { text: "for choosing Bit Byte Technologies.", fontSize: 8.5, color: "#64748b", margin: [0, 4, 0, 18] },
+                  { text: "For BBTech,", fontSize: 9, color: "#0f172a" },
                 ],
-                margin: [12, 14, 12, 14],
+                margin: [14, 14, 14, 14],
               },
               {
                 stack: [
-                  { text: "\n\n", margin: [0, 0, 0, 6] },
-                  { text: "Authorized Company Signature", fontSize: 10, color: "#0f172a" },
+                  { text: "\n\n", margin: [0, 0, 0, 2] },
+                  { canvas: [{ type: "line", x1: 0, y1: 0, x2: 150, y2: 0, lineWidth: 0.7, lineColor: "#0f172a" }], alignment: "right" },
+                  { text: "Authorized sign", alignment: "right", fontSize: 9.5, bold: true, color: "#0f172a", margin: [0, 6, 0, 0] },
+                  { text: COMPANY.name, alignment: "right", fontSize: 8, color: "#64748b" },
                 ],
-                margin: [12, 14, 12, 14],
+                margin: [14, 14, 14, 14],
               },
             ],
           ],
@@ -658,18 +718,11 @@ export function createInternInvoicePdfDocument(invoice) {
           hLineColor: () => "#e2e8f0",
           vLineColor: () => "#e2e8f0",
         },
-        margin: [24, 0, 24, 18],
-      },
-      {
-        text: "Thank you.",
-        alignment: "right",
-        bold: true,
-        color: "#0f172a",
-        margin: [24, 0, 24, 0],
+        margin: [0, 0, 0, 0],
       },
     ],
     footer: (currentPage, pageCount) => ({
-      margin: [42, 0, 42, 24],
+      margin: [36, 0, 36, 22],
       stack: [
         { canvas: [{ type: "line", x1: 0, y1: 0, x2: 511, y2: 0, lineWidth: 0.6, lineColor: "#e2e8f0" }] },
         {
@@ -677,15 +730,15 @@ export function createInternInvoicePdfDocument(invoice) {
             {
               text: "Intern invoice generated by Bit Byte Technologies billing system.",
               fontSize: 7.5,
-              color: "#0f172a",
-              margin: [24, 12, 0, 0],
+              color: "#64748b",
+              margin: [0, 10, 0, 0],
             },
             {
               text: `Generated on ${formatDate(invoice.createdAt || new Date())}`,
               alignment: "right",
               fontSize: 7.5,
-              color: "#0f172a",
-              margin: [0, 12, 24, 0],
+              color: "#64748b",
+              margin: [0, 10, 0, 0],
             },
           ],
         },
@@ -701,7 +754,7 @@ export function createInternInvoicePdfDocument(invoice) {
     styles: {
       label: {
         fontSize: 7.5,
-        color: "#334155",
+        color: "#64748b",
         bold: true,
         characterSpacing: 0.4,
       },
@@ -714,12 +767,18 @@ export function createInternInvoicePdfDocument(invoice) {
       tableHeader: {
         bold: true,
         fontSize: 7,
-        color: "#334155",
+        color: "#ffffff",
       },
       boxTitle: {
         fontSize: 9,
         bold: true,
         color: "#0f172a",
+      },
+      sectionTitle: {
+        fontSize: 10,
+        bold: true,
+        color: "#0f172a",
+        margin: [0, 0, 0, 10],
       },
     },
     defaultStyle: { font: "Roboto", fontSize: 8, color: "#0f172a" },

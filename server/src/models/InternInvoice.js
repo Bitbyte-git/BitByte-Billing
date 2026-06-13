@@ -6,6 +6,7 @@ const internInvoiceSchema = new mongoose.Schema({
   employeeName: { type: String, required: true, trim: true },
   collegeName: { type: String, trim: true },
   courseMajor: { type: String, trim: true },
+  passedOut: { type: String, trim: true },
   address: { type: String, trim: true },
   phone: { type: String, trim: true },
   email: { type: String, trim: true, lowercase: true },
@@ -13,6 +14,7 @@ const internInvoiceSchema = new mongoose.Schema({
   duration: { type: String, trim: true },
   amount: { type: Number, default: 0, min: 0 },
   invoiceDate: { type: Date, default: Date.now },
+  paymentId: { type: String, trim: true },
   paymentReceived: { type: Boolean, default: false },
   termsAndConditions: {
     type: String,
