@@ -209,7 +209,7 @@ export default function InternInvoiceGeneration() {
                 value={form.paymentId}
                 onChange={(event) => updateField('paymentId', event.target.value)}
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
-                placeholder="UPI / Razorpay / bank ref"
+                placeholder="Auto generated: BBT-INT-PAY-2026-0001"
               />
             </label>
             <label className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-700">

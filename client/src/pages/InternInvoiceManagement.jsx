@@ -484,7 +484,7 @@ export default function InternInvoiceManagement() {
                   updateForm("paymentId", event.target.value)
                 }
                 className="mt-2 w-full rounded-xl border border-line px-4 py-3 outline-purple"
-                placeholder="UPI / Razorpay / bank ref"
+                placeholder="Auto generated: BBT-INT-PAY-2026-0001"
               />
             </label>
             <label className="block text-sm font-bold text-slate-600">

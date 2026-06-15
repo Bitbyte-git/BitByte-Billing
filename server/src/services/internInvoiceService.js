@@ -1,10 +1,24 @@
 import InternInvoice from '../models/InternInvoice.js';
 import { sendNotificationEmail } from '../utils/email.js';
 import { internInvoicePdfBuffer } from '../utils/invoicePdf.js';
-import { nextInternId, nextInternInvoiceId } from '../utils/idGenerator.js';
+import { nextInternId, nextInternInvoiceId, nextInternPaymentId } from '../utils/idGenerator.js';
 
 function clean(value) {
   return String(value || '').trim();
+}
+
+const INTERN_PAYMENT_ID_PATTERN = /^BBT-INT-PAY-\d{4}-\d{4}$/;
+
+function isInternPaymentId(value) {
+  return INTERN_PAYMENT_ID_PATTERN.test(clean(value));
+}
+
+export async function ensureInternPaymentId(invoice) {
+  if (!isInternPaymentId(invoice.paymentId)) {
+    invoice.paymentId = await nextInternPaymentId();
+    await invoice.save();
+  }
+  return invoice;
 }
 
 export function normalizeInternInvoiceInput(body = {}) {
@@ -63,6 +77,11 @@ export async function createInternInvoice(body, user) {
     ...payload,
     internId: payload.internId || await nextInternId(),
     invoiceId: isDraft ? undefined : await nextInternInvoiceId(),
+    paymentId: isDraft
+      ? payload.paymentId
+      : isInternPaymentId(payload.paymentId)
+        ? payload.paymentId
+        : await nextInternPaymentId(),
     createdBy: user?._id
   });
 
@@ -85,6 +104,12 @@ export async function updateInternInvoice(invoiceId, body) {
     validateInternDraftPayload(payload);
   }
 
+  if (shouldValidateInvoice && !isInternPaymentId(payload.paymentId)) {
+    payload.paymentId = isInternPaymentId(existing.paymentId)
+      ? existing.paymentId
+      : await nextInternPaymentId();
+  }
+
   Object.assign(existing, payload);
   await existing.save();
   return existing.populate('createdBy', 'name email role');
@@ -99,6 +124,7 @@ export async function generateInternInvoiceDocument(invoiceId) {
 
   if (!invoice.internId) invoice.internId = await nextInternId();
   if (!invoice.invoiceId) invoice.invoiceId = await nextInternInvoiceId();
+  if (!isInternPaymentId(invoice.paymentId)) invoice.paymentId = await nextInternPaymentId();
   invoice.invoiceDate = new Date();
   await invoice.save();
   return invoice;
@@ -110,6 +136,7 @@ export async function emailInternInvoice(invoiceId) {
   if (!invoice.invoiceId) {
     throw Object.assign(new Error('Generate the intern invoice before sending email'), { status: 422 });
   }
+  await ensureInternPaymentId(invoice);
 
   try {
     if (!invoice.email) {

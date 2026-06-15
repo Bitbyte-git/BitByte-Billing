@@ -2,6 +2,7 @@ import InternInvoice from '../models/InternInvoice.js';
 import {
   createInternInvoice as createInternInvoiceDocument,
   emailInternInvoice,
+  ensureInternPaymentId,
   generateInternInvoiceDocument,
   updateInternInvoice
 } from '../services/internInvoiceService.js';
@@ -130,6 +131,7 @@ export async function internInvoicePdf(req, res, next) {
   try {
     const invoice = await InternInvoice.findById(req.params.id).populate('createdBy', 'name email role');
     if (!invoice) return res.status(404).json({ message: 'Intern invoice not found' });
+    if (invoice.invoiceId) await ensureInternPaymentId(invoice);
 
     const pdfDoc = createInternInvoicePdfDocument(invoice);
     res.setHeader('Content-Type', 'application/pdf');
