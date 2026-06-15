@@ -843,7 +843,7 @@ export function createInternInvoicePdfDocument(invoice) {
         margin: [0, 0, 0, 10],
         table: {
           headerRows: 2,
-          widths: [25, 124, 43, 48, 68, 58, 58, 68],
+          widths: [28, 125, 43, 50, 65, 55, 55, 58],
           body: [
             [
               { text: "PAYMENT DETAILS", style: "sectionTitle", colSpan: 8, fillColor: "#FFFFFF" },
