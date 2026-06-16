@@ -82,14 +82,21 @@ function internInvoiceTaxBreakdown(baseAmount) {
 }
 
 function normalizeAbsoluteUrl(value) {
-  const trimmed = String(value || "").trim().replace(/\/+$/, "");
+  const trimmed = String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (!trimmed) return "https://bit-byte-billing-client.vercel.app";
-  return /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
 }
 
 function publicInternInvoiceUrl(invoice) {
-  const baseUrl = normalizeAbsoluteUrl(process.env.CLIENT_URL || process.env.APP_URL);
-  const publicId = invoice._id || invoice.id || invoice.invoiceId || invoice.internId;
+  const baseUrl = normalizeAbsoluteUrl(
+    process.env.CLIENT_URL || process.env.APP_URL,
+  );
+  const publicId =
+    invoice._id || invoice.id || invoice.invoiceId || invoice.internId;
   return `${baseUrl}/public/intern-invoice/${encodeURIComponent(String(publicId || ""))}`;
 }
 
@@ -100,7 +107,8 @@ function qrSvg(value) {
   const rects = [];
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      if (cells[y * size + x]) rects.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
+      if (cells[y * size + x])
+        rects.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}"><rect width="${size}" height="${size}" fill="#ffffff"/><g fill="#07111f">${rects.join("")}</g></svg>`;
@@ -672,7 +680,11 @@ export function createInternInvoicePdfDocument(invoice) {
   const detailCell = (label, value, options = {}) => ({
     stack: [
       { text: label, style: "label" },
-      { text: value || "-", style: "value", color: options.color || COLORS.text },
+      {
+        text: value || "-",
+        style: "value",
+        color: options.color || COLORS.text,
+      },
     ],
     fillColor: options.fillColor,
     margin: options.margin || [0, 0, 0, 0],
@@ -723,22 +735,35 @@ export function createInternInvoicePdfDocument(invoice) {
   const sectionTable = (title, rows) => ({
     table: {
       widths: ["*", "*"],
-      body: [
-        [{ ...sectionHeaderCell(title), colSpan: 2 }, {}],
-        ...rows,
-      ],
+      body: [[{ ...sectionHeaderCell(title), colSpan: 2 }, {}], ...rows],
     },
     layout: detailTableLayout,
   });
 
   const docDefinition = {
     pageSize: "A4",
-    pageMargins: [18, 14, 18, 24],
+    pageMargins: [18, 14, 18, 17],
     content: [
       {
         canvas: [
-          { type: "line", x1: 0, y1: 0, x2: 279.5, y2: 0, lineWidth: 2, lineColor: COLORS.blue },
-          { type: "line", x1: 279.5, y1: 0, x2: 559, y2: 0, lineWidth: 2, lineColor: COLORS.green },
+          {
+            type: "line",
+            x1: 0,
+            y1: 0,
+            x2: 279.5,
+            y2: 0,
+            lineWidth: 2,
+            lineColor: COLORS.blue,
+          },
+          {
+            type: "line",
+            x1: 279.5,
+            y1: 0,
+            x2: 559,
+            y2: 0,
+            lineWidth: 2,
+            lineColor: COLORS.green,
+          },
         ],
         margin: [0, 0, 0, 0],
       },
@@ -749,11 +774,18 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: companyLogo
-                  ? [{ image: companyLogo, width: 122, alignment: "center" }]
-                  : [{ text: COMPANY.name, alignment: "center", bold: true, color: COLORS.blue }],
+                  ? [{ image: companyLogo, width: 98, alignment: "center" }]
+                  : [
+                      {
+                        text: COMPANY.name,
+                        alignment: "center",
+                        bold: true,
+                        color: COLORS.blue,
+                      },
+                    ],
                 alignment: "center",
                 fillColor: COLORS.navy,
-                margin: [0, 7, 0, 7],
+                margin: [0, 3, 0, 3],
               },
               {
                 stack: [
@@ -764,7 +796,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     ],
                     bold: true,
                     fontSize: 25,
-                    margin: [0, 0, 0, 5],
+                    margin: [0, 0, 0, 4],
                   },
                   {
                     text: `${COMPANY.office}, ${COMPANY.address[0]}`,
@@ -779,11 +811,22 @@ export function createInternInvoicePdfDocument(invoice) {
                     bold: true,
                     color: "#FFFFFF",
                   },
-                  { text: `GST NO : ${COMPANY.gstin}`, fontSize: 9.8, bold: true, color: "#FFFFFF", margin: [0, 5, 0, 0] },
-                  { text: `Udyam ID : ${COMPANY.udyamId}`, fontSize: 10, bold: true, color: "#FFFFFF" },
+                  {
+                    text: `GST NO : ${COMPANY.gstin}`,
+                    fontSize: 9.8,
+                    bold: true,
+                    color: "#FFFFFF",
+                    margin: [0, 5, 0, 0],
+                  },
+                  {
+                    text: `Udyam ID : ${COMPANY.udyamId}`,
+                    fontSize: 10,
+                    bold: true,
+                    color: "#FFFFFF",
+                  },
                 ],
                 fillColor: COLORS.navy,
-                margin: [18, 16, 0, 7],
+                margin: [18, 10, 0, 6],
               },
             ],
           ],
@@ -798,31 +841,61 @@ export function createInternInvoicePdfDocument(invoice) {
           paddingTop: () => 0,
           paddingBottom: () => 0,
         },
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 7],
       },
       {
         columns: [
           {
             width: "*",
             ...sectionTable("INTERN DETAILS", [
-              [detailCell("INTERN ID", invoice.internId), detailCell("INTERN NAME", invoice.employeeName)],
-              [detailCell("E-MAIL", invoice.email), detailCell("PHONE", invoice.phone)],
-              [detailCell("COLLEGE", invoice.collegeName), detailCell("DEPARTMENT", invoice.courseMajor)],
-              [detailCell("PASSED OUT", invoice.passedOut), detailCell("ADDRESS REF", invoice.address ? "Available below" : "-")],
+              [
+                detailCell("INTERN ID", invoice.internId),
+                detailCell("INTERN NAME", invoice.employeeName),
+              ],
+              [
+                detailCell("E-MAIL", invoice.email),
+                detailCell("PHONE", invoice.phone),
+              ],
+              [
+                detailCell("COLLEGE", invoice.collegeName),
+                detailCell("DEPARTMENT", invoice.courseMajor),
+              ],
+              [
+                detailCell("PASSED OUT", invoice.passedOut),
+                detailCell(
+                  "ADDRESS REF",
+                  invoice.address ? "Available below" : "-",
+                ),
+              ],
             ]),
           },
           {
             width: "*",
             ...sectionTable("INVOICE & PAYMENT DETAILS", [
-              [detailCell("INVOICE DT", formatDate(invoice.invoiceDate)), detailCell("INVOICE ID", invoice.invoiceId)],
-              [detailCell("PAYMENT ID", invoice.paymentId), detailCell("PAYMENT STATUS", paymentStatus)],
-              [detailCell("SAC CODE", taxBreakdown.sacCode), detailCell("BILLING TYPE", "Internship")],
-              [detailCell("GENERATED BY", generatedBy), detailCell("GST", `CGST ${taxBreakdown.cgstRate}% + SGST ${taxBreakdown.sgstRate}%`)],
+              [
+                detailCell("INVOICE DT", formatDate(invoice.invoiceDate)),
+                detailCell("INVOICE ID", invoice.invoiceId),
+              ],
+              [
+                detailCell("PAYMENT ID", invoice.paymentId),
+                detailCell("PAYMENT STATUS", paymentStatus),
+              ],
+              [
+                detailCell("SAC CODE", taxBreakdown.sacCode),
+                detailCell("BILLING TYPE", "Internship"),
+              ],
+              [
+                detailCell("GENERATED BY", generatedBy),
+                detailCell(
+                  "GST",
+                  `CGST ${taxBreakdown.cgstRate}% + SGST ${taxBreakdown.sgstRate}%`,
+                ),
+              ],
             ]),
           },
         ],
         columnGap: 12,
-        margin: [0, 0, 0, 9],
+        margin: [0, 0, 0, 6],
       },
       {
         table: {
@@ -853,16 +926,21 @@ export function createInternInvoicePdfDocument(invoice) {
           paddingTop: () => 5,
           paddingBottom: () => 5,
         },
-        margin: [0, 0, 0, 9],
+        margin: [0, 0, 0, 6],
       },
       {
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 7],
         table: {
           headerRows: 2,
           widths: [28, 125, 43, 50, 65, 55, 55, 58],
           body: [
             [
-              { text: "PAYMENT DETAILS", style: "sectionTitle", colSpan: 8, fillColor: "#FFFFFF" },
+              {
+                text: "PAYMENT DETAILS",
+                style: "sectionTitle",
+                colSpan: 8,
+                fillColor: "#FFFFFF",
+              },
               {},
               {},
               {},
@@ -881,12 +959,20 @@ export function createInternInvoicePdfDocument(invoice) {
                 alignment: "center",
               },
               { text: "Taxable", style: "tableHeader", alignment: "right" },
-              { text: `CGST ${taxBreakdown.cgstRate}%`, style: "tableHeader", alignment: "right" },
-              { text: `SGST ${taxBreakdown.sgstRate}%`, style: "tableHeader", alignment: "right" },
+              {
+                text: `CGST ${taxBreakdown.cgstRate}%`,
+                style: "tableHeader",
+                alignment: "right",
+              },
+              {
+                text: `SGST ${taxBreakdown.sgstRate}%`,
+                style: "tableHeader",
+                alignment: "right",
+              },
               { text: "Total", style: "tableHeader", alignment: "right" },
             ],
             [
-              { text: "1", alignment: "center", margin: [0, 10, 0, 10] },
+              { text: "1", alignment: "center", margin: [0, 10, 0, 7] },
               {
                 text: [
                   {
@@ -899,46 +985,45 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 7.5,
                   },
                 ],
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: taxBreakdown.sacCode,
                 alignment: "center",
                 bold: true,
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: invoice.duration || "-",
                 alignment: "center",
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: formatMoney(taxBreakdown.taxableValue),
                 alignment: "right",
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: formatMoney(taxBreakdown.cgstAmount),
                 alignment: "right",
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: formatMoney(taxBreakdown.sgstAmount),
                 alignment: "right",
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
               {
                 text: formatMoney(taxBreakdown.total),
                 alignment: "right",
                 bold: true,
-                margin: [0, 10, 0, 10],
+                margin: [0, 10, 0, 7],
               },
             ],
           ],
         },
         layout: {
-          fillColor: (rowIndex) =>
-            rowIndex === 1 ? COLORS.navy : "#FFFFFF",
+          fillColor: (rowIndex) => (rowIndex === 1 ? COLORS.navy : "#FFFFFF"),
           hLineWidth: () => 0.6,
           vLineWidth: () => 0.6,
           hLineColor: () => COLORS.border,
@@ -960,14 +1045,18 @@ export function createInternInvoicePdfDocument(invoice) {
                   {
                     ul: INTERN_INVOICE_TERMS.map((term) => ({
                       text: term,
-                      margin: [0, 0, 0, 5],
+                      margin: [0, 0, 0, 4],
                     })),
                     margin: [0, 9, 0, 0],
                     lineHeight: 1.2,
                   },
-                  { text: "This is a computer-generated invoice.", margin: [0, 8, 0, 0], color: COLORS.muted },
+                  {
+                    text: "This is a computer-generated invoice.",
+                    margin: [0, 8, 0, 0],
+                    color: COLORS.muted,
+                  },
                 ],
-                margin: [10, 10, 10, 10],
+                margin: [10, 10, 10, 7],
               },
               {
                 stack: [
@@ -977,31 +1066,44 @@ export function createInternInvoicePdfDocument(invoice) {
                       widths: ["*", 94],
                       body: [
                         summaryRow("Taxable Amount", taxBreakdown.taxableValue),
-                        summaryRow(`CGST (${taxBreakdown.cgstRate}%)`, taxBreakdown.cgstAmount),
-                        summaryRow(`SGST (${taxBreakdown.sgstRate}%)`, taxBreakdown.sgstAmount),
+                        summaryRow(
+                          `CGST (${taxBreakdown.cgstRate}%)`,
+                          taxBreakdown.cgstAmount,
+                        ),
+                        summaryRow(
+                          `SGST (${taxBreakdown.sgstRate}%)`,
+                          taxBreakdown.sgstAmount,
+                        ),
                         summaryRow("Invoice Total", taxBreakdown.total, {
                           bold: true,
                           color: COLORS.navy,
                         }),
-                        summaryRow("Amount Paid", invoice.paymentReceived ? taxBreakdown.total : 0),
-                        summaryRow("Balance", invoice.paymentReceived ? 0 : taxBreakdown.total, {
-                          bold: true,
-                          color: "#16A34A",
-                        }),
+                        summaryRow(
+                          "Amount Paid",
+                          invoice.paymentReceived ? taxBreakdown.total : 0,
+                        ),
+                        summaryRow(
+                          "Balance",
+                          invoice.paymentReceived ? 0 : taxBreakdown.total,
+                          {
+                            bold: true,
+                            color: "#16A34A",
+                          },
+                        ),
                       ],
                     },
                     layout: "noBorders",
                     margin: [0, 8, 0, 0],
                   },
                 ],
-                margin: [10, 10, 10, 10],
+                margin: [10, 10, 10, 7],
               },
             ],
           ],
         },
         layout: cardLayout,
         fontSize: 8,
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 7],
       },
       {
         table: {
@@ -1015,7 +1117,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 9.5,
                     bold: true,
                     color: COLORS.navy,
-                    margin: [0, 0, 0, 48],
+                    margin: [0, 0, 0, 34],
                   },
                   {
                     canvas: [
@@ -1037,31 +1139,36 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 9.5,
                     bold: true,
                     color: COLORS.navy,
-                    margin: [0, 6, 0, 0],
+                    margin: [0, 4, 0, 0],
                   },
                 ],
-                margin: [12, 10, 12, 14],
+                margin: [12, 10, 12, 10],
               },
               {
                 stack: [
-                  { text: "QR VERIFICATION", style: "sectionTitle", alignment: "center", margin: [0, 0, 0, 5] },
+                  {
+                    text: "QR VERIFICATION",
+                    style: "sectionTitle",
+                    alignment: "center",
+                    margin: [0, 0, 0, 5],
+                  },
                   {
                     text: "Scan to verify intern details",
                     alignment: "center",
                     fontSize: 7,
                     bold: true,
                     color: COLORS.navy,
-                    margin: [0, 0, 0, 7],
+                    margin: [0, 0, 0, 5],
                   },
                   { svg: qrSvg(publicUrl), width: 66, alignment: "center" },
                 ],
-                margin: [8, 9, 8, 9],
+                margin: [8, 9, 8, 6],
               },
             ],
           ],
         },
         layout: cardLayout,
-        margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 7],
       },
       {
         table: {
@@ -1070,17 +1177,40 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: [
-                  { text: "Thank you", fontSize: 14, bold: true, color: COLORS.navy },
-                  { text: "for choosing Bit Byte Technologies.", fontSize: 8.5, color: COLORS.muted, margin: [0, 6, 0, 0] },
+                  {
+                    text: "Thank you",
+                    fontSize: 14,
+                    bold: true,
+                    color: COLORS.navy,
+                  },
+                  {
+                    text: "for choosing Bit Byte Technologies.",
+                    fontSize: 8.5,
+                    color: COLORS.muted,
+                    margin: [0, 4, 0, 0],
+                  },
                 ],
-                margin: [12, 21, 12, 21],
+                margin: [12, 21, 12, 15],
               },
               {
                 stack: [
-                  { text: "PAYMENT CONFIRMED", fontSize: 8.6, bold: true, color: COLORS.navy, alignment: "center" },
-                  { text: invoice.paymentId || "-", fontSize: 8.2, bold: true, color: COLORS.blue, alignment: "center", margin: [0, 6, 0, 0] },
+                  {
+                    text: "PAYMENT CONFIRMED",
+                    fontSize: 8.6,
+                    bold: true,
+                    color: COLORS.navy,
+                    alignment: "center",
+                  },
+                  {
+                    text: invoice.paymentId || "-",
+                    fontSize: 8.2,
+                    bold: true,
+                    color: COLORS.blue,
+                    alignment: "center",
+                    margin: [0, 4, 0, 0],
+                  },
                 ],
-                margin: [10, 21, 10, 21],
+                margin: [10, 21, 10, 15],
               },
             ],
           ],
@@ -1090,7 +1220,7 @@ export function createInternInvoicePdfDocument(invoice) {
       },
     ],
     footer: () => ({
-      margin: [18, 0, 18, 7],
+      margin: [18, 0, 18, 5],
       stack: [
         {
           canvas: [
@@ -1115,8 +1245,17 @@ export function createInternInvoicePdfDocument(invoice) {
             },
             {
               stack: [
-                { text: "Email Id : reachus@bitbytetech.org", fontSize: 6.8, color: COLORS.navy },
-                { text: "Contact No : 9943743136", fontSize: 6.8, color: COLORS.navy, margin: [0, 1, 0, 0] },
+                {
+                  text: "Email Id : reachus@bitbytetech.org",
+                  fontSize: 6.8,
+                  color: COLORS.navy,
+                },
+                {
+                  text: "Contact No : 9943743136",
+                  fontSize: 6.8,
+                  color: COLORS.navy,
+                  margin: [0, 1, 0, 0],
+                },
               ],
               alignment: "center",
               margin: [0, 5, 0, 0],
