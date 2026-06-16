@@ -61,12 +61,17 @@ const INTERN_INVOICE_TAX = {
   sgstRate: 9,
 };
 
-function internInvoiceTaxBreakdown(totalAmount) {
-  const total = Number(totalAmount || 0);
-  const totalTaxRate = INTERN_INVOICE_TAX.cgstRate + INTERN_INVOICE_TAX.sgstRate;
-  const taxableValue = totalTaxRate ? (total * 100) / (100 + totalTaxRate) : total;
+const INTERN_INVOICE_TERMS = [
+  "The amount is non-refundable.",
+  "The amount is non-transferable.",
+  "Fees cover only the internship services specified in this invoice.",
+];
+
+function internInvoiceTaxBreakdown(baseAmount) {
+  const taxableValue = Number(baseAmount || 0);
   const cgstAmount = (taxableValue * INTERN_INVOICE_TAX.cgstRate) / 100;
   const sgstAmount = (taxableValue * INTERN_INVOICE_TAX.sgstRate) / 100;
+  const total = taxableValue + cgstAmount + sgstAmount;
   return {
     ...INTERN_INVOICE_TAX,
     taxableValue,
@@ -653,7 +658,6 @@ export function createInternInvoicePdfDocument(invoice) {
     invoice.createdBy?.name ||
     invoice.createdBy?.email ||
     "BBTech Billing Team";
-  const termsText = "This amount is non-refundable.";
   const publicUrl = publicInternInvoiceUrl(invoice);
   const COLORS = {
     blue: "#0F7CEB",
@@ -676,6 +680,7 @@ export function createInternInvoicePdfDocument(invoice) {
   const sectionHeaderCell = (label) => ({
     text: label,
     style: "sectionTitle",
+    alignment: "center",
     colSpan: 2,
     fillColor: "#FFFFFF",
     margin: [0, 0, 0, 0],
@@ -744,11 +749,11 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: companyLogo
-                  ? [{ image: companyLogo, width: 106, alignment: "center" }]
+                  ? [{ image: companyLogo, width: 122, alignment: "center" }]
                   : [{ text: COMPANY.name, alignment: "center", bold: true, color: COLORS.blue }],
                 alignment: "center",
                 fillColor: COLORS.navy,
-                margin: [0, 12, 0, 12],
+                margin: [0, 7, 0, 7],
               },
               {
                 stack: [
@@ -758,16 +763,27 @@ export function createInternInvoicePdfDocument(invoice) {
                       { text: " Technologies", color: COLORS.green },
                     ],
                     bold: true,
-                    fontSize: 26,
-                    margin: [0, 0, 0, 7],
+                    fontSize: 25,
+                    margin: [0, 0, 0, 5],
                   },
-                  { text: COMPANY.office, fontSize: 9.8, bold: true, color: "#FFFFFF", margin: [0, 0, 0, 1] },
-                  ...COMPANY.address.map((line) => ({ text: line, fontSize: 8.8, color: "#FFFFFF" })),
-                  { text: `GST NO : ${COMPANY.gstin}`, fontSize: 10, bold: true, color: "#FFFFFF", margin: [0, 7, 0, 0] },
+                  {
+                    text: `${COMPANY.office}, ${COMPANY.address[0]}`,
+                    fontSize: 9.2,
+                    bold: true,
+                    color: "#FFFFFF",
+                    margin: [0, 0, 0, 1],
+                  },
+                  {
+                    text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
+                    fontSize: 9.2,
+                    bold: true,
+                    color: "#FFFFFF",
+                  },
+                  { text: `GST NO : ${COMPANY.gstin}`, fontSize: 9.8, bold: true, color: "#FFFFFF", margin: [0, 5, 0, 0] },
                   { text: `Udyam ID : ${COMPANY.udyamId}`, fontSize: 10, bold: true, color: "#FFFFFF" },
                 ],
                 fillColor: COLORS.navy,
-                margin: [18, 23, 0, 12],
+                margin: [18, 16, 0, 7],
               },
             ],
           ],
@@ -941,7 +957,14 @@ export function createInternInvoicePdfDocument(invoice) {
               {
                 stack: [
                   { text: "TERMS & CONDITIONS", style: "sectionTitle" },
-                  { text: termsText, margin: [0, 9, 0, 0], lineHeight: 1.2 },
+                  {
+                    ul: INTERN_INVOICE_TERMS.map((term) => ({
+                      text: term,
+                      margin: [0, 0, 0, 5],
+                    })),
+                    margin: [0, 9, 0, 0],
+                    lineHeight: 1.2,
+                  },
                   { text: "This is a computer-generated invoice.", margin: [0, 8, 0, 0], color: COLORS.muted },
                 ],
                 margin: [10, 10, 10, 10],
@@ -987,34 +1010,34 @@ export function createInternInvoicePdfDocument(invoice) {
             [
               {
                 stack: [
-                  { text: "AUTHORIZED SIGNATORY", style: "sectionTitle", margin: [0, 0, 0, 48] },
+                  {
+                    text: "For Bit Byte Technologies",
+                    fontSize: 9.5,
+                    bold: true,
+                    color: COLORS.navy,
+                    margin: [0, 0, 0, 48],
+                  },
                   {
                     canvas: [
                       {
                         type: "line",
                         x1: 0,
                         y1: 0,
-                        x2: 170,
+                        x2: 190,
                         y2: 0,
                         lineWidth: 0.7,
                         lineColor: COLORS.navy,
                       },
                     ],
-                    alignment: "right",
+                    alignment: "left",
                   },
                   {
                     text: "Authorized Signatory",
-                    alignment: "right",
+                    alignment: "left",
                     fontSize: 9.5,
                     bold: true,
                     color: COLORS.navy,
                     margin: [0, 6, 0, 0],
-                  },
-                  {
-                    text: COMPANY.name,
-                    alignment: "right",
-                    fontSize: 8,
-                    color: COLORS.blue,
                   },
                 ],
                 margin: [12, 10, 12, 14],

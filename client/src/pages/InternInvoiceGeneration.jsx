@@ -17,7 +17,11 @@ const initialForm = {
   amount: '',
   paymentId: '',
   paymentReceived: true,
-  termsAndConditions: 'This amount is not refundable. You can get it as a service from Bit Byte Technologies.'
+  termsAndConditions: [
+    'The amount is non-refundable.',
+    'The amount is non-transferable.',
+    'Fees cover only the internship services specified in this invoice.'
+  ].join('\n')
 };
 
 export default function InternInvoiceGeneration() {

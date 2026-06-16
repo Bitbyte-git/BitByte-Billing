@@ -18,7 +18,11 @@ const internInvoiceSchema = new mongoose.Schema({
   paymentReceived: { type: Boolean, default: false },
   termsAndConditions: {
     type: String,
-    default: 'This invoice is generated after confirming internship payment.'
+    default: [
+      'The amount is non-refundable.',
+      'The amount is non-transferable.',
+      'Fees cover only the internship services specified in this invoice.'
+    ].join('\n')
   },
   source: { type: String, enum: ['Manual', 'Google Form'], default: 'Manual' },
   sourceRowId: { type: String, trim: true },

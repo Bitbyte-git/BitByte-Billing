@@ -8,6 +8,17 @@ function clean(value) {
 }
 
 const INTERN_PAYMENT_ID_PATTERN = /^BBT-INT-PAY-\d{4}-\d{4}$/;
+const DEFAULT_INTERN_TERMS = [
+  'The amount is non-refundable.',
+  'The amount is non-transferable.',
+  'Fees cover only the internship services specified in this invoice.'
+].join('\n');
+const INTERN_TOTAL_GST_PERCENTAGE = 18;
+
+function internInvoiceTotalAmount(baseAmount) {
+  const amount = Number(baseAmount || 0);
+  return amount + (amount * INTERN_TOTAL_GST_PERCENTAGE) / 100;
+}
 
 function isInternPaymentId(value) {
   return INTERN_PAYMENT_ID_PATTERN.test(clean(value));
@@ -37,7 +48,7 @@ export function normalizeInternInvoiceInput(body = {}) {
     amount,
     paymentId: clean(body.paymentId),
     paymentReceived: body.paymentReceived === true || body.paymentStatus === 'Paid',
-    termsAndConditions: clean(body.termsAndConditions) || 'This amount is not refundable. You can get it as a service from Bit Byte Technologies.'
+    termsAndConditions: clean(body.termsAndConditions) || DEFAULT_INTERN_TERMS
   };
 }
 
@@ -150,7 +161,7 @@ export async function emailInternInvoice(invoiceId) {
     const result = await sendNotificationEmail({
       to: invoice.email,
       subject: `Internship Invoice ${invoice.invoiceId} - Bit Byte Technologies`,
-      text: `Dear ${invoice.employeeName},\n\nYour internship invoice ${invoice.invoiceId} is attached. Amount: Rs ${invoice.amount}.\n\nThank you,\nBit Byte Technologies`,
+      text: `Dear ${invoice.employeeName},\n\nYour internship invoice ${invoice.invoiceId} is attached. Total amount: Rs ${internInvoiceTotalAmount(invoice.amount)}.\n\nThank you,\nBit Byte Technologies`,
       attachments: [{ filename: `${invoice.invoiceId}.pdf`, content: pdf, contentType: 'application/pdf' }]
     });
 

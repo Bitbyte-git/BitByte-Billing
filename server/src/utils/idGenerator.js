@@ -47,7 +47,8 @@ export async function nextInternPaymentId() {
 }
 
 export async function nextInternId() {
-  return nextSequentialId(InternInvoice, 'internId', 'BBT-INT-');
+  const year = new Date().getFullYear();
+  return nextSequentialId(InternInvoice, 'internId', `BBT-INT-${year}-`);
 }
 
 export async function nextPaymentId() {
