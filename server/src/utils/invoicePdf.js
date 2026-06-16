@@ -704,8 +704,8 @@ export function createInternInvoicePdfDocument(invoice) {
     vLineColor: () => COLORS.border,
     paddingLeft: () => 7,
     paddingRight: () => 7,
-    paddingTop: () => 4,
-    paddingBottom: () => 4,
+    paddingTop: () => 5,
+    paddingBottom: () => 5,
   };
   const summaryRow = (label, value, options = {}) => [
     {
@@ -895,7 +895,7 @@ export function createInternInvoicePdfDocument(invoice) {
           },
         ],
         columnGap: 12,
-        margin: [0, 0, 0, 6],
+        margin: [0, 0, 0, 8],
       },
       {
         table: {
@@ -923,13 +923,13 @@ export function createInternInvoicePdfDocument(invoice) {
           vLineColor: () => COLORS.border,
           paddingLeft: () => 8,
           paddingRight: () => 8,
-          paddingTop: () => 5,
-          paddingBottom: () => 5,
+          paddingTop: () => 7,
+          paddingBottom: () => 7,
         },
-        margin: [0, 0, 0, 6],
+        margin: [0, 0, 0, 8],
       },
       {
-        margin: [0, 0, 0, 7],
+        margin: [0, 0, 0, 9],
         table: {
           headerRows: 2,
           widths: [28, 125, 43, 50, 65, 55, 55, 58],
@@ -972,7 +972,7 @@ export function createInternInvoicePdfDocument(invoice) {
               { text: "Total", style: "tableHeader", alignment: "right" },
             ],
             [
-              { text: "1", alignment: "center", margin: [0, 10, 0, 7] },
+              { text: "1", alignment: "center", margin: [0, 14, 0, 12] },
               {
                 text: [
                   {
@@ -985,39 +985,39 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 7.5,
                   },
                 ],
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: taxBreakdown.sacCode,
                 alignment: "center",
                 bold: true,
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: invoice.duration || "-",
                 alignment: "center",
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: formatMoney(taxBreakdown.taxableValue),
                 alignment: "right",
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: formatMoney(taxBreakdown.cgstAmount),
                 alignment: "right",
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: formatMoney(taxBreakdown.sgstAmount),
                 alignment: "right",
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
               {
                 text: formatMoney(taxBreakdown.total),
                 alignment: "right",
                 bold: true,
-                margin: [0, 10, 0, 7],
+                margin: [0, 14, 0, 12],
               },
             ],
           ],
@@ -1056,7 +1056,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     color: COLORS.muted,
                   },
                 ],
-                margin: [10, 10, 10, 7],
+                margin: [10, 14, 10, 14],
               },
               {
                 stack: [
@@ -1096,14 +1096,14 @@ export function createInternInvoicePdfDocument(invoice) {
                     margin: [0, 8, 0, 0],
                   },
                 ],
-                margin: [10, 10, 10, 7],
+                margin: [10, 14, 10, 14],
               },
             ],
           ],
         },
         layout: cardLayout,
         fontSize: 8,
-        margin: [0, 0, 0, 7],
+        margin: [0, 0, 0, 10],
       },
       {
         table: {
@@ -1117,7 +1117,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     fontSize: 9.5,
                     bold: true,
                     color: COLORS.navy,
-                    margin: [0, 0, 0, 34],
+                    margin: [0, 0, 0, 50],
                   },
                   {
                     canvas: [
@@ -1142,7 +1142,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     margin: [0, 4, 0, 0],
                   },
                 ],
-                margin: [12, 10, 12, 10],
+                margin: [12, 14, 12, 24],
               },
               {
                 stack: [
@@ -1162,13 +1162,13 @@ export function createInternInvoicePdfDocument(invoice) {
                   },
                   { svg: qrSvg(publicUrl), width: 66, alignment: "center" },
                 ],
-                margin: [8, 9, 8, 6],
+                margin: [8, 13, 8, 21],
               },
             ],
           ],
         },
         layout: cardLayout,
-        margin: [0, 0, 0, 7],
+        margin: [0, 0, 0, 10],
       },
       {
         table: {
@@ -1190,7 +1190,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     margin: [0, 4, 0, 0],
                   },
                 ],
-                margin: [12, 21, 12, 15],
+                margin: [12, 34, 12, 42],
               },
               {
                 stack: [
@@ -1210,7 +1210,7 @@ export function createInternInvoicePdfDocument(invoice) {
                     margin: [0, 4, 0, 0],
                   },
                 ],
-                margin: [10, 21, 10, 15],
+                margin: [10, 34, 10, 42],
               },
             ],
           ],
