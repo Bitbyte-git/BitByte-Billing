@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import { generateInvoice, getInvoice, invoicePdf, listInvoices, sendInvoiceEmail } from '../controllers/invoice.controller.js';
+import { generateInvoice, getInvoice, getPublicInvoice, invoicePdf, listInvoices, sendInvoiceEmail } from '../controllers/invoice.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
+
+router.get('/public/:id', getPublicInvoice);
 
 router.use(authenticate);
 router.get('/', listInvoices);

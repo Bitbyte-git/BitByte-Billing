@@ -18,6 +18,7 @@ import PaymentOverview from './pages/PaymentOverview.jsx';
 import ServiceShowcase from './pages/ServiceShowcase.jsx';
 import PublicInternship from './pages/PublicInternship.jsx';
 import PublicInternInvoice from './pages/PublicInternInvoice.jsx';
+import PublicClientInvoice from './pages/PublicClientInvoice.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 import BrandLogo from './components/BrandLogo.jsx';
 import { COMPANY_NAME } from './config/brand.js';
@@ -53,6 +54,7 @@ export default function App() {
     <Routes>
       <Route path="/internship" element={<PublicInternship />} />
       <Route path="/public/intern-invoice/:id" element={<PublicInternInvoice />} />
+      <Route path="/public/client-invoice/:id" element={<PublicClientInvoice />} />
       <Route path="/login" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Register />} />
       <Route path="/" element={<Navigate to={user ? roleHome[user.role] : '/login'} replace />} />

@@ -1,8 +1,42 @@
 import Invoice from '../models/Invoice.js';
 import Client from '../models/Client.js';
+import mongoose from 'mongoose';
 import { recordAudit } from '../services/workflowService.js';
 import { createInvoiceForQuotation, emailInvoiceToClient } from '../services/invoiceService.js';
 import { createInvoicePdfDocument } from '../utils/invoicePdf.js';
+
+function publicInvoicePayload(invoice) {
+  const items = (invoice.items || []).map((item) => ({
+    service: item.service || '-',
+    description: item.description || '',
+    sacCode: item.sacCode || '-',
+    quantity: item.quantity || 1,
+    taxableValue: item.taxableValue || 0,
+    cgstAmount: item.cgstAmount || 0,
+    sgstAmount: item.sgstAmount || 0,
+    igstAmount: item.igstAmount || 0,
+    total: item.total || 0
+  }));
+  return {
+    invoiceId: invoice.invoiceId || '-',
+    clientName: invoice.clientId?.companyName || invoice.clientId?.fullName || 'Client',
+    clientEmail: invoice.clientId?.email || '',
+    quotationId: invoice.quotationId?.quotationId || '-',
+    projectTitle: invoice.quotationId?.projectTitle || '-',
+    invoiceDate: invoice.invoiceDate,
+    dueDate: invoice.dueDate,
+    paymentStatus: invoice.paymentStatus || 'Pending',
+    subtotal: invoice.subtotal || 0,
+    discountedAmount: invoice.discountedAmount || 0,
+    taxableAmount: invoice.finalSubtotal || invoice.subtotal || 0,
+    gstAmount: invoice.gstAmount || 0,
+    totalAmount: invoice.totalAmount || invoice.finalTotal || 0,
+    amountPaid: invoice.amountPaid || 0,
+    balanceDue: invoice.balanceDue || 0,
+    items,
+    status: invoice.invoiceId ? 'Verified' : 'Draft'
+  };
+}
 
 export async function listInvoices(req, res, next) {
   try {
@@ -15,6 +49,16 @@ export async function listInvoices(req, res, next) {
 
 export async function getInvoice(req, res, next) {
   try { res.json(await Invoice.findById(req.params.id).populate('clientId quotationId')); } catch (err) { next(err); }
+}
+
+export async function getPublicInvoice(req, res, next) {
+  try {
+    const clauses = [{ invoiceId: req.params.id }];
+    if (mongoose.isValidObjectId(req.params.id)) clauses.push({ _id: req.params.id });
+    const invoice = await Invoice.findOne({ $or: clauses }).populate('clientId quotationId');
+    if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+    res.json(publicInvoicePayload(invoice));
+  } catch (err) { next(err); }
 }
 
 export async function generateInvoice(req, res, next) {
