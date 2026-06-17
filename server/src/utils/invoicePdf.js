@@ -408,6 +408,7 @@ export function createInvoicePdfDocument(invoice) {
         },
       },
       {
+        pageBreak: "before",
         table: {
           widths: ["*", "*"],
           body: [[
@@ -447,7 +448,7 @@ export function createInvoicePdfDocument(invoice) {
         },
         layout: cardLayout,
         fontSize: 8.3,
-        margin: [0, 0, 0, 12],
+        margin: [0, 285, 0, 12],
       },
       {
         table: {
