@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Edit3, Eye, Key, Plus, Save, Trash2, UserPlus } from 'lucide-react';
+import { CheckCircle2, Edit3, Eye, Key, Plus, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
 import DataTable from '../components/DataTable.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
@@ -32,6 +32,7 @@ export default function TablePage({ type, role }) {
   const [pinModal, setPinModal] = useState({ open: false, userId: null, pin: '', password: '', error: '' });
   const [addModal, setAddModal] = useState({ open: false, name: '', email: '', password: '', error: '', loading: false });
   const [serviceModal, setServiceModal] = useState({ open: false, mode: 'create', id: null, name: '', description: '', basePrice: '', status: 'Active', error: '', loading: false });
+  const [serviceSync, setServiceSync] = useState({ loading: false, message: '', error: '' });
   const [invoiceOptions, setInvoiceOptions] = useState([]);
   const [paymentEdits, setPaymentEdits] = useState({});
 
@@ -272,6 +273,26 @@ export default function TablePage({ type, role }) {
       loadData();
     } catch (err) {
       setServiceModal(prev => ({ ...prev, error: err.response?.data?.message || 'Failed to save service', loading: false }));
+    }
+  };
+
+  const syncServicePrices = async () => {
+    setServiceSync({ loading: true, message: '', error: '' });
+    try {
+      const { data } = await api.post('/services/sync-google-sheet');
+      const summary = data.summary || {};
+      setServiceSync({
+        loading: false,
+        message: `Synced ${summary.totalRows || 0} rows. Created ${summary.created || 0}, updated ${summary.updated || 0}, skipped ${summary.skipped || 0}.`,
+        error: summary.errors?.length ? summary.errors.slice(0, 3).join(' ') : ''
+      });
+      await loadData();
+    } catch (err) {
+      setServiceSync({
+        loading: false,
+        message: '',
+        error: err.response?.data?.message || 'Unable to sync service prices.'
+      });
     }
   };
 
@@ -542,13 +563,18 @@ export default function TablePage({ type, role }) {
             <button onClick={() => setAddModal({ ...addModal, open: true })} className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"><UserPlus size={16} /> Add Accountant</button>
           )}
           {type === 'services' && (
-            <button onClick={() => setServiceModal({ open: true, mode: 'create', id: null, name: '', description: '', basePrice: '', status: 'Active', error: '', loading: false })} className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"><Plus size={16} /> Add Service</button>
+            <>
+              <button onClick={syncServicePrices} disabled={serviceSync.loading} className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2 text-sm font-bold shadow-sm hover:bg-slate-50 disabled:opacity-60"><RefreshCw size={16} className={serviceSync.loading ? 'animate-spin' : ''} /> {serviceSync.loading ? 'Syncing...' : 'Sync Prices'}</button>
+              <button onClick={() => setServiceModal({ open: true, mode: 'create', id: null, name: '', description: '', basePrice: '', status: 'Active', error: '', loading: false })} className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"><Plus size={16} /> Add Service</button>
+            </>
           )}
           {!(role === 'Client' && type === 'invoices') && <button className="rounded-xl border border-line bg-white px-4 py-2 text-sm font-bold shadow-sm hover:bg-slate-50">Export reports</button>}
         </div>
       </div>
 
       <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
+      {type === 'services' && serviceSync.message && <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{serviceSync.message}</p>}
+      {type === 'services' && serviceSync.error && <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">{serviceSync.error}</p>}
       {state.loading && !rows.length && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading records...</p>}
       {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
       <DataTable columns={config.columns} rows={rows} actions={config.actions} />
