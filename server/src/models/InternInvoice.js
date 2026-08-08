@@ -16,6 +16,10 @@ const internInvoiceSchema = new mongoose.Schema({
   invoiceDate: { type: Date, default: Date.now },
   paymentId: { type: String, trim: true },
   paymentReceived: { type: Boolean, default: false },
+  paymentMethod: { type: String, trim: true },
+  razorpayOrderId: { type: String, index: true },
+  razorpayPaymentId: { type: String, trim: true },
+  razorpaySignature: { type: String, trim: true },
   termsAndConditions: {
     type: String,
     default: [

@@ -8,7 +8,7 @@ import { nextPaymentId } from '../utils/idGenerator.js';
 
 const PAID_STATUSES = ['Paid', 'Partial'];
 
-async function recalculateInvoicePayments(invoiceId, user) {
+export async function recalculateInvoicePayments(invoiceId, user) {
   const invoice = await Invoice.findById(invoiceId);
   if (!invoice) throw Object.assign(new Error('Invoice not found'), { status: 404 });
 

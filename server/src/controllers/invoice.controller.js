@@ -21,6 +21,7 @@ function publicInvoicePayload(invoice) {
     invoiceId: invoice.invoiceId || '-',
     clientName: invoice.clientId?.companyName || invoice.clientId?.fullName || 'Client',
     clientEmail: invoice.clientId?.email || '',
+    clientPhone: invoice.clientId?.phone || '',
     quotationId: invoice.quotationId?.quotationId || '-',
     projectTitle: invoice.quotationId?.projectTitle || '-',
     invoiceDate: invoice.invoiceDate,
@@ -33,6 +34,7 @@ function publicInvoicePayload(invoice) {
     totalAmount: invoice.totalAmount || invoice.finalTotal || 0,
     amountPaid: invoice.amountPaid || 0,
     balanceDue: invoice.balanceDue || 0,
+    payableAmount: Math.max(Number(invoice.balanceDue || 0), 0),
     items,
     status: invoice.invoiceId ? 'Verified' : 'Draft'
   };

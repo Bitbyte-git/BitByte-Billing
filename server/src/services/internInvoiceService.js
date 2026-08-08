@@ -15,7 +15,7 @@ const DEFAULT_INTERN_TERMS = [
 ].join('\n');
 const INTERN_TOTAL_GST_PERCENTAGE = 18;
 
-function internInvoiceTotalAmount(baseAmount) {
+export function internInvoiceTotalAmount(baseAmount) {
   const amount = Number(baseAmount || 0);
   return amount + (amount * INTERN_TOTAL_GST_PERCENTAGE) / 100;
 }

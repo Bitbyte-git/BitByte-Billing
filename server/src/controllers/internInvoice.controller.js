@@ -8,6 +8,7 @@ import {
 } from '../services/internInvoiceService.js';
 import { syncGoogleFormInterns } from '../services/googleFormInternService.js';
 import { recordAudit } from '../services/workflowService.js';
+import { internInvoiceTotalAmount } from '../services/internInvoiceService.js';
 import { createInternInvoicePdfDocument } from '../utils/invoicePdf.js';
 
 function publicInternPayload(invoice) {
@@ -22,6 +23,11 @@ function publicInternPayload(invoice) {
     position: invoice.position || '-',
     duration: invoice.duration || '-',
     invoiceDate: invoice.invoiceDate,
+    paymentStatus: invoice.paymentReceived ? 'Paid' : 'Pending',
+    baseAmount: invoice.amount || 0,
+    totalAmount: internInvoiceTotalAmount(invoice.amount),
+    amountPaid: invoice.paymentReceived ? internInvoiceTotalAmount(invoice.amount) : 0,
+    balanceDue: invoice.paymentReceived ? 0 : internInvoiceTotalAmount(invoice.amount),
     status: invoice.invoiceId ? 'Generated' : 'Draft'
   };
 }
