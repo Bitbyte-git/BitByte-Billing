@@ -476,7 +476,7 @@ export default function TablePage({ type, role }) {
         { key: 'emailDeliveryStatus', label: 'Email', render: (row) => row.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : row.emailDeliveryStatus || 'Pending' }
       ],
       actions: (row) => role === 'Client' ? (
-        <span className="inline-flex max-w-56 items-center rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Invoice has been sent to your registered email.</span>
+        <Link to={`/public/client-invoice/${recordId(row)}`} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"><Eye size={14} /> View / Pay</Link>
       ) : <PdfDownloadButton onClick={() => downloadPdf(recordId(row), row.invoiceId)} />
     },
     payments: {

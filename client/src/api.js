@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const defaultBaseUrl = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : 'https://bitbyte-server.onrender.com/api';
+
 const api = axios.create({
-  baseURL: 'https://bitbyte-server.onrender.com/api'
+  baseURL: import.meta.env.VITE_API_URL || defaultBaseUrl
 });
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('bbt_token');

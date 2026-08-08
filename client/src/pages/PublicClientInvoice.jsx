@@ -1,10 +1,11 @@
-import { BadgeCheck } from 'lucide-react';
+import { BadgeCheck, CreditCard } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api.js';
 import BrandLogo from '../components/BrandLogo.jsx';
 import { COMPANY_NAME } from '../config/brand.js';
 import { currency, formatDate } from '../utils/format.js';
+import { openRazorpayCheckout } from '../utils/razorpayCheckout.js';
 
 function DetailCard({ label, value }) {
   return (
@@ -30,17 +31,40 @@ export default function PublicClientInvoice() {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [payment, setPayment] = useState({ loading: false, message: '', error: '' });
 
-  useEffect(() => {
+  const fetchRecord = () => {
     setLoading(true);
     setError('');
-    api.get(`/invoices/public/${encodeURIComponent(id)}`)
+    return api.get(`/invoices/public/${encodeURIComponent(id)}`)
       .then(({ data }) => setRecord(data))
       .catch((err) => setError(err.response?.data?.message || 'Unable to verify client invoice.'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRecord();
   }, [id]);
 
   const balanceTone = useMemo(() => Number(record?.balanceDue || 0) > 0 ? 'red' : 'green', [record]);
+  const hasPendingAmount = Number(record?.payableAmount ?? record?.balanceDue ?? 0) > 0;
+
+  const startPayment = async () => {
+    setPayment({ loading: true, message: '', error: '' });
+    try {
+      const { data: order } = await api.post(`/payments/razorpay/client-invoice/${encodeURIComponent(id)}/order`);
+      const response = await openRazorpayCheckout(order);
+      await api.post('/payments/razorpay/verify', response);
+      setPayment({ loading: false, message: 'Payment completed successfully.', error: '' });
+      await fetchRecord();
+    } catch (err) {
+      setPayment({
+        loading: false,
+        message: '',
+        error: err.response?.data?.message || err.message || 'Payment could not be completed.',
+      });
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-950">
@@ -120,6 +144,17 @@ export default function PublicClientInvoice() {
                   <SummaryRow label="Amount Paid" value={record.amountPaid} />
                   <SummaryRow label="Balance" value={record.balanceDue} strong tone={balanceTone} />
                 </div>
+                <button
+                  type="button"
+                  onClick={startPayment}
+                  disabled={!hasPendingAmount || payment.loading}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <CreditCard size={18} />
+                  {hasPendingAmount ? payment.loading ? 'Opening payment...' : `Pay ${currency(record.payableAmount || record.balanceDue)}` : 'Payment completed'}
+                </button>
+                {payment.message && <p className="mt-3 border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{payment.message}</p>}
+                {payment.error && <p className="mt-3 border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{payment.error}</p>}
               </div>
             </>
           )}

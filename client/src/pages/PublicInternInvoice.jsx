@@ -1,10 +1,11 @@
-import { BadgeCheck, CalendarDays, GraduationCap, Mail, UserRound } from 'lucide-react';
+import { BadgeCheck, CalendarDays, CreditCard, GraduationCap, Mail, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api.js';
 import BrandLogo from '../components/BrandLogo.jsx';
 import { COMPANY_NAME } from '../config/brand.js';
-import { formatDate } from '../utils/format.js';
+import { currency, formatDate } from '../utils/format.js';
+import { openRazorpayCheckout } from '../utils/razorpayCheckout.js';
 
 function maskEmail(email = '') {
   const [name, domain] = String(email).split('@');
@@ -26,15 +27,39 @@ export default function PublicInternInvoice() {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [payment, setPayment] = useState({ loading: false, message: '', error: '' });
 
-  useEffect(() => {
+  const fetchRecord = () => {
     setLoading(true);
     setError('');
-    api.get(`/intern-invoices/public/${encodeURIComponent(id)}`)
+    return api.get(`/intern-invoices/public/${encodeURIComponent(id)}`)
       .then(({ data }) => setRecord(data))
       .catch((err) => setError(err.response?.data?.message || 'Unable to verify intern invoice.'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRecord();
   }, [id]);
+
+  const hasPendingAmount = Number(record?.balanceDue || 0) > 0;
+
+  const startPayment = async () => {
+    setPayment({ loading: true, message: '', error: '' });
+    try {
+      const { data: order } = await api.post(`/payments/razorpay/intern-invoice/${encodeURIComponent(id)}/order`);
+      const response = await openRazorpayCheckout(order);
+      await api.post('/payments/razorpay/verify', response);
+      setPayment({ loading: false, message: 'Payment completed successfully.', error: '' });
+      await fetchRecord();
+    } catch (err) {
+      setPayment({
+        loading: false,
+        message: '',
+        error: err.response?.data?.message || err.message || 'Payment could not be completed.',
+      });
+    }
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-950">
@@ -81,6 +106,8 @@ export default function PublicInternInvoice() {
               <div className="grid gap-4 md:grid-cols-2">
                 <DetailCard label="Intern ID" value={record.internId} />
                 <DetailCard label="Invoice ID" value={record.invoiceId} />
+                <DetailCard label="Payment Status" value={record.paymentStatus} />
+                <DetailCard label="Pending Amount" value={currency(record.balanceDue)} />
                 <DetailCard label="Email ID" value={maskEmail(record.email)} />
                 <DetailCard label="Department" value={record.department} />
                 <DetailCard label="Position" value={record.position} />
@@ -90,7 +117,28 @@ export default function PublicInternInvoice() {
 
               <div className="mt-6 flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm">
                 <Mail className="mt-0.5 shrink-0 text-slate-400" size={18} />
-                This public verification page intentionally hides payment information.
+                Payment is accepted only for the pending invoice amount shown above.
+              </div>
+
+              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Online Payment</p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">{hasPendingAmount ? currency(record.balanceDue) : 'Paid'}</h2>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">Razorpay test mode checkout</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startPayment}
+                    disabled={!hasPendingAmount || payment.loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    <CreditCard size={18} />
+                    {hasPendingAmount ? payment.loading ? 'Opening payment...' : 'Pay Now' : 'Payment completed'}
+                  </button>
+                </div>
+                {payment.message && <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{payment.message}</p>}
+                {payment.error && <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{payment.error}</p>}
               </div>
             </>
           )}
