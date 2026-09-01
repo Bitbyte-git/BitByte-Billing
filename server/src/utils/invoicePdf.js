@@ -39,9 +39,7 @@ function formatDateTime(value = new Date()) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const logoPath = ["Logo.png", "logo.png", "logo.svg"]
-  .map((file) => path.resolve(__dirname, "../../../client/public", file))
-  .find((file) => existsSync(file));
+const logoPath = path.resolve(__dirname, "../../../client/src/assets/logo.png");
 const companyLogo =
   logoPath && existsSync(logoPath)
     ? `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`

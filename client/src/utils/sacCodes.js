@@ -58,7 +58,67 @@ export const sacMap = {
   'Hosting + Maintenance': '998315'
 };
 
+export const losSacMap = {
+  'Brand Logo Designs': '998391',
+  'Brand Identity Kit': '998391',
+  'Social Media Accounts Creation': '998361',
+  'Social Media Accounts Handling': '998361',
+  'Photo Design': '998391',
+  'Ad Creative Design - Image': '998361',
+  'Video Design': '998361',
+  'Ad Creative Design - Video': '998361',
+  'Live Photo Shoot at Site': '998382',
+  'Ad Copywriting': '998361',
+  'Digital Marketing Festival Package': '998361',
+  'Basic SEO': '998361',
+  'Advanced SEO': '998361',
+  'Enterprise SEO': '998361',
+  'Local SEO': '998361',
+  'SEO Content Writing': '998361',
+  'Competitor Analysis Report': '998371',
+  'Google Ads Campaign': '998361',
+  'Conversion Tracking Setup': '998313',
+  'Meta Ads Campaign': '998361',
+  'Basic Website Design': '998314',
+  'Dynamic Website Design with attractive UI/UX without updates': '998314',
+  'Dynamic Advanced Website Design with attractive UI/UX - Updates after initial setup and website launch.': '998314',
+  'Dynamic Advanced Website Design with attractive UI/UX - Updates after initial setup and website launch': '998314',
+  'E-Commerce Website': '998314',
+  'Website Maintenance': '998314',
+  'Website Speed Optimization': '998314',
+  'Web Billing System': '998314',
+  'www.clientname.com or .org or .in Domain Registration Charges in AWS Cloud': '998315',
+  'Domain Registration / AWS Charges': '998315',
+  'Mail Server Registration - Microsoft Cloud / Google Mail': '998315',
+  'Mail Server Registration': '998315',
+  'AWS DNS Setup, Site Mounting, Mail and Web Server Configuration': '998315',
+  'AWS DNS / Server Configuration': '998315',
+  'Personal Branding': '998397',
+  'Consulting Charges': '998311',
+  'Responsible Pages': '998314',
+  'Responsive Pages': '998314',
+  'Andriod Mobile Application': '998314',
+  'Android Static Mobile Application': '998314',
+  'Android Dynamic Mobile Application': '998314',
+  'DUNS / Google Play Store Configuration': '998314',
+  'Android Application Maintenance': '998314',
+  'Android Application Enhancements & Security Updates': '998314',
+  'Apple iOS Mobile Application': '998314',
+  'Android Mobile Application': '998314',
+  'Whats app automation': '998313',
+  'WhatsApp Automation': '998313'
+};
+
 export function getSacCode(serviceName) {
   if (!serviceName) return '998314';
-  return sacMap[serviceName] || '998314';
+  const normalized = String(serviceName).trim();
+  if (losSacMap[normalized]) return losSacMap[normalized];
+  if (sacMap[normalized]) return sacMap[normalized];
+
+  const lowerName = normalized.toLowerCase();
+  const losMatch = Object.entries(losSacMap)
+    .sort(([a], [b]) => b.length - a.length)
+    .find(([service]) => lowerName.includes(service.toLowerCase()));
+
+  return losMatch?.[1] || '998314';
 }

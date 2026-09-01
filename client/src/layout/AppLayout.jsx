@@ -3,7 +3,6 @@ import {
   Bell,
   BriefcaseBusiness,
   ChartNoAxesCombined,
-  ChevronDown,
   CircleDollarSign,
   FileCheck2,
   FileText,
@@ -20,7 +19,6 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo.jsx";
-import { LOGO_SOURCES } from "../config/brand.js";
 import { useAuth } from "../state/AuthContext.jsx";
 
 const nav = {
@@ -70,7 +68,7 @@ export default function AppLayout() {
   const items = nav[user.role] || [];
   return (
     <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[280px_1fr]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] overflow-y-auto bg-navy p-4 text-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col overflow-y-auto bg-navy p-4 text-white lg:flex">
         <div className="rounded-2xl bg-gradient-to-br from-ink to-panel p-4 shadow-glow">
           <BrandLogo
             size="md"
@@ -78,20 +76,26 @@ export default function AppLayout() {
             tagline=""
             role={`${user.role} portal`}
           />
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="text-xs font-semibold text-slate-300">{user.name}</p>
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+            <p className="truncate text-sm font-bold text-white">
+              {user.name}
+            </p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {user.role}
+            </p>
           </div>
         </div>
-        <nav className="mt-5 space-y-1">
+        <nav className="mt-5 flex-1 space-y-1.5">
           {items.map(([label, path, Icon]) => (
             <NavLink
               key={path}
               to={path}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-purple text-white shadow-glow" : "text-slate-300 hover:bg-white/8 hover:text-white"}`
+                `flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${isActive ? "bg-purple text-white shadow-glow" : "text-slate-300 hover:bg-white/8 hover:text-white"}`
               }
             >
-              <Icon size={18} /> {label}
+              <Icon className="shrink-0" size={18} />
+              <span className="truncate">{label}</span>
             </NavLink>
           ))}
         </nav>
@@ -100,13 +104,14 @@ export default function AppLayout() {
             logout();
             navigate("/login");
           }}
-          className="mt-5 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-slate-300 hover:bg-white/8"
+          className="mt-5 flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-300 transition hover:bg-white/8 hover:text-white"
         >
-          <LogOut size={18} /> Sign out
+          <LogOut className="shrink-0" size={18} />
+          <span className="truncate">Sign out</span>
         </button>
       </aside>
       <main className="min-w-0 lg:col-start-2">
-        <header className="sticky top-0 z-20 border-b border-line bg-white/90 px-4 py-3 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-20 border-b border-line bg-white/90 px-4 py-3 backdrop-blur md:px-8 lg:hidden">
           <div className="flex items-center gap-4">
             <button className="rounded-xl border border-line p-2 lg:hidden">
               <Menu size={20} />
@@ -114,20 +119,6 @@ export default function AppLayout() {
             <div className="lg:hidden">
               <BrandLogo size="sm" theme="light" tagline="" />
             </div>
-            <label className="hidden flex-1 items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-2 md:flex">
-              <img
-                src={LOGO_SOURCES[0]}
-                alt=""
-                className="h-5 w-5 rounded object-contain"
-              />
-              <input
-                className="w-full bg-transparent text-sm outline-none"
-                placeholder="Search quotations, invoices, clients..."
-              />
-            </label>
-            <button className="flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold">
-              {user.name.split(" ")[0]} <ChevronDown size={16} />
-            </button>
           </div>
         </header>
         <div className="page-enter p-4 md:p-8">

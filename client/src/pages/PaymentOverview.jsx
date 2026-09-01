@@ -1,8 +1,10 @@
+import { CreditCard } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId } from '../utils/format.js';
 import { enrichInvoiceItem } from '../utils/invoiceItems.js';
+import { openRazorpayCheckout } from '../utils/razorpayCheckout.js';
 
 const entityId = (value) => (typeof value === 'string' ? value : recordId(value));
 
@@ -11,10 +13,11 @@ export default function PaymentOverview({ role }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [paymentAction, setPaymentAction] = useState({ invoiceId: '', message: '', error: '' });
 
-  useEffect(() => {
+  const loadPaymentData = () => {
     setLoading(true);
-    Promise.all([api.get('/invoices'), api.get('/payments')])
+    return Promise.all([api.get('/invoices'), api.get('/payments')])
       .then(([invoiceRes, paymentRes]) => {
         setInvoices(invoiceRes.data);
         setPayments(paymentRes.data);
@@ -22,6 +25,10 @@ export default function PaymentOverview({ role }) {
       })
       .catch((err) => setError(err.response?.data?.message || 'Unable to load payment details.'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadPaymentData();
   }, []);
 
   const summary = useMemo(() => {
@@ -44,6 +51,24 @@ export default function PaymentOverview({ role }) {
     const balance = Number(invoice.balanceDue ?? Math.max(total - paid, 0));
     return { invoice, paymentRows, total, paid, balance };
   }), [invoices, payments]);
+
+  const startPayment = async (invoice) => {
+    const invoiceId = recordId(invoice);
+    setPaymentAction({ invoiceId, message: '', error: '' });
+    try {
+      const { data: order } = await api.post(`/payments/razorpay/client-invoice/${encodeURIComponent(invoiceId)}/order`);
+      const response = await openRazorpayCheckout(order);
+      await api.post('/payments/razorpay/verify', response);
+      setPaymentAction({ invoiceId, message: 'Payment completed successfully.', error: '' });
+      await loadPaymentData();
+    } catch (err) {
+      setPaymentAction({
+        invoiceId,
+        message: '',
+        error: err.response?.data?.message || err.message || 'Payment could not be completed.',
+      });
+    }
+  };
 
   return (
     <div>
@@ -72,7 +97,11 @@ export default function PaymentOverview({ role }) {
       </div>
 
       <div className="space-y-5">
-        {invoicesWithPayments.map(({ invoice, paymentRows, total, paid, balance }) => (
+        {invoicesWithPayments.map(({ invoice, paymentRows, total, paid, balance }) => {
+          const invoiceRecordId = recordId(invoice);
+          const isPaying = paymentAction.invoiceId === invoiceRecordId && !paymentAction.message && !paymentAction.error;
+          const canPay = role === 'Client' && Number(balance || 0) > 0;
+          return (
           <section key={recordId(invoice)} className="overflow-hidden rounded-2xl border border-line bg-white shadow-premium">
             <div className="border-b border-line bg-slate-50 p-5">
               <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
@@ -90,6 +119,27 @@ export default function PaymentOverview({ role }) {
                   <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold uppercase text-slate-400">Status</p><StatusBadge status={balance === 0 ? 'Paid' : paid > 0 ? 'Partial' : invoice.paymentStatus} /></div>
                 </div>
               </div>
+              {role === 'Client' && (
+                <div className="mt-4 flex flex-col justify-between gap-3 rounded-xl border border-line bg-white p-4 md:flex-row md:items-center">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Payment Option</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-600">
+                      {canPay ? `Pay the pending amount of ${currency(balance)} using Razorpay.` : 'This invoice has no pending amount.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startPayment(invoice)}
+                    disabled={!canPay || isPaying}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    <CreditCard size={18} />
+                    {canPay ? isPaying ? 'Opening payment...' : `Pay ${currency(balance)}` : 'Payment completed'}
+                  </button>
+                </div>
+              )}
+              {paymentAction.invoiceId === invoiceRecordId && paymentAction.message && <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{paymentAction.message}</p>}
+              {paymentAction.invoiceId === invoiceRecordId && paymentAction.error && <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{paymentAction.error}</p>}
             </div>
 
             <div className="p-5">
@@ -160,7 +210,7 @@ export default function PaymentOverview({ role }) {
               )}
             </div>
           </section>
-        ))}
+        );})}
         {!loading && !invoicesWithPayments.length && (
           <p className="rounded-2xl border border-line bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">No invoices available for payment tracking.</p>
         )}

@@ -88,7 +88,7 @@ const pulseVariants = {
 export default function Dashboard({ role, reports = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [state, setState] = useState({ loading: true, error: '', summary: null, quotations: [] });
+  const [state, setState] = useState({ loading: true, error: '', summary: null, quotations: [], invoices: [] });
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -98,9 +98,13 @@ export default function Dashboard({ role, reports = false }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.get('/reports/dashboard'), api.get('/quotations')])
-      .then(([summaryRes, quotationsRes]) => {
-        if (active) setState({ loading: false, error: '', summary: summaryRes.data, quotations: quotationsRes.data });
+    const requests = role === 'Client'
+      ? [api.get('/reports/dashboard'), api.get('/quotations'), api.get('/invoices')]
+      : [api.get('/reports/dashboard'), api.get('/quotations'), Promise.resolve({ data: [] })];
+
+    Promise.all(requests)
+      .then(([summaryRes, quotationsRes, invoicesRes]) => {
+        if (active) setState({ loading: false, error: '', summary: summaryRes.data, quotations: quotationsRes.data, invoices: invoicesRes.data });
       })
       .catch((err) => {
         if (active) setState((current) => ({ ...current, loading: false, error: err.response?.data?.message || 'Unable to load dashboard.' }));
@@ -108,7 +112,7 @@ export default function Dashboard({ role, reports = false }) {
     return () => { active = false; };
   }, []);
 
-  const { summary, quotations } = state;
+  const { summary, quotations, invoices } = state;
   const statusData = useMemo(() => Object.entries(summary?.statusDistribution || {}).map(([name, value]) => ({ name, value })), [summary]);
   const revenueData = useMemo(() => Object.entries(summary?.revenueByMonth || {}).map(([month, value]) => ({ month, value })), [summary]);
   const primaryChartData = role === 'Client'
@@ -117,6 +121,16 @@ export default function Dashboard({ role, reports = false }) {
   const totalValue = summary?.totalValue || 0;
   const paid = summary?.totalRevenue || 0;
   const outstanding = summary?.outstandingAmount || 0;
+  const pendingInvoices = useMemo(() => invoices
+    .map((invoice) => {
+      const total = Number(invoice.totalAmount || 0);
+      const paidAmount = Number(invoice.amountPaid || 0);
+      const balance = Number(invoice.balanceDue ?? Math.max(total - paidAmount, 0));
+      return { ...invoice, total, paidAmount, balance };
+    })
+    .filter((invoice) => invoice.balance > 0)
+    .sort((a, b) => new Date(a.dueDate || a.createdAt || 0) - new Date(b.dueDate || b.createdAt || 0)), [invoices]);
+  const nextPendingInvoice = pendingInvoices[0];
 
   const cards = role === 'Client'
     ? [
@@ -276,6 +290,90 @@ export default function Dashboard({ role, reports = false }) {
             <span className="gradient-button inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold">View showcase</span>
           </Link>
         </motion.div>
+      )}
+
+      {/* ── Client Pending Payments ── */}
+      {role === 'Client' && (
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.22 }}
+          className="mb-6 overflow-hidden rounded-2xl border border-line bg-white shadow-premium"
+        >
+          <div className="flex flex-col justify-between gap-4 border-b border-line bg-slate-50 p-5 lg:flex-row lg:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-purple">Payment Desk</p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">Pending Payment Details</h2>
+              <p className="mt-1 text-sm text-slate-500">Review invoice balances and complete payments securely from your payment workspace.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="rounded-xl border border-line bg-white px-4 py-3">
+                <p className="text-xs font-bold uppercase text-slate-400">Pending invoices</p>
+                <p className="text-xl font-black text-slate-950">{pendingInvoices.length}</p>
+              </div>
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase text-red-400">Pending amount</p>
+                <p className="text-xl font-black text-red-600">{currency(pendingInvoices.reduce((sum, invoice) => sum + invoice.balance, 0))}</p>
+              </div>
+            </div>
+          </div>
+
+          {pendingInvoices.length ? (
+            <div className="grid gap-4 p-5 xl:grid-cols-[1.1fr_.9fr]">
+              <div className="rounded-2xl border border-line bg-slate-950 p-5 text-white">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Next Due</p>
+                <h3 className="mt-2 text-2xl font-black">{nextPendingInvoice.invoiceId}</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-300">{nextPendingInvoice.quotationId?.projectTitle || 'Invoice payment'}</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-slate-400">Due Date</p>
+                    <p className="mt-1 font-black">{formatDate(nextPendingInvoice.dueDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase text-slate-400">Paid</p>
+                    <p className="mt-1 font-black text-emerald-300">{currency(nextPendingInvoice.paidAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase text-slate-400">Balance</p>
+                    <p className="mt-1 font-black text-red-300">{currency(nextPendingInvoice.balance)}</p>
+                  </div>
+                </div>
+                <Link to="/client/payments" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-black text-slate-950 hover:bg-slate-100">
+                  Pay pending amount <ArrowRight size={16} />
+                </Link>
+              </div>
+
+              <div className="space-y-3">
+                {pendingInvoices.slice(0, 3).map((invoice) => (
+                  <Link
+                    key={recordId(invoice)}
+                    to="/client/payments"
+                    className="flex flex-col justify-between gap-3 rounded-2xl border border-line bg-white p-4 transition hover:border-purple/40 hover:bg-purple/5 md:flex-row md:items-center"
+                  >
+                    <div>
+                      <p className="text-sm font-black text-slate-950">{invoice.invoiceId}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{invoice.quotationId?.projectTitle || 'Invoice'} · Due {formatDate(invoice.dueDate)}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-xs font-bold uppercase text-slate-400">Balance</p>
+                        <p className="font-black text-red-600">{currency(invoice.balance)}</p>
+                      </div>
+                      <ArrowRight size={18} className="text-purple" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-5">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+                <p className="text-sm font-black text-emerald-700">No pending payments right now.</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-600">You are all clear. New invoice balances will appear here automatically.</p>
+              </div>
+            </div>
+          )}
+        </motion.section>
       )}
 
       {state.error && <p className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
