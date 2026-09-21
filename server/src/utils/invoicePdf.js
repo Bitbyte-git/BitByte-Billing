@@ -39,11 +39,14 @@ function formatDateTime(value = new Date()) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const logoPath = path.resolve(__dirname, "../../../client/src/assets/logo.png");
-const companyLogo =
-  logoPath && existsSync(logoPath)
-    ? `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
-    : null;
+const logoCandidates = [
+  path.resolve(__dirname, "../../../client/src/assets/logo-invoice.png"),
+  path.resolve(__dirname, "../../../client/src/assets/logo.png"),
+];
+const logoPath = logoCandidates.find((candidate) => existsSync(candidate));
+const companyLogo = logoPath
+  ? `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
+  : null;
 
 const COMPANY = {
   name: "Bit Byte Technologies",
@@ -52,6 +55,123 @@ const COMPANY = {
   gstin: process.env.COMPANY_GSTIN || "33BLNPN539J1ZL",
   udyamId: process.env.COMPANY_UDYAM_ID || "UDYAM-TN-20-0234773",
 };
+
+const COLORS = {
+  blue: "#0F7CEB",
+  green: "#6BCB2D",
+  navy: "#0F172A",
+  text: "#111827",
+  muted: "#4B5563",
+  border: "#D9DEE7",
+  bg: "#F8FAFC",
+  panel: "#F8FAFC",
+  headerNavy: "#12385F",
+  headerStripe: "#3A78BE",
+};
+
+const PAGE_WIDTH = 595.28;
+const HEADER_BANNER = { width: 172, height: 100 };
+
+function invoiceCornerBannerSvg(width = HEADER_BANNER.width, height = HEADER_BANNER.height) {
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 172 100">
+  <polygon points="86,0 172,0 172,100 24,100" fill="${COLORS.headerNavy}"/>
+  <polygon points="73,0 86,0 24,100 13,100" fill="${COLORS.headerStripe}"/>
+  <g fill="#FFFFFF" font-family="Helvetica" font-size="6.5" font-weight="bold" text-anchor="end">
+    <text x="162" y="17" letter-spacing="2.4">TECHNOLOGY</text>
+    <text x="162" y="29" letter-spacing="2.4">PEOPLE</text>
+    <text x="162" y="41" letter-spacing="2.4">IDEAS</text>
+    <text x="162" y="53" letter-spacing="2.4">SOLUTIONS</text>
+    <text x="162" y="65" letter-spacing="2.4">GROWTH</text>
+  </g>
+  <line x1="116" y1="73" x2="162" y2="73" stroke="#FFFFFF" stroke-width="1.4"/>
+  <g fill="#FFFFFF" font-family="Helvetica" font-size="5.8" font-weight="bold" text-anchor="end">
+    <text x="162" y="86" letter-spacing="1.15">BUILD A SMARTER</text>
+    <text x="162" y="96" letter-spacing="1.15">TOMORROW</text>
+  </g>
+</svg>`.trim();
+}
+
+function invoiceHeaderBackground() {
+  return (currentPage) => {
+    if (currentPage !== 1) return undefined;
+    return {
+      absolutePosition: { x: PAGE_WIDTH - HEADER_BANNER.width, y: 0 },
+      svg: invoiceCornerBannerSvg(),
+    };
+  };
+}
+
+function invoiceHeaderBlock(rightGutter = 118) {
+  return {
+    columns: [
+      {
+        width: 102,
+        stack: [
+          companyLogo
+            ? { image: companyLogo, width: 90, alignment: "center" }
+            : {
+                text: "BitByte",
+                alignment: "center",
+                bold: true,
+                color: COLORS.blue,
+                fontSize: 16,
+              },
+          {
+            text: "WE ENGINEER LIFE'S LANGUAGE",
+            alignment: "center",
+            fontSize: 4.4,
+            color: "#64748B",
+            characterSpacing: 0.28,
+            margin: [0, 3, 0, 0],
+          },
+        ],
+        margin: [0, 4, 4, 0],
+      },
+      {
+        width: "*",
+        stack: [
+          {
+            text: [
+              { text: "Bit Byte", color: COLORS.blue },
+              { text: " Technologies", color: COLORS.green },
+            ],
+            bold: true,
+            fontSize: 21,
+            margin: [0, 8, 0, 4],
+          },
+          {
+            text: `${COMPANY.office}, ${COMPANY.address[0]}`,
+            fontSize: 9.2,
+            bold: true,
+            color: COLORS.navy,
+          },
+          {
+            text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
+            fontSize: 9.2,
+            bold: true,
+            color: COLORS.navy,
+            margin: [0, 1, 0, 5],
+          },
+          {
+            text: [
+              { text: `GST NO : ${COMPANY.gstin}` },
+              { text: "   |   ", color: "#94A3B8" },
+              { text: `MSME : ${COMPANY.udyamId}` },
+            ],
+            fontSize: 8.2,
+            bold: true,
+            color: COLORS.navy,
+          },
+        ],
+        margin: [0, 2, 0, 0],
+      },
+      { width: rightGutter, text: "" },
+    ],
+    columnGap: 6,
+    margin: [0, 0, 0, 8],
+  };
+}
 
 const INTERN_INVOICE_TAX = {
   sacCode: "999293",
@@ -185,16 +305,6 @@ export function createInvoicePdfDocument(invoice) {
     },
   };
   const printer = new PdfPrinter(fonts);
-  const COLORS = {
-    blue: "#0F7CEB",
-    green: "#6BCB2D",
-    navy: "#0F172A",
-    text: "#111827",
-    muted: "#4B5563",
-    border: "#D9DEE7",
-    bg: "#F8FAFC",
-    panel: "#F8FAFC",
-  };
   const items = (invoice.items || []).map(enrichInvoiceItem);
   const clientName =
     invoice.clientId?.companyName || invoice.clientId?.fullName || "Client";
@@ -359,104 +469,9 @@ export function createInvoicePdfDocument(invoice) {
   const docDefinition = {
     pageSize: "A4",
     pageMargins: [24, 18, 24, 42],
+    background: invoiceHeaderBackground(),
     content: [
-      {
-        canvas: [
-          {
-            type: "line",
-            x1: 0,
-            y1: 0,
-            x2: 269.5,
-            y2: 0,
-            lineWidth: 2,
-            lineColor: COLORS.blue,
-          },
-          {
-            type: "line",
-            x1: 269.5,
-            y1: 0,
-            x2: 539,
-            y2: 0,
-            lineWidth: 2,
-            lineColor: COLORS.green,
-          },
-        ],
-      },
-      {
-        table: {
-          widths: [138, "*"],
-          body: [
-            [
-              {
-                stack: companyLogo
-                  ? [{ image: companyLogo, width: 116, alignment: "center" }]
-                  : [
-                      {
-                        text: COMPANY.name,
-                        alignment: "center",
-                        bold: true,
-                        color: COLORS.blue,
-                      },
-                    ],
-                alignment: "center",
-                fillColor: COLORS.navy,
-                margin: [0, 10, 0, 10],
-              },
-              {
-                stack: [
-                  {
-                    text: [
-                      { text: "Bit Byte", color: COLORS.blue },
-                      { text: " Technologies", color: COLORS.green },
-                    ],
-                    bold: true,
-                    fontSize: 27,
-                    margin: [0, 0, 0, 7],
-                  },
-                  {
-                    text: COMPANY.office,
-                    fontSize: 10.5,
-                    bold: true,
-                    color: "#FFFFFF",
-                    margin: [0, 0, 0, 2],
-                  },
-                  ...COMPANY.address.map((line) => ({
-                    text: line,
-                    fontSize: 9.5,
-                    color: "#FFFFFF",
-                  })),
-                  {
-                    text: `GST NO : ${COMPANY.gstin}`,
-                    fontSize: 11,
-                    bold: true,
-                    color: "#FFFFFF",
-                    margin: [0, 8, 0, 0],
-                  },
-                  {
-                    text: `MSME ID : ${COMPANY.udyamId}`,
-                    fontSize: 11,
-                    bold: true,
-                    color: "#FFFFFF",
-                  },
-                ],
-                fillColor: COLORS.navy,
-                margin: [18, 28, 0, 9],
-              },
-            ],
-          ],
-        },
-        layout: {
-          hLineWidth: () => 0.6,
-          vLineWidth: (lineIndex) => (lineIndex === 1 ? 0.8 : 0.6),
-          hLineColor: () => COLORS.border,
-          vLineColor: () => COLORS.border,
-          paddingLeft: () => 12,
-          paddingRight: () => 12,
-          paddingTop: () => 0,
-          paddingBottom: () => 0,
-        },
-        margin: [0, 0, 0, 10],
-      },
+      invoiceHeaderBlock(HEADER_BANNER.width - 24),
       {
         columns: [
           {
@@ -824,16 +839,6 @@ export function createInternInvoicePdfDocument(invoice) {
   const generatedBy =
     invoice.createdBy?.name || invoice.createdBy?.email || "BBTech Admin Team";
   const publicUrl = publicInternInvoiceUrl(invoice);
-  const COLORS = {
-    blue: "#0F7CEB",
-    green: "#6BCB2D",
-    navy: "#0F172A",
-    text: "#111827",
-    muted: "#4B5563",
-    border: "#D9DEE7",
-    bg: "#F8FAFC",
-    panel: "#F8FAFC",
-  };
   const detailCell = (label, value, options = {}) => ({
     stack: [
       { text: label, style: "label" },
@@ -900,106 +905,9 @@ export function createInternInvoicePdfDocument(invoice) {
   const docDefinition = {
     pageSize: "A4",
     pageMargins: [18, 14, 18, 17],
+    background: invoiceHeaderBackground(),
     content: [
-      {
-        canvas: [
-          {
-            type: "line",
-            x1: 0,
-            y1: 0,
-            x2: 279.5,
-            y2: 0,
-            lineWidth: 2,
-            lineColor: COLORS.blue,
-          },
-          {
-            type: "line",
-            x1: 279.5,
-            y1: 0,
-            x2: 559,
-            y2: 0,
-            lineWidth: 2,
-            lineColor: COLORS.green,
-          },
-        ],
-        margin: [0, 0, 0, 0],
-      },
-      {
-        table: {
-          widths: [138, "*"],
-          body: [
-            [
-              {
-                stack: companyLogo
-                  ? [{ image: companyLogo, width: 98, alignment: "center" }]
-                  : [
-                      {
-                        text: COMPANY.name,
-                        alignment: "center",
-                        bold: true,
-                        color: COLORS.blue,
-                      },
-                    ],
-                alignment: "center",
-                fillColor: COLORS.navy,
-                margin: [0, 3, 0, 3],
-              },
-              {
-                stack: [
-                  {
-                    text: [
-                      { text: "Bit Byte", color: COLORS.blue },
-                      { text: " Technologies", color: COLORS.green },
-                    ],
-                    bold: true,
-                    fontSize: 25,
-                    margin: [0, 0, 0, 4],
-                  },
-                  {
-                    text: `${COMPANY.office}, ${COMPANY.address[0]}`,
-                    fontSize: 9.2,
-                    bold: true,
-                    color: "#FFFFFF",
-                    margin: [0, 0, 0, 1],
-                  },
-                  {
-                    text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
-                    fontSize: 9.2,
-                    bold: true,
-                    color: "#FFFFFF",
-                  },
-                  {
-                    text: `GST NO : ${COMPANY.gstin}`,
-                    fontSize: 9.8,
-                    bold: true,
-                    color: "#FFFFFF",
-                    margin: [0, 5, 0, 0],
-                  },
-                  {
-                    text: `MSME : ${COMPANY.udyamId}`,
-                    fontSize: 10,
-                    bold: true,
-                    color: "#FFFFFF",
-                  },
-                ],
-                fillColor: COLORS.navy,
-                margin: [18, 10, 0, 6],
-              },
-            ],
-          ],
-        },
-        layout: {
-          hLineWidth: () => 0.6,
-          vLineWidth: (lineIndex) => (lineIndex === 1 ? 0.8 : 0.6),
-          hLineColor: () => COLORS.border,
-          vLineColor: () => COLORS.border,
-          paddingLeft: () => 12,
-          paddingRight: () => 12,
-          paddingTop: () => 0,
-          paddingBottom: () => 0,
-        },
-        margin: [0, 0, 0, 7],
-      },
+      invoiceHeaderBlock(HEADER_BANNER.width - 18),
       {
         columns: [
           {

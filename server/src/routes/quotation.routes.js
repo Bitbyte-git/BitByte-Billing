@@ -1,7 +1,7 @@
 // trigger reload
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getQuotation, listQuotations, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
+import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -10,11 +10,10 @@ const router = Router();
 router.use(authenticate);
 router.get('/', listQuotations);
 router.get('/:id', getQuotation);
-router.post('/', authorize('Client'), [
-  body('mainService').isArray({ min: 1 }),
-  body('projectTitle').notEmpty(),
-  body('requirementDetails').notEmpty()
+router.post('/', authorize('Client', 'Accountant', 'Admin'), [
+  body('projectTitle').optional(),
 ], validate, createQuotation);
+router.get('/:id/pdf', authorize('Accountant', 'Admin'), quotationPdf);
 router.put('/:id', updateQuotation);
 router.put('/:id/status', updateStatus);
 router.post('/:id/remarks', body('message').notEmpty(), validate, addRemark);

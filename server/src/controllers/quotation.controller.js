@@ -10,6 +10,7 @@ import { sendNotificationEmail } from '../utils/email.js';
 import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { changeQuotationStatus, recordAudit, notifyRole } from '../services/workflowService.js';
 import { createInvoiceForQuotation } from '../services/invoiceService.js';
+import { createQuotationPdfDocument } from '../utils/quotationPdf.js';
 
 export async function listQuotations(req, res, next) {
   try {
@@ -30,18 +31,116 @@ export async function getQuotation(req, res, next) {
 export async function createQuotation(req, res, next) {
   try {
     console.log('CreateQuotation payload:', req.body);
-  if (!req.body.mainService?.length && !req.body.servicesSelected?.length) throw Object.assign(new Error('At least one service must be selected'), { status: 422 });
-    const clientId = req.body.clientId || (await resolveClientId(req));
+    const isStaff = ['Accountant', 'Admin'].includes(req.user.role);
+
+    // Resolve client
+    let clientId = req.body.clientId;
+    if (!clientId && req.body.clientDetails) {
+      const { fullName, email, phone, companyName, address, gstin } = req.body.clientDetails;
+      if (email || phone) {
+        let existing = await Client.findOne({ $or: [{ email: email?.toLowerCase() }, { phone }] });
+        if (existing) {
+          clientId = existing._id;
+        } else {
+          const newClient = await Client.create({
+            clientId: `AUTO-${Date.now().toString(36).toUpperCase()}`,
+            fullName: fullName || companyName || 'Client',
+            companyName: companyName || fullName || 'Client',
+            email: email || `client-${Date.now()}@bitbytetech.org`,
+            phone: phone || '0000000000',
+            address: address || '',
+            gstin: gstin || '',
+            registeredBy: req.user._id
+          });
+          clientId = newClient._id;
+        }
+      }
+    }
+
+    if (!clientId) {
+      clientId = await resolveClientId(req);
+    }
+
+    // Compute costing if costingItems provided
+    let costingItems = (req.body.costingItems || []).map(item => {
+      const basePrice = Number(item.basePrice || 0);
+      const quantity = Number(item.quantity || 1);
+      const discountAmount = Number(item.discountAmount || 0);
+      const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+      return { ...item, basePrice, quantity, discountAmount, taxableValue };
+    });
+    let subtotal = Number(req.body.subtotal || 0);
+    let gstAmount = Number(req.body.gstAmount || 0);
+    let totalAmount = Number(req.body.totalAmount || 0);
+
+    if (costingItems.length > 0) {
+      subtotal = costingItems.reduce((sum, item) => sum + item.taxableValue, 0);
+      gstAmount = costingItems.reduce((sum, item) => sum + Number(item.gstAmount || 0), 0);
+      totalAmount = subtotal + gstAmount;
+    }
+
+    const mainService = req.body.mainService?.length
+      ? req.body.mainService
+      : [...new Set(costingItems.map(i => i.mainService).filter(Boolean))];
+
+    const subServices = req.body.subServices?.length
+      ? req.body.subServices
+      : costingItems.map(i => i.subService || i.subServiceName || i.serviceName).filter(Boolean);
+
+    const projectTitle = req.body.projectTitle || (subServices.length ? subServices[0] : 'Services Quotation');
+    const defaultStatus = isStaff ? 'Approved' : 'Submitted';
+    const status = req.body.status || defaultStatus;
+
     const quotation = await Quotation.create({
       ...req.body,
       clientId,
-      quotationId: await nextQuotationId(),
+      quotationId: req.body.quotationId || (await nextQuotationId()),
       createdBy: req.user._id,
-      status: 'Submitted',
+      projectTitle,
+      mainService,
+      subServices,
+      costingItems,
+      subtotal,
+      gstAmount,
+      totalAmount,
+      status,
       submittedAt: new Date()
     });
-    await recordAudit({ userId: req.user._id, action: 'Quotation submitted', entityType: 'Quotation', entityId: quotation._id, newValue: quotation.toObject() });
-    res.status(201).json(quotation);
+
+    if (costingItems.length > 0) {
+      const qItems = costingItems.map(item => {
+        const basePrice = Number(item.basePrice || 0);
+        const quantity = Number(item.quantity || 1);
+        const discountAmount = Number(item.discountAmount || 0);
+        const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        return {
+          quotationId: quotation._id,
+          mainService: item.mainService || 'General',
+          subService: item.subService || item.subServiceName || item.serviceName || 'Service',
+          subServiceName: item.subService || item.subServiceName || item.serviceName || 'Service',
+          sacCode: item.sacCode || getSacCode(item.subService || item.serviceName),
+          description: item.description || '',
+          basePrice,
+          quantity,
+          discountPercentage: Number(item.discountPercentage || 0),
+          discountAmount,
+          taxableValue,
+          gstPercentage: Number(item.gstPercentage || 18),
+          gstAmount: Number(item.gstAmount || 0),
+          totalAmount: Number(item.totalAmount || 0),
+          priceType: 'Auto',
+          addedByAccountant: req.user._id,
+          addedByAccountantName: req.user.name || req.user.email,
+          pricingAddedAt: new Date()
+        };
+      });
+      await QuotationItem.insertMany(qItems);
+    }
+
+    await recordAudit({ userId: req.user._id, action: `Quotation created by ${req.user.role}`, entityType: 'Quotation', entityId: quotation._id, newValue: quotation.toObject() });
+
+    const populated = await Quotation.findById(quotation._id).populate('clientId');
+    res.status(201).json(populated);
   } catch (err) { console.error('CreateQuotation error:', err); next(err); }
 }
 
@@ -63,6 +162,19 @@ async function resolveClientId(req) {
     });
   }
   return client._id;
+}
+
+export async function quotationPdf(req, res, next) {
+  try {
+    const quotation = await Quotation.findById(req.params.id).populate('clientId createdBy');
+    if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+    const pdfDoc = createQuotationPdfDocument(quotation);
+    const safeId = quotation.quotationId || String(quotation._id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeId}.pdf"`);
+    pdfDoc.pipe(res);
+    pdfDoc.end();
+  } catch (err) { next(err); }
 }
 
 export async function updateQuotation(req, res, next) {
