@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Stepper from '../components/Stepper.jsx';
+import ToastNotification from '../components/ToastNotification.jsx';
 import api from '../api.js';
 import losServices, { losTiers } from '../data/losServices.js';
 import { getFileMimeType, uploadToCloudinary } from '../utils/cloudinary.js';
@@ -87,6 +88,9 @@ export default function NewQuotation() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '' });
   const [serviceQuery, setServiceQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState('All');
   const [activeTier, setActiveTier] = useState('starter');
@@ -157,6 +161,9 @@ export default function NewQuotation() {
       const nextLabels = exists
         ? current.subServices.filter((item) => item !== label)
         : [...current.subServices, label];
+      if (!exists) {
+        setToast({ show: true, message: `"${service.service}" added to quotation queue.` });
+      }
       return { ...current, ...syncServices(nextLabels) };
     });
   };
@@ -230,6 +237,7 @@ export default function NewQuotation() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
@@ -588,5 +596,13 @@ export default function NewQuotation() {
         </section>
       )}
     </div>
+
+    {/* Toast notification for service added to queue */}
+    <ToastNotification
+      show={toast.show}
+      message={toast.message}
+      onDone={() => setToast({ show: false, message: '' })}
+    />
+    </>
   );
 }

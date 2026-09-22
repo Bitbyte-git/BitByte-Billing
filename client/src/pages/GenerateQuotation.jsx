@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import ToastNotification from '../components/ToastNotification.jsx';
 import losServices, { losTiers } from '../data/losServices.js';
 import { currency, formatDate, recordId } from '../utils/format.js';
 
@@ -61,6 +62,12 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [submitting, setSubmitting] = useState(false);
   const [savedQuotation, setSavedQuotation] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '' });
+
+  // Inline "added" confirmation above the Add Service button
+  const [addedMsg, setAddedMsg] = useState('');
 
   // 1. Fetch available clients
   useEffect(() => {
@@ -183,6 +190,11 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
     setCostingItems((prev) => [...prev, newItem]);
     setMessage({ type: '', text: '' });
+    setToast({ show: true, message: `"${activeServiceObj.service}" added to quotation queue.` });
+
+    // Inline popup above the Add Service button
+    setAddedMsg(`✓ "${activeServiceObj.service}" added to queue`);
+    setTimeout(() => setAddedMsg(''), 2500);
   };
 
   // Remove item line
@@ -266,6 +278,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   };
 
   return (
+    <>
     <div className="space-y-6">
       {/* Top Banner Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -597,13 +610,26 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                   <p className="text-xl font-black text-purple">{currency(currentTierPrice)}</p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={addServiceLineItem}
-                  className="gradient-button flex h-11 items-center gap-2 rounded-xl px-5 font-bold text-white shadow-sm"
-                >
-                  <Plus size={18} /> Add Service
-                </button>
+                <div className="flex flex-col items-end gap-1.5">
+                  {/* Inline popup above Add Service button */}
+                  <div
+                    className={`flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-all duration-300 ${
+                      addedMsg ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none'
+                    }`}
+                    aria-live="polite"
+                  >
+                    <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
+                    {addedMsg || 'Added to queue'}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addServiceLineItem}
+                    className="gradient-button flex h-11 items-center gap-2 rounded-xl px-5 font-bold text-white shadow-sm"
+                  >
+                    <Plus size={18} /> Add Service
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -704,5 +730,13 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         </div>
       </section>
     </div>
+
+    {/* Toast notification for service added to queue */}
+    <ToastNotification
+      show={toast.show}
+      message={toast.message}
+      onDone={() => setToast({ show: false, message: '' })}
+    />
+    </>
   );
 }
