@@ -106,27 +106,27 @@ function invoiceHeaderBlock(rightGutter = 118) {
   return {
     columns: [
       {
-        width: 102,
+        width: 148,
         stack: [
           companyLogo
-            ? { image: companyLogo, width: 90, alignment: "center" }
+            ? { image: companyLogo, width: 134, alignment: "center" }
             : {
                 text: "BitByte",
                 alignment: "center",
                 bold: true,
                 color: COLORS.blue,
-                fontSize: 16,
+                fontSize: 22,
               },
           {
             text: "WE ENGINEER LIFE'S LANGUAGE",
             alignment: "center",
-            fontSize: 4.4,
+            fontSize: 5.5,
             color: "#64748B",
-            characterSpacing: 0.28,
+            characterSpacing: 0.3,
             margin: [0, 3, 0, 0],
           },
         ],
-        margin: [0, 4, 4, 0],
+        margin: [0, 2, 6, 0],
       },
       {
         width: "*",

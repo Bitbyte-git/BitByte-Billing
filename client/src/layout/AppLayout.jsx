@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Activity,
   Bell,
@@ -16,8 +17,9 @@ import {
   UserCog,
   Users,
   Wrench,
+  X,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import BrandLogo from "../components/BrandLogo.jsx";
 import { useAuth } from "../state/AuthContext.jsx";
 
@@ -67,55 +69,109 @@ const nav = {
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const items = nav[user.role] || [];
-  return (
-    <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[280px_1fr]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col overflow-y-auto bg-navy p-4 text-white lg:flex">
-        <div className="rounded-2xl bg-gradient-to-br from-ink to-panel p-4 shadow-glow">
+  const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const items = nav[user?.role] || [];
+
+  // Automatically close mobile menu when path changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const SidebarContent = () => (
+    <>
+      <div className="rounded-2xl bg-gradient-to-br from-ink to-panel p-4 shadow-glow">
+        <div className="flex items-center justify-between">
           <BrandLogo
             size="md"
             theme="dark"
             tagline=""
-            role={`${user.role} portal`}
+            role={`${user?.role} portal`}
           />
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-            <p className="truncate text-sm font-bold text-white">
-              {user.name}
-            </p>
-            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              {user.role}
-            </p>
-          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
         </div>
-        <nav className="mt-5 flex-1 space-y-1.5">
-          {items.map(([label, path, Icon]) => (
-            <NavLink
-              key={path}
-              to={path}
-              className={({ isActive }) =>
-                `flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${isActive ? "bg-purple text-white shadow-glow" : "text-slate-300 hover:bg-white/8 hover:text-white"}`
-              }
-            >
-              <Icon className="shrink-0" size={18} />
-              <span className="truncate">{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <button
-          onClick={() => {
-            logout();
-            navigate("/login");
-          }}
-          className="mt-5 flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-300 transition hover:bg-white/8 hover:text-white"
-        >
-          <LogOut className="shrink-0" size={18} />
-          <span className="truncate">Sign out</span>
-        </button>
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+          <p className="truncate text-sm font-bold text-white">
+            {user?.name}
+          </p>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {user?.role}
+          </p>
+        </div>
+      </div>
+      <nav className="mt-5 flex-1 space-y-1.5 overflow-y-auto">
+        {items.map(([label, path, Icon]) => (
+          <NavLink
+            key={path}
+            to={path}
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) =>
+              `flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition ${
+                isActive
+                  ? "bg-purple text-white shadow-glow"
+                  : "text-slate-300 hover:bg-white/8 hover:text-white"
+              }`
+            }
+          >
+            <Icon className="shrink-0" size={18} />
+            <span className="truncate">{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+      <button
+        onClick={() => {
+          setMobileOpen(false);
+          logout();
+          navigate("/login");
+        }}
+        className="mt-5 flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-300 transition hover:bg-white/8 hover:text-white"
+      >
+        <LogOut className="shrink-0" size={18} />
+        <span className="truncate">Sign out</span>
+      </button>
+    </>
+  );
+
+  return (
+    <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[280px_1fr]">
+      {/* Desktop Sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[280px] flex-col overflow-y-auto bg-navy p-4 text-white lg:flex">
+        <SidebarContent />
       </aside>
+
+      {/* Mobile Drawer Overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-navy/70 backdrop-blur-sm lg:hidden transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar Drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-navy p-4 text-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <SidebarContent />
+      </aside>
+
+      {/* Main Content Area */}
       <main className="min-w-0 lg:col-start-2">
         <header className="sticky top-0 z-20 border-b border-line bg-white/90 px-4 py-3 backdrop-blur md:px-8 lg:hidden">
           <div className="flex items-center gap-4">
-            <button className="rounded-xl border border-line p-2 lg:hidden">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="rounded-xl border border-line p-2 text-slate-700 hover:bg-slate-100 transition active:scale-95 lg:hidden"
+              aria-label="Open menu"
+            >
               <Menu size={20} />
             </button>
             <div className="lg:hidden">
@@ -123,6 +179,7 @@ export default function AppLayout() {
             </div>
           </div>
         </header>
+
         <div className="page-enter p-4 md:p-8">
           <Outlet />
         </div>
