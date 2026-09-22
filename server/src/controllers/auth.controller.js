@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
 
-const MAX_SESSION_SECONDS = 3 * 60;
+const MAX_SESSION_SECONDS = 30 * 60;
 
 function sessionDurationSeconds() {
   const value = process.env.JWT_EXPIRES_IN?.trim();

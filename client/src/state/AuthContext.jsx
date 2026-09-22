@@ -9,7 +9,7 @@ const roleHome = {
   Client: '/client/dashboard'
 };
 
-const MAX_SESSION_MS = 3 * 60 * 1000;
+const MAX_SESSION_MS = 30 * 60 * 1000;
 
 function decodeTokenExpiry(token) {
   try {

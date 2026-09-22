@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-const MAX_SESSION_AGE = '3m';
+const MAX_SESSION_AGE = process.env.JWT_EXPIRES_IN || '30m';
 
 export async function authenticate(req, _res, next) {
   try {
