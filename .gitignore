@@ -1,8 +1,21 @@
+# Dependencies
 node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment & Secret files
 .env
+.env.*
+*.env
 server/.env
+server/.env.*
+client/.env
+client/.env.*
 server/.secrets/
+!.env.example
+!server/.env.example
+
+# Build outputs
+dist/
 client/dist/
 server/dist/
-client/node_modules
-server/node_modules
