@@ -1,0 +1,893 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  FileCheck2,
+  FileText,
+  Plus,
+  ReceiptText,
+  Sparkles,
+  Trash2,
+  UserCheck,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api.js';
+import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import ToastNotification from '../components/ToastNotification.jsx';
+import losServices, { losTiers } from '../data/losServices.js';
+import { currency, formatDate, recordId } from '../utils/format.js';
+
+export default function InstantBilling({ role = 'Accountant' }) {
+  const navigate = useNavigate();
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [customClient, setCustomClient] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    companyName: '',
+    address: '',
+    gstin: '',
+    clientId: 'AUTO-GEN'
+  });
+
+  const [billMeta, setBillMeta] = useState({
+    projectTitle: '',
+    billDate: new Date().toISOString().split('T')[0],
+    dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0],
+    paymentTerms: 'Due on Receipt',
+    notes: ''
+  });
+
+  // 3-Level Cascading Service Selection States
+  const [selectedModule, setSelectedModule] = useState('Web Apps');
+  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [selectedTier, setSelectedTier] = useState('starter');
+  const [itemQty, setItemQty] = useState(1);
+  const [itemDiscount, setItemDiscount] = useState(0);
+
+  // Custom Service state (when serviceId === 'CUSTOM_SERVICE')
+  const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
+  const [customServiceName, setCustomServiceName] = useState('');
+  const [customBasePrice, setCustomBasePrice] = useState(1990);
+
+  // Calculate price range bounds (Starter tier min & Enterprise tier max for standard module, or ₹1,990 - ₹9,990 for Custom Service)
+  const modulePriceBounds = useMemo(() => {
+    if (isCustomService) {
+      return {
+        min: 1990,
+        max: 9990,
+        moduleName: 'Custom Service'
+      };
+    }
+    const modServices = losServices.filter((s) => s.module === selectedModule);
+
+    if (!modServices.length) {
+      const allStarters = losServices.map((s) => s.prices?.starter).filter(Boolean);
+      const allEnterprises = losServices.map((s) => s.prices?.enterprise).filter(Boolean);
+      return {
+        min: Math.min(...allStarters),
+        max: Math.max(...allEnterprises),
+        moduleName: selectedModule || 'All Services'
+      };
+    }
+
+    const starterPrices = modServices.map((s) => s.prices?.starter).filter(Boolean);
+    const enterprisePrices = modServices.map((s) => s.prices?.enterprise).filter(Boolean);
+
+    return {
+      min: Math.min(...starterPrices),
+      max: Math.max(...enterprisePrices),
+      moduleName: selectedModule
+    };
+  }, [selectedModule, isCustomService]);
+
+  // Selected Services / Costing Items list
+  const [costingItems, setCostingItems] = useState([]);
+
+  // Saving & Status
+  const [submitting, setSubmitting] = useState(false);
+  const [savedBill, setSavedBill] = useState(null);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '' });
+
+  // Inline "added" confirmation above the Add Service button
+  const [addedMsg, setAddedMsg] = useState('');
+
+  // 1. Fetch available clients
+  useEffect(() => {
+    api.get('/clients')
+      .then(({ data }) => {
+        setClients(data || []);
+        if (data && data.length > 0) {
+          setSelectedClientId(recordId(data[0]));
+        }
+      })
+      .catch((err) => {
+        console.warn('Clients load notice:', err.message);
+      });
+  }, []);
+
+  // Sync client form when client selection changes
+  useEffect(() => {
+    if (selectedClientId && selectedClientId !== 'NEW') {
+      const match = clients.find((c) => recordId(c) === selectedClientId);
+      if (match) {
+        setCustomClient({
+          fullName: match.fullName || '',
+          email: match.email || '',
+          phone: match.phone || '',
+          companyName: match.companyName || match.fullName || '',
+          address: match.address || '',
+          gstin: match.gstin || '',
+          clientId: match.clientId || match._id
+        });
+      }
+    } else if (selectedClientId === 'NEW') {
+      setCustomClient({
+        fullName: '',
+        email: '',
+        phone: '',
+        companyName: '',
+        address: '',
+        gstin: '',
+        clientId: 'NEW-CLIENT'
+      });
+    }
+  }, [clients, selectedClientId]);
+
+  // Dynamic modules list from losServices
+  const availableModules = useMemo(
+    () => [...new Set(losServices.map((s) => s.module))],
+    []
+  );
+
+  // Filter services by selected module
+  const availableServicesInModule = useMemo(
+    () => losServices.filter((s) => s.module === selectedModule),
+    [selectedModule]
+  );
+
+  // Reset selected service when module changes
+  useEffect(() => {
+    if (availableServicesInModule.length > 0) {
+      setSelectedServiceId(String(availableServicesInModule[0].id));
+      setCustomServiceName('');
+      setCustomBasePrice(1990);
+    } else {
+      setSelectedServiceId('');
+    }
+  }, [availableServicesInModule]);
+
+  // Default custom price when custom service selected
+  useEffect(() => {
+    if (isCustomService) {
+      setCustomBasePrice(1990);
+    }
+  }, [isCustomService]);
+
+  // Current active service object
+  const activeServiceObj = useMemo(
+    () => losServices.find((s) => String(s.id) === String(selectedServiceId)) || availableServicesInModule[0],
+    [selectedServiceId, availableServicesInModule]
+  );
+
+  // Calculate pricing for current service dropdown preview
+  const currentTierPrice = useMemo(() => {
+    if (!activeServiceObj) return 0;
+    return Number(activeServiceObj.prices?.[selectedTier] || 0);
+  }, [activeServiceObj, selectedTier]);
+
+  const currentTierNote = useMemo(() => {
+    if (!activeServiceObj) return '';
+    return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.description;
+  }, [activeServiceObj, selectedTier]);
+
+  // Strict custom price range handlers (min: 1990, max: 9990 for custom service)
+  const handleCustomPriceChange = (val) => {
+    if (val === '') {
+      setCustomBasePrice('');
+      return;
+    }
+    const num = Number(val);
+    if (isNaN(num)) return;
+    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
+    if (num > maxBound) {
+      setCustomBasePrice(maxBound);
+    } else {
+      setCustomBasePrice(val);
+    }
+  };
+
+  const handleCustomPriceBlur = () => {
+    const num = Number(customBasePrice);
+    const minBound = isCustomService ? 1990 : modulePriceBounds.min;
+    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
+    if (isNaN(num) || num < minBound) {
+      setCustomBasePrice(minBound);
+    } else if (num > maxBound) {
+      setCustomBasePrice(maxBound);
+    }
+  };
+
+  // Add line item from dropdowns to table
+  const addServiceLineItem = () => {
+    if (isCustomService) {
+      if (!customServiceName.trim()) {
+        setMessage({ type: 'error', text: 'Please enter a custom service name.' });
+        return;
+      }
+      let priceVal = Number(customBasePrice || 0);
+      const minBound = 1990;
+      const maxBound = 9990;
+      if (isNaN(priceVal) || priceVal < minBound || priceVal > maxBound) {
+        priceVal = Math.min(Math.max(priceVal || minBound, minBound), maxBound);
+        setCustomBasePrice(priceVal);
+        setMessage({
+          type: 'error',
+          text: `Base price restricted between ${currency(minBound)} and ${currency(maxBound)} for Custom Service.`
+        });
+        return;
+      }
+    } else if (!activeServiceObj) {
+      return;
+    }
+
+    const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
+    const moduleLabel = selectedModule;
+    const basePrice = isCustomService ? Number(customBasePrice) : currentTierPrice;
+    const qty = Math.max(1, Number(itemQty || 1));
+    const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
+    const lineBaseTotal = basePrice * qty;
+    const discAmount = (lineBaseTotal * discPct) / 100;
+    const taxableValue = lineBaseTotal - discAmount;
+    const gstPct = 18;
+    const gstAmount = (taxableValue * gstPct) / 100;
+    const totalAmount = taxableValue + gstAmount;
+
+    const tierObj = losTiers.find((t) => t.key === selectedTier);
+    const tierLabel = tierObj ? tierObj.label : 'Starter';
+
+    const newItem = {
+      tempId: Date.now() + Math.random(),
+      serviceId: isCustomService ? `custom_${Date.now()}` : activeServiceObj.id,
+      mainService: moduleLabel,
+      subService: serviceName,
+      subServiceName: serviceName,
+      description: isCustomService
+        ? `${serviceName} (Custom - ${tierLabel})`
+        : `${serviceName} (${tierLabel}) - ${currentTierNote}`,
+      tier: tierLabel,
+      tierKey: selectedTier,
+      sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
+      unit: isCustomService ? 'Per Service' : (activeServiceObj.unit || 'Per Service'),
+      frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
+      basePrice,
+      quantity: qty,
+      discountPercentage: discPct,
+      discountAmount: discAmount,
+      taxableValue,
+      gstPercentage: gstPct,
+      gstAmount,
+      totalAmount
+    };
+
+    setCostingItems((prev) => [...prev, newItem]);
+    setMessage({ type: '', text: '' });
+    setToast({ show: true, message: `"${serviceName}" added to bill.` });
+
+    // Inline popup above the Add Service button
+    setAddedMsg(`✓ "${serviceName}" added to bill`);
+    setTimeout(() => setAddedMsg(''), 2500);
+  };
+
+  // Remove item line
+  const removeServiceLineItem = (tempId) => {
+    setCostingItems((prev) => prev.filter((item) => item.tempId !== tempId));
+  };
+
+  // Summary calculations
+  const totals = useMemo(() => {
+    const subtotal = costingItems.reduce((sum, item) => sum + item.taxableValue, 0);
+    const gst = costingItems.reduce((sum, item) => sum + item.gstAmount, 0);
+    const grandTotal = subtotal + gst;
+    return { subtotal, gst, grandTotal };
+  }, [costingItems]);
+
+  // Save bill to database
+  const handleSaveBill = async () => {
+    if (!costingItems.length) {
+      setMessage({ type: 'error', text: 'Please add at least one service to generate the bill.' });
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const payload = {
+        projectTitle: billMeta.projectTitle || `${customClient.companyName || customClient.fullName} Bill`,
+        billDate: billMeta.billDate,
+        dueDate: billMeta.dueDate,
+        paymentTerms: billMeta.paymentTerms,
+        notes: billMeta.notes,
+        clientDetails: selectedClientId === 'NEW' ? customClient : undefined,
+        clientId: selectedClientId !== 'NEW' ? selectedClientId : undefined,
+        costingItems: costingItems.map((item) => ({
+          mainService: item.mainService,
+          subService: item.subService,
+          subServiceName: item.subServiceName,
+          sacCode: item.sacCode,
+          description: item.description,
+          basePrice: item.basePrice,
+          quantity: item.quantity,
+          discountPercentage: item.discountPercentage,
+          discountAmount: item.discountAmount,
+          taxableValue: item.taxableValue,
+          gstPercentage: item.gstPercentage,
+          gstAmount: item.gstAmount,
+          totalAmount: item.totalAmount
+        })),
+        subtotal: totals.subtotal,
+        gstAmount: totals.gst,
+        totalAmount: totals.grandTotal
+      };
+
+      const { data } = await api.post('/instant-bills', payload);
+      setSavedBill(data);
+      setMessage({ type: 'success', text: `Bill ${data.billId} generated and issued successfully!` });
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Unable to generate bill.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!savedBill) return;
+    try {
+      setMessage({ type: '', text: '' });
+      const id = recordId(savedBill);
+      const { data: blob } = await api.get(`/instant-bills/${id}/pdf`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${savedBill.billId || id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'PDF download failed: ' + (err.response?.data?.message || err.message) });
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-6">
+        {/* Top Banner Header */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <button
+              onClick={() => navigate(-1)}
+              className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-purple hover:underline"
+            >
+              <ArrowLeft size={14} /> Back to dashboard
+            </button>
+            <h1 className="text-3xl font-black text-slate-950">Instant Billing</h1>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Generate instant bills with the same services and pricing as quotations.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {savedBill ? (
+              <>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="gradient-button flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold shadow-glow"
+                >
+                  <Download size={18} /> Download / Print PDF
+                </button>
+                <button
+                  onClick={() => {
+                    setSavedBill(null);
+                    setCostingItems([]);
+                    setMessage({ type: '', text: '' });
+                  }}
+                  className="rounded-xl border border-line bg-white px-4 py-2.5 font-bold text-slate-700 hover:bg-slate-50"
+                >
+                  + New Bill
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleSaveBill}
+                disabled={submitting || costingItems.length === 0}
+                className="gradient-button flex items-center gap-2 rounded-xl px-6 py-3 font-bold shadow-glow disabled:opacity-40"
+              >
+                <ReceiptText size={18} /> {submitting ? 'Generating...' : 'Generate & Issue Bill'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {message.text && (
+          <p className={`rounded-xl px-4 py-3 text-sm font-semibold ${message.type === 'error' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+            {message.text}
+          </p>
+        )}
+
+        {/* SECTION 1: TWO-BOX HEADER CARDS */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Box 1: CLIENT DETAILS */}
+          <div className="rounded-2xl border border-line bg-white shadow-premium overflow-hidden">
+            <div className="border-b border-line bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-wider text-white flex items-center justify-between">
+              <span className="flex items-center gap-2"><UserCheck size={16} className="text-purple" /> Client Details</span>
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-white outline-none focus:border-purple"
+              >
+                {clients.map((client) => (
+                  <option key={recordId(client)} value={recordId(client)}>
+                    {client.companyName ? `${client.companyName} (${client.fullName})` : client.fullName}
+                  </option>
+                ))}
+                <option value="NEW">+ Add Custom Client</option>
+              </select>
+            </div>
+
+            <div className="p-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Client Name</label>
+                <input
+                  type="text"
+                  value={customClient.fullName}
+                  onChange={(e) => setCustomClient({ ...customClient, fullName: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                  placeholder="e.g. Bit Byte Tech"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">E-Mail</label>
+                <input
+                  type="email"
+                  value={customClient.email}
+                  onChange={(e) => setCustomClient({ ...customClient, email: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                  placeholder="e.g. client@gmail.com"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Phone</label>
+                <input
+                  type="text"
+                  value={customClient.phone}
+                  onChange={(e) => setCustomClient({ ...customClient, phone: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                  placeholder="e.g. 7339201392"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Company</label>
+                <input
+                  type="text"
+                  value={customClient.companyName}
+                  onChange={(e) => setCustomClient({ ...customClient, companyName: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                  placeholder="e.g. Bit Byte Tech"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">GSTIN / PAN</label>
+                <input
+                  type="text"
+                  value={customClient.gstin}
+                  onChange={(e) => setCustomClient({ ...customClient, gstin: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                  placeholder="Optional GSTIN"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Client ID</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={customClient.clientId}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-slate-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Box 2: BILL & PAYMENT DETAILS */}
+          <div className="rounded-2xl border border-line bg-white shadow-premium overflow-hidden">
+            <div className="border-b border-line bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-wider text-white flex items-center justify-between">
+              <span className="flex items-center gap-2"><FileText size={16} className="text-purple" /> Bill Details</span>
+              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-400 border border-emerald-500/30">
+                Ready to Issue
+              </span>
+            </div>
+
+            <div className="p-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Bill Date</label>
+                <input
+                  type="date"
+                  value={billMeta.billDate}
+                  onChange={(e) => setBillMeta({ ...billMeta, billDate: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Bill ID</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={savedBill ? savedBill.billId : 'BBT-BILL-2026-AUTO'}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-purple"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Due Date</label>
+                <input
+                  type="date"
+                  value={billMeta.dueDate}
+                  onChange={(e) => setBillMeta({ ...billMeta, dueDate: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Status</label>
+                <div className="mt-1.5">
+                  <StatusBadge status={savedBill ? savedBill.status : 'Issued'} />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Generated By</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={`BBTech ${role} Team`}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm font-bold text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-400">Payment Terms</label>
+                <select
+                  value={billMeta.paymentTerms}
+                  onChange={(e) => setBillMeta({ ...billMeta, paymentTerms: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-bold text-slate-700 outline-purple"
+                >
+                  <option>Due on Receipt</option>
+                  <option>Net 7</option>
+                  <option>Net 15</option>
+                  <option>Net 30</option>
+                  <option>Net 45</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: MULTI-LEVEL 3-TIER DROPDOWNS SERVICE SELECTOR */}
+        <section className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+          <div className="mb-5 flex flex-col gap-1 border-b border-line pb-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-purple">Service Picker</p>
+              <h2 className="text-xl font-black text-slate-950">Select Services via 3-Tier Dropdowns</h2>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">
+              Same services & pricing as quotations
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* Dropdown 1: Module / Category */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                1. Service Module
+              </label>
+              <select
+                value={selectedModule}
+                onChange={(e) => setSelectedModule(e.target.value)}
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
+              >
+                {availableModules.map((module) => (
+                  <option key={module} value={module}>
+                    {module}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Dropdown 2: Service under Module — OR text input for Custom */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                2. Service Name
+              </label>
+              {isCustomService ? (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customServiceName}
+                    onChange={(e) => setCustomServiceName(e.target.value)}
+                    placeholder="Enter custom service name"
+                    className="w-full rounded-xl border border-purple bg-white py-3 pl-4 pr-20 text-sm font-bold text-slate-900 outline-purple placeholder:text-slate-400"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedServiceId(availableServicesInModule[0] ? String(availableServicesInModule[0].id) : '');
+                      setCustomServiceName('');
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+                    title="Switch back to standard service dropdown"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={selectedServiceId}
+                  onChange={(e) => setSelectedServiceId(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
+                >
+                  {availableServicesInModule.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.service}
+                    </option>
+                  ))}
+                  <option value="CUSTOM_SERVICE"> + Custom Service</option>
+                </select>
+              )}
+            </div>
+
+            {/* Dropdown 3: Tier */}
+            <div>
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
+                3. Service Tier
+              </label>
+              <select
+                value={selectedTier}
+                onChange={(e) => setSelectedTier(e.target.value)}
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
+              >
+                {losTiers.map((tier) => (
+                  <option key={tier.key} value={tier.key}>
+                    {tier.label} Tier
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Live Service Details & Pricing Preview Box */}
+          {(activeServiceObj || isCustomService) && (
+            <div className="mt-5 rounded-2xl border border-purple/20 bg-purple/5 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-purple/10 px-2.5 py-0.5 text-xs font-black text-purple">
+                      {isCustomService ? 'Custom Service' : activeServiceObj.module}
+                    </span>
+                    {!isCustomService && (
+                      <>
+                        <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                          SAC {activeServiceObj.sacCode}
+                        </span>
+                        <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                          {activeServiceObj.unit} · {activeServiceObj.frequency}
+                        </span>
+                      </>
+                    )}
+                    {isCustomService && (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                        Manual Entry
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-2 text-base font-black text-slate-950">
+                    {isCustomService ? (customServiceName || 'Enter custom service name above') : activeServiceObj.service}
+                  </h3>
+                  {!isCustomService && (
+                    <p className="mt-1 text-xs font-medium text-slate-600">{currentTierNote}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
+                  <div className="flex items-center gap-3">
+                    {isCustomService && (
+                      <div className="flex flex-col items-start">
+                        <label className="block text-[10px] font-black uppercase text-slate-400">Base Price (₹)</label>
+                        <input
+                          type="number"
+                          min={1990}
+                          max={9990}
+                          value={customBasePrice}
+                          onChange={(e) => handleCustomPriceChange(e.target.value)}
+                          onBlur={handleCustomPriceBlur}
+                          className="w-28 rounded-xl border border-purple bg-white px-2 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"
+                          placeholder="1990"
+                        />
+                        <span className="mt-1 text-[10px] font-bold text-purple">
+                          Range: {currency(1990)} – {currency(9990)}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-400">Qty</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={itemQty}
+                        onChange={(e) => setItemQty(e.target.value)}
+                        className="w-16 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-400">Discount %</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={20}
+                        value={itemDiscount}
+                        onChange={(e) => setItemDiscount(e.target.value)}
+                        className="w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-400">{isCustomService ? 'Custom Rate' : 'Tier Rate'}</p>
+                    <p className="text-xl font-black text-purple">
+                      {currency(isCustomService ? Number(customBasePrice || 0) : currentTierPrice)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1.5">
+                    {/* Inline popup above Add Service button */}
+                    <div
+                      className={`flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-all duration-300 ${addedMsg ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none'
+                        }`}
+                      aria-live="polite"
+                    >
+                      <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
+                      {addedMsg || 'Added to bill'}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={addServiceLineItem}
+                      className="gradient-button flex h-11 items-center gap-2 rounded-xl px-5 font-bold text-white shadow-sm"
+                    >
+                      <Plus size={18} /> Add Service
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* SECTION 3: ITEMIZED SELECTED SERVICES TABLE */}
+        <section className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-purple">Line Items</p>
+              <h2 className="text-xl font-black text-slate-950">Selected Services Breakdown</h2>
+            </div>
+            <span className="rounded-full bg-purple/10 px-3 py-1 text-xs font-black text-purple">
+              {costingItems.length} {costingItems.length === 1 ? 'Service' : 'Services'} Added
+            </span>
+          </div>
+
+          <div className="mobile-table overflow-hidden rounded-2xl border border-line">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-950 text-xs font-black uppercase tracking-wider text-white">
+                <tr>
+                  <th className="p-3 text-center">S.No</th>
+                  <th className="p-3">Service & Description</th>
+                  <th className="p-3 text-center">SAC Code</th>
+                  <th className="p-3 text-center">Tier</th>
+                  <th className="p-3 text-right">Base Price</th>
+                  <th className="p-3 text-center">Qty</th>
+                  <th className="p-3 text-right">Taxable</th>
+                  <th className="p-3 text-right">GST (18%)</th>
+                  <th className="p-3 text-right">Total</th>
+                  <th className="p-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {costingItems.length > 0 ? (
+                  costingItems.map((item, index) => (
+                    <tr key={item.tempId || index} className="hover:bg-slate-50 transition">
+                      <td className="p-3 text-center font-black text-slate-500">{index + 1}</td>
+                      <td className="p-3">
+                        <p className="font-black text-slate-950">{item.subService}</p>
+                        <p className="text-xs font-medium text-slate-500">{item.description}</p>
+                      </td>
+                      <td className="p-3 text-center font-bold text-slate-700">
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{item.sacCode}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="rounded bg-purple/10 px-2.5 py-1 text-xs font-black text-purple">
+                          {item.tier}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right font-semibold">{currency(item.basePrice)}</td>
+                      <td className="p-3 text-center font-bold">{item.quantity}</td>
+                      <td className="p-3 text-right font-semibold">{currency(item.taxableValue)}</td>
+                      <td className="p-3 text-right font-semibold text-slate-600">{currency(item.gstAmount)}</td>
+                      <td className="p-3 text-right font-black text-purple">{currency(item.totalAmount)}</td>
+                      <td className="p-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeServiceLineItem(item.tempId)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          title="Remove service"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="py-12 text-center text-slate-400">
+                      <Sparkles className="mx-auto mb-2 text-slate-300" size={32} />
+                      <p className="text-sm font-bold text-slate-600">No services selected yet</p>
+                      <p className="text-xs text-slate-400">Use the 3-tier dropdown selector above to add services.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals Summary */}
+          <div className="mt-6 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div className="max-w-md text-xs text-slate-500 space-y-1">
+              <p className="font-bold text-slate-700">Payment Terms:</p>
+              <p>1. Payment is due upon receipt unless otherwise stated.</p>
+              <p>2. Standard GST of 18% is applicable on services as mandated.</p>
+              <p>3. This is an official bill generated by Bit Byte Technologies.</p>
+            </div>
+
+            <AmountSummaryCard
+              subtotal={totals.subtotal}
+              gst={totals.gst}
+              paid={0}
+              originalSubtotal={totals.subtotal}
+              discount={0}
+            />
+          </div>
+        </section>
+      </div>
+
+      {/* Toast notification for service added */}
+      <ToastNotification
+        show={toast.show}
+        message={toast.message}
+        onDone={() => setToast({ show: false, message: '' })}
+      />
+    </>
+  );
+}

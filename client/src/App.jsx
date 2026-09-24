@@ -20,6 +20,7 @@ import PublicInternship from './pages/PublicInternship.jsx';
 import PublicInternInvoice from './pages/PublicInternInvoice.jsx';
 import PublicClientInvoice from './pages/PublicClientInvoice.jsx';
 import GenerateQuotation from './pages/GenerateQuotation.jsx';
+import InstantBilling from './pages/InstantBilling.jsx';
 import { useAuth } from './state/AuthContext.jsx';
 import BrandLogo from './components/BrandLogo.jsx';
 import { COMPANY_NAME } from './config/brand.js';
@@ -75,6 +76,7 @@ export default function App() {
       <Route element={<RoleLayout role="Accountant" />}>
         <Route path="/accountant/dashboard" element={<Dashboard role="Accountant" />} />
         <Route path="/accountant/generate-quotation" element={<GenerateQuotation role="Accountant" />} />
+        <Route path="/accountant/instant-billing" element={<InstantBilling role="Accountant" />} />
         <Route path="/accountant/quotations" element={<TablePage type="quotations" role="Accountant" />} />
         <Route path="/accountant/quotations/:id" element={<QuotationDetail role="Accountant" />} />
         <Route path="/accountant/pricing" element={<PricingPage />} />
@@ -90,6 +92,7 @@ export default function App() {
       <Route element={<RoleLayout role="Admin" />}>
         <Route path="/admin/dashboard" element={<Dashboard role="Admin" />} />
         <Route path="/admin/generate-quotation" element={<GenerateQuotation role="Admin" />} />
+        <Route path="/admin/instant-billing" element={<InstantBilling role="Admin" />} />
         <Route path="/admin/quotations" element={<TablePage type="quotations" role="Admin" />} />
         <Route path="/admin/quotations/:id" element={<QuotationDetail role="Admin" />} />
         <Route path="/admin/approvals" element={<AdminApproval />} />

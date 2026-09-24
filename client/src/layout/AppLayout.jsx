@@ -37,6 +37,7 @@ const nav = {
   Accountant: [
     ["Dashboard", "/accountant/dashboard", Home],
     ["Generate Quotation", "/accountant/generate-quotation", FileCheck2],
+    ["Instant Billing", "/accountant/instant-billing", ReceiptText],
     ["Quotations", "/accountant/quotations", FileText],
     ["Add Pricing", "/accountant/pricing", CircleDollarSign],
     ["Clarifications", "/accountant/clarifications", FileCheck2],
@@ -50,6 +51,7 @@ const nav = {
   Admin: [
     ["Dashboard", "/admin/dashboard", Home],
     ["Generate Quotation", "/admin/generate-quotation", FileCheck2],
+    ["Instant Billing", "/admin/instant-billing", ReceiptText],
     ["All Quotations", "/admin/quotations", FileText],
     ["Approvals", "/admin/approvals", ShieldCheck],
     ["Invoice Generation", "/admin/invoices/generate", ReceiptText],

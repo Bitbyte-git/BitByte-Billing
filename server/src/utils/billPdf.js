@@ -190,13 +190,13 @@ function normalizeAbsoluteUrl(value) {
   return /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-function publicQuotationUrl(quotation) {
+function publicBillUrl(bill) {
   const baseUrl = normalizeAbsoluteUrl(process.env.CLIENT_URL || process.env.APP_URL);
-  const publicId = quotation._id || quotation.id || quotation.quotationId;
-  return `${baseUrl}/client/quotations/${encodeURIComponent(String(publicId || ""))}`;
+  const publicId = bill._id || bill.id || bill.billId;
+  return `${baseUrl}/public/bill/${encodeURIComponent(String(publicId || ""))}`;
 }
 
-export function createQuotationPdfDocument(quotation) {
+export function createBillPdfDocument(bill) {
   const fonts = {
     Roboto: {
       normal: "Helvetica",
@@ -208,32 +208,32 @@ export function createQuotationPdfDocument(quotation) {
   const printer = new PdfPrinter(fonts);
 
   // Resolve client data
-  const client = quotation.clientId || {};
+  const client = bill.clientId || {};
   const clientName = client.companyName || client.fullName || "Client";
   const clientEmail = client.email || "-";
   const clientPhone = client.phone || "-";
   const companyName = client.companyName || clientName;
   const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
 
-  // Resolve quotation meta
-  const quotationIdStr = quotation.quotationId || "-";
-  const quotationDate = formatDate(quotation.submittedAt || quotation.createdAt || new Date());
-  const validUntil = formatDate(
-    quotation.validUntil ||
-      new Date((quotation.submittedAt || quotation.createdAt || Date.now()).valueOf
-        ? new Date(quotation.submittedAt || quotation.createdAt || Date.now()).getTime() + 15 * 86400000
+  // Resolve bill meta
+  const billIdStr = bill.billId || "-";
+  const billDate = formatDate(bill.billDate || bill.createdAt || new Date());
+  const dueDate = formatDate(
+    bill.dueDate ||
+      new Date((bill.billDate || bill.createdAt || Date.now()).valueOf
+        ? new Date(bill.billDate || bill.createdAt || Date.now()).getTime() + 15 * 86400000
         : Date.now() + 15 * 86400000)
   );
   const generatedBy =
-    quotation.createdByName ||
-    quotation.createdBy?.name ||
-    quotation.createdBy?.email ||
+    bill.createdByName ||
+    bill.createdBy?.name ||
+    bill.createdBy?.email ||
     "BBTech Admin Team";
   const billingType = "Client Billing";
 
   // Build line items from costingItems
-  const rawItems = (quotation.costingItems && quotation.costingItems.length > 0)
-    ? quotation.costingItems
+  const rawItems = (bill.costingItems && bill.costingItems.length > 0)
+    ? bill.costingItems
     : [];
 
   const items = rawItems.map((item) => {
@@ -270,12 +270,12 @@ export function createQuotationPdfDocument(quotation) {
     { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
   );
 
-  const quotationTotal = Number(
-    quotation.totalAmount ?? quotation.finalTotal ?? totals.total ?? 0
+  const billTotal = Number(
+    bill.totalAmount ?? bill.finalTotal ?? totals.total ?? 0
   );
-  const publicUrl = publicQuotationUrl(quotation);
+  const publicUrl = publicBillUrl(bill);
 
-  // ---- Reuse exact same layout helpers ----
+  // ---- Layout helpers ----
   const detailCell = (label, value, options = {}) => ({
     stack: [
       { text: label, style: "label" },
@@ -342,7 +342,7 @@ export function createQuotationPdfDocument(quotation) {
     },
   ];
 
-  // Line item rows — same as invoice format
+  // Line item rows
   const itemRows = items.length
     ? items.map((item, index) => [
         { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
@@ -366,7 +366,7 @@ export function createQuotationPdfDocument(quotation) {
     : [
         [
           {
-            text: "No quotation line items available.",
+            text: "No bill line items available.",
             colSpan: 9,
             alignment: "center",
             color: COLORS.muted,
@@ -383,7 +383,7 @@ export function createQuotationPdfDocument(quotation) {
     content: [
       invoiceHeaderBlock(HEADER_BANNER.width - 24),
 
-      // ── Two-column detail header: CLIENT DETAILS | QUOTATION & PAYMENT DETAILS ──
+      // ── Two-column detail header: CLIENT DETAILS | BILL & PAYMENT DETAILS ──
       {
         columns: [
           {
@@ -395,7 +395,7 @@ export function createQuotationPdfDocument(quotation) {
               ],
               [
                 detailCell("PHONE", clientPhone),
-                detailCell("QUOTATION", quotationIdStr),
+                detailCell("BILL NO", billIdStr),
               ],
               [
                 detailCell("COMPANY", companyName),
@@ -405,14 +405,14 @@ export function createQuotationPdfDocument(quotation) {
           },
           {
             width: "*",
-            ...sectionTable("QUOTATION & VALIDITY DETAILS", [
+            ...sectionTable("BILL & PAYMENT DETAILS", [
               [
-                detailCell("QUOTATION DT", quotationDate),
-                detailCell("QUOTATION ID", quotationIdStr),
+                detailCell("BILL DATE", billDate),
+                detailCell("BILL ID", billIdStr),
               ],
               [
-                detailCell("VALID UNTIL", validUntil),
-                detailCell("STATUS", quotation.status || "Approved"),
+                detailCell("DUE DATE", dueDate),
+                detailCell("STATUS", bill.status || "Issued"),
               ],
               [
                 detailCell("GENERATED BY", generatedBy),
@@ -425,7 +425,7 @@ export function createQuotationPdfDocument(quotation) {
         margin: [0, 0, 0, 10],
       },
 
-      // ── Payment Details table — exactly same as invoice ──
+      // ── Payment Details table ──
       {
         margin: [0, 0, 0, 10],
         table: {
@@ -469,7 +469,7 @@ export function createQuotationPdfDocument(quotation) {
         },
       },
 
-      // ── Terms & Quotation Summary (page break before — same as invoice) ──
+      // ── Terms & Bill Summary (page break before) ──
       {
         pageBreak: "before",
         table: {
@@ -480,12 +480,12 @@ export function createQuotationPdfDocument(quotation) {
                 stack: [
                   { text: "TERMS & CONDITIONS", style: "sectionTitle" },
                   {
-                    text: "This quotation is valid for 15 days from the date of issue.",
+                    text: "Payment is due upon receipt of this bill unless otherwise agreed.",
                     margin: [0, 9, 0, 0],
                     lineHeight: 1.25,
                   },
                   {
-                    text: "Prices are subject to change after the validity period.",
+                    text: "Late payments may attract interest as per applicable norms.",
                     margin: [0, 6, 0, 0],
                     lineHeight: 1.25,
                   },
@@ -495,12 +495,12 @@ export function createQuotationPdfDocument(quotation) {
                     lineHeight: 1.25,
                   },
                   {
-                    text: "Please mention the quotation number for all communications.",
+                    text: "Please mention the bill number for all communications and payments.",
                     margin: [0, 6, 0, 0],
                     lineHeight: 1.25,
                   },
                   {
-                    text: "This is a computer-generated quotation.",
+                    text: "This is a computer-generated bill.",
                     margin: [0, 8, 0, 0],
                     color: COLORS.muted,
                   },
@@ -509,7 +509,7 @@ export function createQuotationPdfDocument(quotation) {
               },
               {
                 stack: [
-                  { text: "QUOTATION SUMMARY", style: "sectionTitle" },
+                  { text: "BILL SUMMARY", style: "sectionTitle" },
                   {
                     table: {
                       widths: ["*", 96],
@@ -518,7 +518,7 @@ export function createQuotationPdfDocument(quotation) {
                         moneyRow("CGST Total", totals.cgst),
                         moneyRow("SGST Total", totals.sgst),
                         moneyRow("IGST Total", totals.igst),
-                        moneyRow("Quotation Total", quotationTotal, { bold: true }),
+                        moneyRow("Bill Total", billTotal, { bold: true }),
                       ],
                     },
                     layout: "noBorders",
@@ -619,7 +619,7 @@ export function createQuotationPdfDocument(quotation) {
                     margin: [0, 0, 0, 4],
                   },
                   {
-                    text: "Scan to verify quotation details",
+                    text: "Scan to verify bill details",
                     alignment: "center",
                     fontSize: 7.5,
                     bold: true,
@@ -637,7 +637,7 @@ export function createQuotationPdfDocument(quotation) {
       },
     ],
 
-    // ── Footer — identical to invoice footer ──
+    // ── Footer ──
     footer: (currentPage, pageCount) => ({
       margin: [24, 0, 24, 10],
       stack: [
@@ -657,7 +657,7 @@ export function createQuotationPdfDocument(quotation) {
         {
           columns: [
             {
-              text: "Client quotation generated by Bit Byte Technologies billing system.",
+              text: "Instant bill generated by Bit Byte Technologies billing system.",
               fontSize: 7.5,
               color: COLORS.muted,
               margin: [0, 7, 0, 0],
@@ -680,7 +680,7 @@ export function createQuotationPdfDocument(quotation) {
               margin: [0, 6, 0, 0],
             },
             {
-              text: `Generated on ${formatDateTime(quotation.createdAt || new Date())}`,
+              text: `Generated on ${formatDateTime(bill.createdAt || new Date())}`,
               alignment: "right",
               fontSize: 7.5,
               color: COLORS.muted,
@@ -726,10 +726,10 @@ export function createQuotationPdfDocument(quotation) {
   return printer.createPdfKitDocument(docDefinition);
 }
 
-export function quotationPdfBuffer(quotation) {
+export function billPdfBuffer(bill) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = createQuotationPdfDocument(quotation);
+    const doc = createBillPdfDocument(bill);
     doc.on("data", (chunk) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);

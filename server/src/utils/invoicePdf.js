@@ -104,72 +104,69 @@ function invoiceHeaderBackground() {
 
 function invoiceHeaderBlock(rightGutter = 118) {
   return {
-    columns: [
-      {
-        width: 102,
-        stack: [
-          companyLogo
-            ? { image: companyLogo, width: 90, alignment: "center" }
-            : {
-                text: "BitByte",
-                alignment: "center",
-                bold: true,
-                color: COLORS.blue,
-                fontSize: 16,
-              },
+    table: {
+      widths: [112, "*", rightGutter],
+      body: [
+        [
           {
-            text: "WE ENGINEER LIFE'S LANGUAGE",
+            stack: [
+              companyLogo
+                ? { image: companyLogo, fit: [108, 86], alignment: "center" }
+                : {
+                    text: "BB",
+                    alignment: "center",
+                    bold: true,
+                    color: COLORS.blue,
+                    fontSize: 18,
+                  },
+            ],
             alignment: "center",
-            fontSize: 4.4,
-            color: "#64748B",
-            characterSpacing: 0.28,
-            margin: [0, 3, 0, 0],
+            margin: [0, -8, 0, -6],
           },
-        ],
-        margin: [0, 4, 4, 0],
-      },
-      {
-        width: "*",
-        stack: [
           {
-            text: [
-              { text: "Bit Byte", color: COLORS.blue },
-              { text: " Technologies", color: COLORS.green },
+            stack: [
+              {
+                text: [
+                  { text: "Bit Byte", color: COLORS.blue },
+                  { text: " Technologies", color: COLORS.green },
+                ],
+                bold: true,
+                fontSize: 20,
+                margin: [0, 0, 0, 4],
+              },
+              {
+                text: `${COMPANY.office}, ${COMPANY.address[0]}`,
+                fontSize: 8.7,
+                bold: true,
+                color: COLORS.navy,
+              },
+              {
+                text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
+                fontSize: 8.7,
+                bold: true,
+                color: COLORS.navy,
+                margin: [0, 1, 0, 4],
+              },
+              {
+                text: [
+                  { text: `GST NO : ${COMPANY.gstin}` },
+                  { text: "   |   ", color: "#94A3B8" },
+                  { text: `MSME : ${COMPANY.udyamId}` },
+                ],
+                fontSize: 8,
+                bold: true,
+                color: COLORS.navy,
+                noWrap: true,
+              },
             ],
-            bold: true,
-            fontSize: 21,
-            margin: [0, 8, 0, 4],
+            margin: [4, 4, 0, 0],
           },
-          {
-            text: `${COMPANY.office}, ${COMPANY.address[0]}`,
-            fontSize: 9.2,
-            bold: true,
-            color: COLORS.navy,
-          },
-          {
-            text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
-            fontSize: 9.2,
-            bold: true,
-            color: COLORS.navy,
-            margin: [0, 1, 0, 5],
-          },
-          {
-            text: [
-              { text: `GST NO : ${COMPANY.gstin}` },
-              { text: "   |   ", color: "#94A3B8" },
-              { text: `MSME : ${COMPANY.udyamId}` },
-            ],
-            fontSize: 8.2,
-            bold: true,
-            color: COLORS.navy,
-          },
+          { text: "" },
         ],
-        margin: [0, 2, 0, 0],
-      },
-      { width: rightGutter, text: "" },
-    ],
-    columnGap: 6,
-    margin: [0, 0, 0, 8],
+      ],
+    },
+    layout: "noBorders",
+    margin: [0, 0, 0, 10],
   };
 }
 

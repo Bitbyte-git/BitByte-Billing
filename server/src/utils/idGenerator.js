@@ -1,4 +1,5 @@
 import Client from '../models/Client.js';
+import InstantBill from '../models/InstantBill.js';
 import Invoice from '../models/Invoice.js';
 import InternInvoice from '../models/InternInvoice.js';
 import Payment from '../models/Payment.js';
@@ -53,4 +54,9 @@ export async function nextInternId() {
 
 export async function nextPaymentId() {
   return nextSequentialId(Payment, 'paymentId', 'PAY-');
+}
+
+export async function nextBillId() {
+  const year = new Date().getFullYear();
+  return nextSequentialId(InstantBill, 'billId', `BBT-BILL-${year}-`);
 }

@@ -55,6 +55,42 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [itemQty, setItemQty] = useState(1);
   const [itemDiscount, setItemDiscount] = useState(0);
 
+  // Custom service fields (when serviceId === 'CUSTOM_SERVICE')
+  const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
+  const [customServiceName, setCustomServiceName] = useState('');
+  const [customBasePrice, setCustomBasePrice] = useState(1990);
+
+  // Calculate price range bounds (Starter tier min & Enterprise tier max for standard module, or ₹1,990 - ₹9,990 for Custom Service)
+  const modulePriceBounds = useMemo(() => {
+    if (isCustomService) {
+      return {
+        min: 1990,
+        max: 9990,
+        moduleName: 'Custom Service'
+      };
+    }
+    const modServices = losServices.filter((s) => s.module === selectedModule);
+
+    if (!modServices.length) {
+      const allStarters = losServices.map((s) => s.prices?.starter).filter(Boolean);
+      const allEnterprises = losServices.map((s) => s.prices?.enterprise).filter(Boolean);
+      return {
+        min: Math.min(...allStarters),
+        max: Math.max(...allEnterprises),
+        moduleName: selectedModule || 'All Services'
+      };
+    }
+
+    const starterPrices = modServices.map((s) => s.prices?.starter).filter(Boolean);
+    const enterprisePrices = modServices.map((s) => s.prices?.enterprise).filter(Boolean);
+
+    return {
+      min: Math.min(...starterPrices),
+      max: Math.max(...enterprisePrices),
+      moduleName: selectedModule
+    };
+  }, [selectedModule, isCustomService]);
+
   // Selected Services / Costing Items list
   const [costingItems, setCostingItems] = useState([]);
 
@@ -127,10 +163,19 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   useEffect(() => {
     if (availableServicesInModule.length > 0) {
       setSelectedServiceId(String(availableServicesInModule[0].id));
+      setCustomServiceName('');
+      setCustomBasePrice(1990);
     } else {
       setSelectedServiceId('');
     }
   }, [availableServicesInModule]);
+
+  // Default custom price when custom service selected
+  useEffect(() => {
+    if (isCustomService) {
+      setCustomBasePrice(1990);
+    }
+  }, [isCustomService]);
 
   // Current active service object
   const activeServiceObj = useMemo(
@@ -149,11 +194,59 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.description;
   }, [activeServiceObj, selectedTier]);
 
+  // Strict custom price range handlers (min: 1990, max: 9990 for custom service)
+  const handleCustomPriceChange = (val) => {
+    if (val === '') {
+      setCustomBasePrice('');
+      return;
+    }
+    const num = Number(val);
+    if (isNaN(num)) return;
+    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
+    if (num > maxBound) {
+      setCustomBasePrice(maxBound);
+    } else {
+      setCustomBasePrice(val);
+    }
+  };
+
+  const handleCustomPriceBlur = () => {
+    const num = Number(customBasePrice);
+    const minBound = isCustomService ? 1990 : modulePriceBounds.min;
+    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
+    if (isNaN(num) || num < minBound) {
+      setCustomBasePrice(minBound);
+    } else if (num > maxBound) {
+      setCustomBasePrice(maxBound);
+    }
+  };
+
   // Add line item from dropdowns to table
   const addServiceLineItem = () => {
-    if (!activeServiceObj) return;
+    if (isCustomService) {
+      if (!customServiceName.trim()) {
+        setMessage({ type: 'error', text: 'Please enter a custom service name.' });
+        return;
+      }
+      let priceVal = Number(customBasePrice || 0);
+      const minBound = 1990;
+      const maxBound = 9990;
+      if (isNaN(priceVal) || priceVal < minBound || priceVal > maxBound) {
+        priceVal = Math.min(Math.max(priceVal || minBound, minBound), maxBound);
+        setCustomBasePrice(priceVal);
+        setMessage({
+          type: 'error',
+          text: `Base price restricted between ${currency(minBound)} and ${currency(maxBound)} for Custom Service.`
+        });
+        return;
+      }
+    } else if (!activeServiceObj) {
+      return;
+    }
 
-    const basePrice = currentTierPrice;
+    const basePrice = isCustomService ? Number(customBasePrice) : currentTierPrice;
+    const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
+    const moduleLabel = selectedModule;
     const qty = Math.max(1, Number(itemQty || 1));
     const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
     const lineBaseTotal = basePrice * qty;
@@ -168,16 +261,18 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
     const newItem = {
       tempId: Date.now() + Math.random(),
-      serviceId: activeServiceObj.id,
-      mainService: activeServiceObj.module,
-      subService: activeServiceObj.service,
-      subServiceName: activeServiceObj.service,
-      description: `${activeServiceObj.service} (${tierLabel}) - ${currentTierNote}`,
+      serviceId: isCustomService ? null : activeServiceObj.id,
+      mainService: moduleLabel,
+      subService: serviceName,
+      subServiceName: serviceName,
+      description: isCustomService
+        ? `${serviceName} (Custom - ${tierLabel})`
+        : `${serviceName} (${tierLabel}) - ${currentTierNote}`,
       tier: tierLabel,
       tierKey: selectedTier,
-      sacCode: activeServiceObj.sacCode || '998314',
-      unit: activeServiceObj.unit || 'Per Service',
-      frequency: activeServiceObj.frequency || 'One Time',
+      sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
+      unit: isCustomService ? 'Per Service' : (activeServiceObj.unit || 'Per Service'),
+      frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -190,10 +285,9 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
     setCostingItems((prev) => [...prev, newItem]);
     setMessage({ type: '', text: '' });
-    setToast({ show: true, message: `"${activeServiceObj.service}" added to quotation queue.` });
+    setToast({ show: true, message: `"${serviceName}" added to quotation queue.` });
 
-    // Inline popup above the Add Service button
-    setAddedMsg(`✓ "${activeServiceObj.service}" added to queue`);
+    setAddedMsg(`✓ "${serviceName}" added to queue`);
     setTimeout(() => setAddedMsg(''), 2500);
   };
 
@@ -522,22 +616,47 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
             </select>
           </div>
 
-          {/* Dropdown 2: Service under Module */}
+          {/* Dropdown 2: Service under Module — OR text input for Custom */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2">
               2. Service Name
             </label>
-            <select
-              value={selectedServiceId}
-              onChange={(e) => setSelectedServiceId(e.target.value)}
-              className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
-            >
-              {availableServicesInModule.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.service}
-                </option>
-              ))}
-            </select>
+            {isCustomService ? (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customServiceName}
+                  onChange={(e) => setCustomServiceName(e.target.value)}
+                  placeholder="Enter custom service name"
+                  className="w-full rounded-xl border border-purple bg-white py-3 pl-4 pr-20 text-sm font-bold text-slate-900 outline-purple placeholder:text-slate-400"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedServiceId(availableServicesInModule[0] ? String(availableServicesInModule[0].id) : '');
+                    setCustomServiceName('');
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
+                  title="Switch back to standard service dropdown"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <select
+                value={selectedServiceId}
+                onChange={(e) => setSelectedServiceId(e.target.value)}
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
+              >
+                {availableServicesInModule.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.service}
+                  </option>
+                ))}
+                <option value="CUSTOM_SERVICE">⚡ + Custom Service</option>
+              </select>
+            )}
           </div>
 
           {/* Dropdown 3: Tier */}
@@ -560,27 +679,58 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         </div>
 
         {/* Live Service Details & Pricing Preview Box */}
-        {activeServiceObj && (
+        {(activeServiceObj || isCustomService) && (
           <div className="mt-5 rounded-2xl border border-purple/20 bg-purple/5 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-purple/10 px-2.5 py-0.5 text-xs font-black text-purple">
-                    {activeServiceObj.module}
+                    {isCustomService ? 'Custom Service' : activeServiceObj.module}
                   </span>
-                  <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
-                    SAC {activeServiceObj.sacCode}
-                  </span>
-                  <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
-                    {activeServiceObj.unit} · {activeServiceObj.frequency}
-                  </span>
+                  {!isCustomService && (
+                    <>
+                      <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                        SAC {activeServiceObj.sacCode}
+                      </span>
+                      <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                        {activeServiceObj.unit} · {activeServiceObj.frequency}
+                      </span>
+                    </>
+                  )}
+                  {isCustomService && (
+                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                      Manual Entry
+                    </span>
+                  )}
                 </div>
-                <h3 className="mt-2 text-base font-black text-slate-950">{activeServiceObj.service}</h3>
-                <p className="mt-1 text-xs font-medium text-slate-600">{currentTierNote}</p>
+                <h3 className="mt-2 text-base font-black text-slate-950">
+                  {isCustomService ? (customServiceName || 'Enter custom service name above') : activeServiceObj.service}
+                </h3>
+                {!isCustomService && (
+                  <p className="mt-1 text-xs font-medium text-slate-600">{currentTierNote}</p>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                 <div className="flex items-center gap-3">
+                  {isCustomService && (
+                    <div className="flex flex-col items-start">
+                      <label className="block text-[10px] font-black uppercase text-slate-400">Base Price (₹)</label>
+                      <input
+                        type="number"
+                        min={1990}
+                        max={9990}
+                        value={customBasePrice}
+                        onChange={(e) => handleCustomPriceChange(e.target.value)}
+                        onBlur={handleCustomPriceBlur}
+                        className="w-28 rounded-xl border border-purple bg-white px-2 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"
+                        placeholder="1990"
+                      />
+                      <span className="mt-1 text-[10px] font-bold text-purple">
+                        Range: {currency(1990)} – {currency(9990)}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400">Qty</label>
                     <input
@@ -606,8 +756,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-xs font-bold text-slate-400">Tier Rate</p>
-                  <p className="text-xl font-black text-purple">{currency(currentTierPrice)}</p>
+                  <p className="text-xs font-bold text-slate-400">{isCustomService ? 'Custom Rate' : 'Tier Rate'}</p>
+                  <p className="text-xl font-black text-purple">
+                    {currency(isCustomService ? Number(customBasePrice || 0) : currentTierPrice)}
+                  </p>
                 </div>
 
                 <div className="flex flex-col items-end gap-1.5">
