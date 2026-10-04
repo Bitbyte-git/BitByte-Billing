@@ -315,8 +315,8 @@ export default function InstantBilling({ role = 'Accountant' }) {
         dueDate: billMeta.dueDate,
         paymentTerms: billMeta.paymentTerms,
         notes: billMeta.notes,
-        clientDetails: selectedClientId === 'NEW' ? customClient : undefined,
-        clientId: selectedClientId !== 'NEW' ? selectedClientId : undefined,
+        clientDetails: customClient,
+        clientId: (selectedClientId && selectedClientId !== 'NEW') ? selectedClientId : undefined,
         costingItems: costingItems.map((item) => ({
           mainService: item.mainService,
           subService: item.subService,

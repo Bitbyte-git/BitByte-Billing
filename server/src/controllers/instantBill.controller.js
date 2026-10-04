@@ -29,19 +29,33 @@ export async function createBill(req, res, next) {
     let clientId = req.body.clientId;
     if (!clientId && req.body.clientDetails) {
       const { fullName, email, phone, companyName, address, gstin } = req.body.clientDetails;
-      if (email || phone) {
-        let existing = await Client.findOne({ $or: [{ email: email?.toLowerCase() }, { phone }] });
+      if (fullName || companyName || email || phone) {
+        const rawDigits = String(phone || '').replace(/\D/g, '');
+        const cleanedPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : '';
+        const validPhone = cleanedPhone || String(Math.floor(1000000000 + Math.random() * 9000000000));
+        const validEmail = (email && email.includes('@')) ? email.trim().toLowerCase() : `client-${Date.now()}@bitbytetech.org`;
+        const validName = (fullName || companyName || 'Client').trim();
+        const validCompany = (companyName || '').trim();
+        const validGstin = (gstin && gstin.length === 15) ? gstin.trim().toUpperCase() : '';
+
+        let existing = await Client.findOne({
+          $or: [
+            { email: validEmail },
+            ...(cleanedPhone ? [{ phone: cleanedPhone }] : [])
+          ]
+        });
+
         if (existing) {
           clientId = existing._id;
         } else {
           const newClient = await Client.create({
             clientId: `AUTO-${Date.now().toString(36).toUpperCase()}`,
-            fullName: fullName || companyName || 'Client',
-            companyName: companyName || '',
-            email: email || `client-${Date.now()}@bitbytetech.org`,
-            phone: phone || '0000000000',
+            fullName: validName,
+            companyName: validCompany,
+            email: validEmail,
+            phone: validPhone,
             address: address || '',
-            gstin: gstin || '',
+            gstin: validGstin,
             registeredBy: req.user._id
           });
           clientId = newClient._id;
