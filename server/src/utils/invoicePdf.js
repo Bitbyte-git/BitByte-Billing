@@ -622,7 +622,7 @@ export function createInvoicePdfDocument(invoice) {
         },
         layout: cardLayout,
         fontSize: 8.3,
-        margin: [0, 285, 0, 12],
+        margin: [0, 10, 0, 12],
       },
       {
         table: {
