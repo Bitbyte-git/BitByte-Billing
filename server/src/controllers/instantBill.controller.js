@@ -149,3 +149,60 @@ export async function updateBillStatus(req, res, next) {
     res.json(bill);
   } catch (err) { next(err); }
 }
+
+function publicBillPayload(bill) {
+  const client = bill.clientId || {};
+  const costingItems = bill.costingItems || [];
+  const subtotal = Number(bill.subtotal || 0);
+  const gstAmount = Number(bill.gstAmount || 0);
+  const totalAmount = Number(bill.totalAmount || 0);
+
+  return {
+    _id: bill._id,
+    billId: bill.billId,
+    projectTitle: bill.projectTitle || 'Instant Bill',
+    status: bill.status || 'Issued',
+    billDate: bill.billDate || bill.createdAt,
+    dueDate: bill.dueDate,
+    paymentTerms: bill.paymentTerms || 'Due on Receipt',
+    clientName: client.fullName || client.companyName || 'Client',
+    companyName: client.companyName || '-',
+    clientEmail: client.email || '-',
+    clientPhone: client.phone || '-',
+    items: costingItems.map((item) => ({
+      service: item.subService || item.subServiceName || item.mainService || 'Service',
+      description: item.description || '',
+      sacCode: item.sacCode || getSacCode(item.subService || item.subServiceName) || '998314',
+      quantity: Number(item.quantity || 1),
+      basePrice: Number(item.basePrice || 0),
+      taxableValue: Number(item.taxableValue || 0),
+      gstAmount: Number(item.gstAmount || 0),
+      total: Number(item.totalAmount || 0)
+    })),
+    subtotal,
+    gstAmount,
+    totalAmount,
+    notes: bill.notes || ''
+  };
+}
+
+export async function getPublicBill(req, res, next) {
+  try {
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const bill = await InstantBill.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { billId: rawId }
+      ]
+    }).populate('clientId');
+
+    if (!bill) {
+      return res.status(404).json({ message: 'Bill not found' });
+    }
+
+    res.json(publicBillPayload(bill));
+  } catch (err) {
+    next(err);
+  }
+}

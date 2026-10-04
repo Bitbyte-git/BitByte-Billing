@@ -1,11 +1,13 @@
 // trigger reload
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
+import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getPublicQuotation, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
+
+router.get('/public/:id', getPublicQuotation);
 
 router.use(authenticate);
 router.get('/', listQuotations);

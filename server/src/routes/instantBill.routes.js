@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { createBill, getBill, listBills, billPdf, updateBillStatus } from '../controllers/instantBill.controller.js';
+import { createBill, getBill, getPublicBill, listBills, billPdf, updateBillStatus } from '../controllers/instantBill.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
+
+router.get('/public/:id', getPublicBill);
 
 router.use(authenticate);
 router.get('/', listBills);

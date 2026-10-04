@@ -193,7 +193,7 @@ function normalizeAbsoluteUrl(value) {
 function publicQuotationUrl(quotation) {
   const baseUrl = normalizeAbsoluteUrl(process.env.CLIENT_URL || process.env.APP_URL);
   const publicId = quotation._id || quotation.id || quotation.quotationId;
-  return `${baseUrl}/client/quotations/${encodeURIComponent(String(publicId || ""))}`;
+  return `${baseUrl}/public/quotation/${encodeURIComponent(String(publicId || ""))}`;
 }
 
 export function createQuotationPdfDocument(quotation) {

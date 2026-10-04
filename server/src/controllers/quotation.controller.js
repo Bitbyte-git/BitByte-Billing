@@ -455,3 +455,62 @@ async function sendPricingEmailToAdmins({ quotation, items }) {
     return { queued: 0 };
   }
 }
+
+function publicQuotationPayload(quotation) {
+  const client = quotation.clientId || {};
+  const costingItems = quotation.costingItems || [];
+  const subtotal = Number(quotation.subtotal || 0);
+  const gstAmount = Number(quotation.gstAmount || 0);
+  const totalAmount = Number(quotation.totalAmount || 0);
+
+  return {
+    _id: quotation._id,
+    quotationId: quotation.quotationId,
+    projectTitle: quotation.projectTitle || 'Quotation',
+    status: quotation.status || 'Approved',
+    submittedAt: quotation.submittedAt || quotation.createdAt,
+    createdAt: quotation.createdAt,
+    validUntil: quotation.validUntil || new Date((quotation.submittedAt || quotation.createdAt || Date.now()).valueOf
+      ? new Date(quotation.submittedAt || quotation.createdAt || Date.now()).getTime() + 15 * 86400000
+      : Date.now() + 15 * 86400000),
+    clientName: client.fullName || client.companyName || 'Client',
+    companyName: client.companyName || '-',
+    clientEmail: client.email || '-',
+    clientPhone: client.phone || '-',
+    items: costingItems.map((item) => ({
+      service: item.subService || item.subServiceName || item.mainService || 'Service',
+      description: item.description || '',
+      sacCode: item.sacCode || getSacCode(item.subService || item.subServiceName) || '998314',
+      quantity: Number(item.quantity || 1),
+      basePrice: Number(item.basePrice || 0),
+      taxableValue: Number(item.taxableValue || 0),
+      gstAmount: Number(item.gstAmount || 0),
+      total: Number(item.totalAmount || 0)
+    })),
+    subtotal,
+    gstAmount,
+    totalAmount,
+    requirementDetails: quotation.requirementDetails || ''
+  };
+}
+
+export async function getPublicQuotation(req, res, next) {
+  try {
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    }).populate('clientId');
+
+    if (!quotation) {
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    res.json(publicQuotationPayload(quotation));
+  } catch (err) {
+    next(err);
+  }
+}

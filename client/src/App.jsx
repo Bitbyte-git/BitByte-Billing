@@ -19,6 +19,8 @@ import ServiceShowcase from './pages/ServiceShowcase.jsx';
 import PublicInternship from './pages/PublicInternship.jsx';
 import PublicInternInvoice from './pages/PublicInternInvoice.jsx';
 import PublicClientInvoice from './pages/PublicClientInvoice.jsx';
+import PublicQuotation from './pages/PublicQuotation.jsx';
+import PublicBill from './pages/PublicBill.jsx';
 import GenerateQuotation from './pages/GenerateQuotation.jsx';
 import InstantBilling from './pages/InstantBilling.jsx';
 import { useAuth } from './state/AuthContext.jsx';
@@ -57,6 +59,8 @@ export default function App() {
       <Route path="/internship" element={<PublicInternship />} />
       <Route path="/public/intern-invoice/:id" element={<PublicInternInvoice />} />
       <Route path="/public/client-invoice/:id" element={<PublicClientInvoice />} />
+      <Route path="/public/quotation/:id" element={<PublicQuotation />} />
+      <Route path="/public/bill/:id" element={<PublicBill />} />
       <Route path="/login" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to={roleHome[user.role]} replace /> : <Register />} />
       <Route path="/" element={<Navigate to={user ? roleHome[user.role] : '/login'} replace />} />
