@@ -304,7 +304,7 @@ export function createInvoicePdfDocument(invoice) {
   const printer = new PdfPrinter(fonts);
   const items = (invoice.items || []).map(enrichInvoiceItem);
   const clientName =
-    invoice.clientId?.companyName || invoice.clientId?.fullName || "Client";
+    invoice.clientId?.fullName || invoice.clientId?.name || invoice.clientId?.companyName || "Client";
   const clientEmail = invoice.clientId?.email || "-";
   const clientPhone = invoice.clientId?.phone || "-";
   const quotationLabel =
@@ -485,7 +485,7 @@ export function createInvoicePdfDocument(invoice) {
               [
                 detailCell(
                   "COMPANY",
-                  invoice.clientId?.companyName || clientName,
+                  invoice.clientId?.companyName || "-",
                 ),
                 detailCell("CLIENT ID", invoice.clientId?._id || "-"),
               ],

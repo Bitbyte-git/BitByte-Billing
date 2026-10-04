@@ -209,10 +209,10 @@ export function createQuotationPdfDocument(quotation) {
 
   // Resolve client data
   const client = quotation.clientId || {};
-  const clientName = client.companyName || client.fullName || "Client";
+  const clientName = client.fullName || client.name || client.clientName || client.companyName || "Client";
   const clientEmail = client.email || "-";
   const clientPhone = client.phone || "-";
-  const companyName = client.companyName || clientName;
+  const companyName = client.companyName || "-";
   const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
 
   // Resolve quotation meta

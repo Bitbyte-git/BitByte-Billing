@@ -15,10 +15,10 @@ export const formatDate = (value) => {
 export const recordId = (record) => record?._id || record?.id;
 
 export const getClientName = (record) =>
-  record?.clientId?.companyName ||
   record?.clientId?.fullName ||
-  record?.client?.companyName ||
+  record?.clientId?.companyName ||
   record?.client?.fullName ||
+  record?.client?.companyName ||
   '-';
 
 export const getQuotationNumber = (record) =>

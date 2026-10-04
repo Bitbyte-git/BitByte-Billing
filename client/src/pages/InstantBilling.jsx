@@ -121,7 +121,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
           fullName: match.fullName || '',
           email: match.email || '',
           phone: match.phone || '',
-          companyName: match.companyName || match.fullName || '',
+          companyName: match.companyName || '',
           address: match.address || '',
           gstin: match.gstin || '',
           clientId: match.clientId || match._id

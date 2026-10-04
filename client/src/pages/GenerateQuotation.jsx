@@ -128,7 +128,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           fullName: match.fullName || '',
           email: match.email || '',
           phone: match.phone || '',
-          companyName: match.companyName || match.fullName || '',
+          companyName: match.companyName || '',
           address: match.address || '',
           gstin: match.gstin || '',
           clientId: match.clientId || match._id
@@ -654,7 +654,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                     {service.service}
                   </option>
                 ))}
-                <option value="CUSTOM_SERVICE">⚡ + Custom Service</option>
+                <option value="CUSTOM_SERVICE"> + Custom Service</option>
               </select>
             )}
           </div>

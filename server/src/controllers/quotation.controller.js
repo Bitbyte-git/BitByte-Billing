@@ -45,7 +45,7 @@ export async function createQuotation(req, res, next) {
           const newClient = await Client.create({
             clientId: `AUTO-${Date.now().toString(36).toUpperCase()}`,
             fullName: fullName || companyName || 'Client',
-            companyName: companyName || fullName || 'Client',
+            companyName: companyName || '',
             email: email || `client-${Date.now()}@bitbytetech.org`,
             phone: phone || '0000000000',
             address: address || '',
@@ -387,7 +387,7 @@ function adminReviewUrl() {
 }
 
 function buildPricingEmail({ quotation, items }) {
-  const clientName = quotation.clientId?.companyName || quotation.clientId?.fullName || 'Client';
+  const clientName = quotation.clientId?.fullName || quotation.clientId?.companyName || 'Client';
   const mainService = (quotation.mainService || []).join(', ') || '-';
   const selectedSubServices = items.map((item) => item.subService || item.subServiceName).filter(Boolean).join(', ') || '-';
   const reviewUrl = adminReviewUrl();

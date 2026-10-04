@@ -18,10 +18,10 @@ function formatDate(value) {
   return Number.isNaN(date.getTime())
     ? "-"
     : date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 }
 
 function formatDateTime(value = new Date()) {
@@ -102,71 +102,75 @@ function invoiceHeaderBackground() {
   };
 }
 
-function invoiceHeaderBlock(rightGutter = 118) {
+function invoiceHeaderBlock(rightGutter = 95) {
   return {
-    table: {
-      widths: [112, "*", rightGutter],
-      body: [
-        [
+    columns: [
+      {
+        width: 115,
+        stack: [
+          companyLogo
+            ? { image: companyLogo, width: 105, alignment: "center" }
+            : {
+              text: "BitByte",
+              alignment: "center",
+              bold: true,
+              color: COLORS.blue,
+              fontSize: 18,
+            },
           {
-            stack: [
-              companyLogo
-                ? { image: companyLogo, fit: [108, 86], alignment: "center" }
-                : {
-                    text: "BB",
-                    alignment: "center",
-                    bold: true,
-                    color: COLORS.blue,
-                    fontSize: 18,
-                  },
-            ],
+            text: "WE ENGINEER LIFE'S LANGUAGE",
             alignment: "center",
-            margin: [0, -8, 0, -6],
+            fontSize: 5.2,
+            color: "#64748B",
+            characterSpacing: 0.3,
+            margin: [0, 2, 0, 0],
+          },
+        ],
+        margin: [0, 0, 6, 0],
+      },
+      {
+        width: "*",
+        stack: [
+          {
+            text: [
+              { text: "Bit Byte", color: COLORS.blue },
+              { text: " Technologies", color: COLORS.green },
+            ],
+            bold: true,
+            fontSize: 20,
+            margin: [0, 0, 0, 3],
           },
           {
-            stack: [
-              {
-                text: [
-                  { text: "Bit Byte", color: COLORS.blue },
-                  { text: " Technologies", color: COLORS.green },
-                ],
-                bold: true,
-                fontSize: 20,
-                margin: [0, 0, 0, 4],
-              },
-              {
-                text: `${COMPANY.office}, ${COMPANY.address[0]}`,
-                fontSize: 8.7,
-                bold: true,
-                color: COLORS.navy,
-              },
-              {
-                text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
-                fontSize: 8.7,
-                bold: true,
-                color: COLORS.navy,
-                margin: [0, 1, 0, 4],
-              },
-              {
-                text: [
-                  { text: `GST NO : ${COMPANY.gstin}` },
-                  { text: "   |   ", color: "#94A3B8" },
-                  { text: `MSME : ${COMPANY.udyamId}` },
-                ],
-                fontSize: 8,
-                bold: true,
-                color: COLORS.navy,
-                noWrap: true,
-              },
-            ],
-            margin: [4, 4, 0, 0],
+            text: `${COMPANY.office}, ${COMPANY.address[0]}`,
+            fontSize: 8.8,
+            bold: true,
+            color: COLORS.navy,
           },
-          { text: "" },
+          {
+            text: `${COMPANY.address[1]}, ${COMPANY.address[2]}`,
+            fontSize: 8.8,
+            bold: true,
+            color: COLORS.navy,
+            margin: [0, 1, 0, 4],
+          },
+          {
+            text: [
+              { text: `GST NO : ${COMPANY.gstin}` },
+              { text: "   |   ", color: "#94A3B8" },
+              { text: `MSME : ${COMPANY.udyamId}` },
+            ],
+            fontSize: 8.0,
+            bold: true,
+            color: COLORS.navy,
+            noWrap: true,
+          },
         ],
-      ],
-    },
-    layout: "noBorders",
-    margin: [0, 0, 0, 10],
+        margin: [0, 0, 0, 0],
+      },
+      { width: rightGutter, text: "" },
+    ],
+    columnGap: 6,
+    margin: [0, 0, 0, 8],
   };
 }
 
@@ -209,10 +213,10 @@ export function createBillPdfDocument(bill) {
 
   // Resolve client data
   const client = bill.clientId || {};
-  const clientName = client.companyName || client.fullName || "Client";
+  const clientName = client.fullName || client.name || client.clientName || client.companyName || "Client";
   const clientEmail = client.email || "-";
   const clientPhone = client.phone || "-";
-  const companyName = client.companyName || clientName;
+  const companyName = client.companyName || "-";
   const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
 
   // Resolve bill meta
@@ -220,9 +224,9 @@ export function createBillPdfDocument(bill) {
   const billDate = formatDate(bill.billDate || bill.createdAt || new Date());
   const dueDate = formatDate(
     bill.dueDate ||
-      new Date((bill.billDate || bill.createdAt || Date.now()).valueOf
-        ? new Date(bill.billDate || bill.createdAt || Date.now()).getTime() + 15 * 86400000
-        : Date.now() + 15 * 86400000)
+    new Date((bill.billDate || bill.createdAt || Date.now()).valueOf
+      ? new Date(bill.billDate || bill.createdAt || Date.now()).getTime() + 15 * 86400000
+      : Date.now() + 15 * 86400000)
   );
   const generatedBy =
     bill.createdByName ||
@@ -345,43 +349,43 @@ export function createBillPdfDocument(bill) {
   // Line item rows
   const itemRows = items.length
     ? items.map((item, index) => [
-        { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
-        {
-          text: [
-            { text: item.service || "Service", bold: true },
-            item.description
-              ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
-              : { text: "" },
-          ],
-          margin: [0, 8, 0, 8],
-        },
-        { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
-        { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
-      ])
-    : [
-        [
-          {
-            text: "No bill line items available.",
-            colSpan: 9,
-            alignment: "center",
-            color: COLORS.muted,
-            margin: [0, 14, 0, 14],
-          },
-          {}, {}, {}, {}, {}, {}, {}, {},
+      { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
+      {
+        text: [
+          { text: item.service || "Service", bold: true },
+          item.description
+            ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
+            : { text: "" },
         ],
-      ];
+        margin: [0, 8, 0, 8],
+      },
+      { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
+      { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
+      { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
+      { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+      { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+      { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+      { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
+    ])
+    : [
+      [
+        {
+          text: "No bill line items available.",
+          colSpan: 9,
+          alignment: "center",
+          color: COLORS.muted,
+          margin: [0, 14, 0, 14],
+        },
+        {}, {}, {}, {}, {}, {}, {}, {},
+      ],
+    ];
 
   const docDefinition = {
     pageSize: "A4",
     pageMargins: [24, 18, 24, 42],
     background: invoiceHeaderBackground(),
     content: [
-      invoiceHeaderBlock(HEADER_BANNER.width - 24),
+      invoiceHeaderBlock(95),
 
       // ── Two-column detail header: CLIENT DETAILS | BILL & PAYMENT DETAILS ──
       {

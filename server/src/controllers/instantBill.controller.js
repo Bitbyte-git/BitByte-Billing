@@ -37,7 +37,7 @@ export async function createBill(req, res, next) {
           const newClient = await Client.create({
             clientId: `AUTO-${Date.now().toString(36).toUpperCase()}`,
             fullName: fullName || companyName || 'Client',
-            companyName: companyName || fullName || 'Client',
+            companyName: companyName || '',
             email: email || `client-${Date.now()}@bitbytetech.org`,
             phone: phone || '0000000000',
             address: address || '',
