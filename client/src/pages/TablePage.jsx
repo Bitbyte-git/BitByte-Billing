@@ -32,6 +32,23 @@ export default function TablePage({ type, role }) {
   const [pinModal, setPinModal] = useState({ open: false, userId: null, pin: '', password: '', error: '' });
   const [addModal, setAddModal] = useState({ open: false, name: '', email: '', password: '', error: '', loading: false });
   const [serviceModal, setServiceModal] = useState({ open: false, mode: 'create', id: null, name: '', description: '', basePrice: '', status: 'Active', error: '', loading: false });
+  const [clientModal, setClientModal] = useState({
+    open: false,
+    mode: 'create',
+    id: null,
+    fullName: '',
+    companyName: '',
+    email: '',
+    phone: '',
+    alternatePhone: '',
+    address: '',
+    gstin: '',
+    pan: '',
+    industry: '',
+    accountStatus: 'Active',
+    error: '',
+    loading: false
+  });
   const [serviceSync, setServiceSync] = useState({ loading: false, message: '', error: '' });
   const [invoiceOptions, setInvoiceOptions] = useState([]);
   const [paymentEdits, setPaymentEdits] = useState({});
@@ -276,6 +293,58 @@ export default function TablePage({ type, role }) {
     }
   };
 
+  const openEditClient = (row) => {
+    setClientModal({
+      open: true,
+      mode: 'edit',
+      id: recordId(row),
+      fullName: row.fullName || '',
+      companyName: row.companyName || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      alternatePhone: row.alternatePhone || '',
+      address: row.address || '',
+      gstin: row.gstin || '',
+      pan: row.pan || '',
+      industry: row.industry || '',
+      accountStatus: row.accountStatus || 'Active',
+      error: '',
+      loading: false
+    });
+  };
+
+  const saveClient = async (e) => {
+    e.preventDefault();
+    setClientModal(prev => ({ ...prev, error: '', loading: true }));
+    try {
+      const payload = {
+        fullName: clientModal.fullName,
+        companyName: clientModal.companyName,
+        email: clientModal.email,
+        phone: clientModal.phone,
+        alternatePhone: clientModal.alternatePhone || undefined,
+        address: clientModal.address || undefined,
+        gstin: clientModal.gstin || undefined,
+        pan: clientModal.pan || undefined,
+        industry: clientModal.industry || undefined,
+        accountStatus: clientModal.accountStatus
+      };
+      if (clientModal.mode === 'create') {
+        await api.post('/clients', payload);
+      } else {
+        await api.put(`/clients/${clientModal.id}`, payload);
+      }
+      setClientModal(prev => ({ ...prev, open: false, loading: false }));
+      loadData();
+    } catch (err) {
+      setClientModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.response?.data?.message || 'Failed to save client details.'
+      }));
+    }
+  };
+
   const syncServicePrices = async () => {
     setServiceSync({ loading: true, message: '', error: '' });
     try {
@@ -504,12 +573,19 @@ export default function TablePage({ type, role }) {
       columns: [
         { key: 'clientId', label: 'Client ID' },
         { key: 'companyName', label: 'Company' },
-        { key: 'fullName', label: 'Contact' },
+        { key: 'fullName', label: 'Contact Name' },
         { key: 'email', label: 'Email' },
         { key: 'phone', label: 'Phone' },
         { key: 'accountStatus', label: 'Status', badge: true }
       ],
-      actions: () => <button className="rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple">Profile</button>
+      actions: (row) => (
+        <button
+          onClick={() => openEditClient(row)}
+          className="flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 shadow-sm transition"
+        >
+          <Edit3 size={14} /> Edit Details
+        </button>
+      )
     },
     services: {
       title: 'Services Management',
@@ -559,6 +635,14 @@ export default function TablePage({ type, role }) {
           <h1 className="text-3xl font-black">{config.title}</h1>
         </div>
         <div className="flex gap-3">
+          {type === 'clients' && (
+            <button
+              onClick={() => setClientModal({ open: true, mode: 'create', id: null, fullName: '', companyName: '', email: '', phone: '', alternatePhone: '', address: '', gstin: '', pan: '', industry: '', accountStatus: 'Active', error: '', loading: false })}
+              className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-glow"
+            >
+              <UserPlus size={16} /> Add Client
+            </button>
+          )}
           {type === 'users' && (
             <button onClick={() => setAddModal({ ...addModal, open: true })} className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"><UserPlus size={16} /> Add Accountant</button>
           )}
@@ -661,6 +745,49 @@ export default function TablePage({ type, role }) {
               <div className="mt-6 flex gap-3">
                 <button type="button" onClick={() => setServiceModal(p => ({ ...p, open: false }))} className="flex-1 rounded-xl border border-line py-2 font-bold hover:bg-slate-50">Cancel</button>
                 <button type="submit" disabled={serviceModal.loading} className="gradient-button flex-1 rounded-xl py-2 font-bold disabled:opacity-60">{serviceModal.loading ? 'Saving...' : 'Save'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Client Modal (Create/Edit) */}
+      {clientModal.open && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy/50 backdrop-blur-sm p-4 pt-6 md:pt-10 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-premium mb-8">
+            <h2 className="text-xl font-black mb-4 text-slate-900">{clientModal.mode === 'create' ? 'Add New Client' : 'Edit Client Details'}</h2>
+            <form onSubmit={saveClient} className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-xs font-bold uppercase text-slate-500">Full Name *
+                <input required value={clientModal.fullName} onChange={e => setClientModal(p => ({ ...p, fullName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="John Doe" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">Company Name
+                <input value={clientModal.companyName} onChange={e => setClientModal(p => ({ ...p, companyName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Bit Byte Tech" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">Email *
+                <input type="email" required value={clientModal.email} onChange={e => setClientModal(p => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="client@gmail.com" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">Phone (10 Digits) *
+                <input type="text" required pattern="\d{10}" value={clientModal.phone} onChange={e => setClientModal(p => ({ ...p, phone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="9876543210" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">Alternate Phone
+                <input type="text" pattern="\d{10}" value={clientModal.alternatePhone} onChange={e => setClientModal(p => ({ ...p, alternatePhone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Optional" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">GSTIN
+                <input value={clientModal.gstin} onChange={e => setClientModal(p => ({ ...p, gstin: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="15-char GSTIN" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">PAN
+                <input value={clientModal.pan} onChange={e => setClientModal(p => ({ ...p, pan: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="PAN Number" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500">Industry
+                <input value={clientModal.industry} onChange={e => setClientModal(p => ({ ...p, industry: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="e.g. IT Services" />
+              </label>
+              <label className="block text-xs font-bold uppercase text-slate-500 sm:col-span-2">Address
+                <input value={clientModal.address} onChange={e => setClientModal(p => ({ ...p, address: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Full Address" />
+              </label>
+              {clientModal.error && <p className="sm:col-span-2 text-xs font-semibold text-red-500">{clientModal.error}</p>}
+              <div className="sm:col-span-2 mt-4 flex gap-3">
+                <button type="button" onClick={() => setClientModal(p => ({ ...p, open: false }))} className="flex-1 rounded-xl border border-line py-2 font-bold hover:bg-slate-50">Cancel</button>
+                <button type="submit" disabled={clientModal.loading} className="gradient-button flex-1 rounded-xl py-2 font-bold disabled:opacity-60">{clientModal.loading ? 'Saving...' : 'Save Client'}</button>
               </div>
             </form>
           </div>

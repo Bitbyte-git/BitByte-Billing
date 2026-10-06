@@ -12,7 +12,7 @@ const controller = crudController(Client, { beforeCreate: async (req) => ({ ...r
 router.use(authenticate);
 router.get('/', authorize('Admin', 'Accountant'), controller.list);
 router.get('/:id', controller.get);
-router.post('/', authorize('Admin'), [body('email').isEmail(), body('phone').matches(/^\d{10}$/), body('gstin').optional().isLength({ min: 15, max: 15 })], validate, controller.create);
-router.put('/:id', authorize('Admin'), controller.update);
+router.post('/', authorize('Admin', 'Accountant'), [body('email').isEmail(), body('phone').matches(/^\d{10}$/), body('gstin').optional().isLength({ min: 15, max: 15 })], validate, controller.create);
+router.put('/:id', authorize('Admin', 'Accountant'), controller.update);
 
 export default router;

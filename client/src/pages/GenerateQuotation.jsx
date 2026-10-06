@@ -39,6 +39,18 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     clientId: 'AUTO-GEN'
   });
 
+  const [quickClientModal, setQuickClientModal] = useState({
+    open: false,
+    fullName: '',
+    companyName: '',
+    email: '',
+    phone: '',
+    address: '',
+    gstin: '',
+    error: '',
+    loading: false
+  });
+
   const [quotationMeta, setQuotationMeta] = useState({
     projectTitle: '',
     quotationDate: new Date().toISOString().split('T')[0],
@@ -146,6 +158,33 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       });
     }
   }, [clients, selectedClientId]);
+
+  const handleSaveQuickClient = async (e) => {
+    e.preventDefault();
+    setQuickClientModal((p) => ({ ...p, loading: true, error: '' }));
+    try {
+      const { data } = await api.post('/clients', {
+        fullName: quickClientModal.fullName,
+        companyName: quickClientModal.companyName,
+        email: quickClientModal.email,
+        phone: quickClientModal.phone,
+        address: quickClientModal.address || undefined,
+        gstin: quickClientModal.gstin || undefined
+      });
+      const res = await api.get('/clients');
+      const updatedClients = res.data || [];
+      setClients(updatedClients);
+      const newId = recordId(data);
+      setSelectedClientId(newId);
+      setQuickClientModal({ open: false, fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false });
+    } catch (err) {
+      setQuickClientModal((p) => ({
+        ...p,
+        loading: false,
+        error: err.response?.data?.message || 'Failed to register client details.'
+      }));
+    }
+  };
 
   // Dynamic modules list from losServices
   const availableModules = useMemo(
@@ -431,21 +470,50 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Box 1: CLIENT DETAILS */}
         <div className="rounded-2xl border border-line bg-white shadow-premium overflow-hidden">
-          <div className="border-b border-line bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-wider text-white flex items-center justify-between">
-            <span className="flex items-center gap-2"><UserCheck size={16} className="text-purple" /> Client Details</span>
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-white outline-none focus:border-purple"
-            >
-              {clients.map((client) => (
-                <option key={recordId(client)} value={recordId(client)}>
-                  {client.companyName ? `${client.companyName} (${client.fullName})` : client.fullName}
-                </option>
-              ))}
-              <option value="NEW">+ Add Custom Client</option>
-            </select>
+          <div className="border-b border-line bg-slate-950 px-5 py-3 text-xs font-black uppercase tracking-wider text-white flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <UserCheck size={16} className="text-purple" /> Client Details
+            </span>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedClientId}
+                onChange={(e) => {
+                  if (e.target.value === 'NEW') {
+                    setQuickClientModal({ open: true, fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false });
+                  } else {
+                    setSelectedClientId(e.target.value);
+                  }
+                }}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-white outline-none focus:border-purple cursor-pointer"
+              >
+                <option value="" disabled>-- Select Saved Client --</option>
+                {clients.map((client) => (
+                  <option key={recordId(client)} value={recordId(client)}>
+                    {client.companyName ? `${client.companyName} (${client.fullName})` : client.fullName}
+                  </option>
+                ))}
+                <option value="NEW">+ Quick Add Client</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setQuickClientModal({ open: true, fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false })}
+                className="flex items-center gap-1 rounded-lg border border-purple/40 bg-purple/20 px-2 py-1 text-xs font-bold text-purple hover:bg-purple/30 transition"
+              >
+                <UserPlus size={13} /> Add
+              </button>
+            </div>
           </div>
+
+          {selectedClientId && selectedClientId !== 'NEW' && (
+            <div className="bg-emerald-50/70 border-b border-emerald-100 px-5 py-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-emerald-600" /> Details auto-fetched from Saved Client record
+              </span>
+              <span className="text-[10px] font-mono font-bold text-emerald-800 uppercase">
+                {customClient.clientId}
+              </span>
+            </div>
+          )}
 
           <div className="p-5 grid gap-4 sm:grid-cols-2">
             <div>
@@ -889,6 +957,40 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       message={toast.message}
       onDone={() => setToast({ show: false, message: '' })}
     />
+
+    {/* Quick Register Client Modal */}
+    {quickClientModal.open && (
+      <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy/50 backdrop-blur-sm p-4 pt-6 md:pt-10 overflow-y-auto">
+        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-premium mb-8">
+          <h2 className="text-xl font-black mb-4 text-slate-900">Quick Register New Client</h2>
+          <form onSubmit={handleSaveQuickClient} className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-xs font-bold uppercase text-slate-500">Full Name *
+              <input required value={quickClientModal.fullName} onChange={e => setQuickClientModal(p => ({ ...p, fullName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="John Doe" />
+            </label>
+            <label className="block text-xs font-bold uppercase text-slate-500">Company Name
+              <input value={quickClientModal.companyName} onChange={e => setQuickClientModal(p => ({ ...p, companyName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Bit Byte Tech" />
+            </label>
+            <label className="block text-xs font-bold uppercase text-slate-500">Email *
+              <input type="email" required value={quickClientModal.email} onChange={e => setQuickClientModal(p => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="client@gmail.com" />
+            </label>
+            <label className="block text-xs font-bold uppercase text-slate-500">Phone (10 Digits) *
+              <input type="text" required pattern="\d{10}" value={quickClientModal.phone} onChange={e => setQuickClientModal(p => ({ ...p, phone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="9876543210" />
+            </label>
+            <label className="block text-xs font-bold uppercase text-slate-500">GSTIN
+              <input value={quickClientModal.gstin} onChange={e => setQuickClientModal(p => ({ ...p, gstin: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Optional GSTIN" />
+            </label>
+            <label className="block text-xs font-bold uppercase text-slate-500 sm:col-span-2">Address
+              <input value={quickClientModal.address} onChange={e => setQuickClientModal(p => ({ ...p, address: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Full Address" />
+            </label>
+            {quickClientModal.error && <p className="sm:col-span-2 text-xs font-semibold text-red-500">{quickClientModal.error}</p>}
+            <div className="sm:col-span-2 mt-4 flex gap-3">
+              <button type="button" onClick={() => setQuickClientModal(p => ({ ...p, open: false }))} className="flex-1 rounded-xl border border-line py-2 font-bold hover:bg-slate-50">Cancel</button>
+              <button type="submit" disabled={quickClientModal.loading} className="gradient-button flex-1 rounded-xl py-2 font-bold disabled:opacity-60">{quickClientModal.loading ? 'Registering...' : 'Register & Select'}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
     </>
   );
 }

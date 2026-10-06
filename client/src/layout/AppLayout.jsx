@@ -39,6 +39,7 @@ const nav = {
     ["Generate Quotation", "/accountant/generate-quotation", FileCheck2],
     ["Instant Billing", "/accountant/instant-billing", ReceiptText],
     ["Quotations", "/accountant/quotations", FileText],
+    ["Clients", "/accountant/clients", Users],
     ["Add Pricing", "/accountant/pricing", CircleDollarSign],
     ["Clarifications", "/accountant/clarifications", FileCheck2],
     ["Invoices", "/accountant/invoices", ReceiptText],

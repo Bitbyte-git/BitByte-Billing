@@ -83,6 +83,7 @@ export default function App() {
         <Route path="/accountant/instant-billing" element={<InstantBilling role="Accountant" />} />
         <Route path="/accountant/quotations" element={<TablePage type="quotations" role="Accountant" />} />
         <Route path="/accountant/quotations/:id" element={<QuotationDetail role="Accountant" />} />
+        <Route path="/accountant/clients" element={<TablePage type="clients" role="Accountant" />} />
         <Route path="/accountant/pricing" element={<PricingPage />} />
         <Route path="/accountant/clarifications" element={<QuotationDetail role="Accountant" mode="clarification" />} />
         <Route path="/accountant/invoices" element={<TablePage type="invoices" role="Accountant" />} />
