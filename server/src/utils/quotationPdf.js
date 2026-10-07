@@ -196,6 +196,15 @@ function publicQuotationUrl(quotation) {
   return `${baseUrl}/public/quotation/${encodeURIComponent(String(publicId || ""))}`;
 }
 
+function formatSalutationName(client) {
+  if (!client) return "Client";
+  const rawName = client.fullName || client.name || client.clientName || client.companyName || "Client";
+  if (!client.salutation) return rawName;
+  const sal = client.salutation.trim();
+  const prefix = (sal.endsWith('.') || sal === 'M/s') ? sal : `${sal}.`;
+  return `${prefix} ${rawName}`;
+}
+
 export function createQuotationPdfDocument(quotation) {
   const fonts = {
     Roboto: {
@@ -209,7 +218,7 @@ export function createQuotationPdfDocument(quotation) {
 
   // Resolve client data
   const client = quotation.clientId || {};
-  const clientName = client.fullName || client.name || client.clientName || client.companyName || "Client";
+  const clientName = formatSalutationName(client);
   const clientEmail = client.email || "-";
   const clientPhone = client.phone || "-";
   const companyName = client.companyName || "-";

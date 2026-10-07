@@ -14,12 +14,16 @@ export const formatDate = (value) => {
 
 export const recordId = (record) => record?._id || record?.id;
 
-export const getClientName = (record) =>
-  record?.clientId?.fullName ||
-  record?.clientId?.companyName ||
-  record?.client?.fullName ||
-  record?.client?.companyName ||
-  '-';
+export const getClientName = (record) => {
+  const client = record?.clientId || record?.client || (record?.fullName || record?.companyName ? record : null);
+  if (!client) return '-';
+  const name = client.fullName || client.companyName || '-';
+  if (name === '-') return '-';
+  if (!client.salutation) return name;
+  const sal = client.salutation.trim();
+  const prefix = (sal.endsWith('.') || sal === 'M/s') ? sal : `${sal}.`;
+  return `${prefix} ${name}`;
+};
 
 export const getQuotationNumber = (record) =>
   record?.quotationId?.quotationId || record?.quotationId || '-';

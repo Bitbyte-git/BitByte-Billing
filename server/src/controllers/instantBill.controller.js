@@ -28,7 +28,7 @@ export async function createBill(req, res, next) {
     // Resolve client
     let clientId = req.body.clientId;
     if (!clientId && req.body.clientDetails) {
-      const { fullName, email, phone, companyName, address, gstin } = req.body.clientDetails;
+      const { salutation, fullName, email, phone, companyName, address, gstin } = req.body.clientDetails;
       if (fullName || companyName || email || phone) {
         const rawDigits = String(phone || '').replace(/\D/g, '');
         const cleanedPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : '';
@@ -37,6 +37,7 @@ export async function createBill(req, res, next) {
         const validName = (fullName || companyName || 'Client').trim();
         const validCompany = (companyName || '').trim();
         const validGstin = (gstin && gstin.length === 15) ? gstin.trim().toUpperCase() : '';
+        const validSalutation = (salutation || 'Mr').trim();
 
         let existing = await Client.findOne({
           $or: [
@@ -46,10 +47,15 @@ export async function createBill(req, res, next) {
         });
 
         if (existing) {
+          if (salutation && existing.salutation !== validSalutation) {
+            existing.salutation = validSalutation;
+            await existing.save();
+          }
           clientId = existing._id;
         } else {
           const newClient = await Client.create({
             clientId: `AUTO-${Date.now().toString(36).toUpperCase()}`,
+            salutation: validSalutation,
             fullName: validName,
             companyName: validCompany,
             email: validEmail,

@@ -292,6 +292,15 @@ export function buildInvoiceLineFromQuotationItem(item) {
   };
 }
 
+function formatSalutationName(client) {
+  if (!client) return "Client";
+  const rawName = client.fullName || client.name || client.clientName || client.companyName || "Client";
+  if (!client.salutation) return rawName;
+  const sal = client.salutation.trim();
+  const prefix = (sal.endsWith('.') || sal === 'M/s') ? sal : `${sal}.`;
+  return `${prefix} ${rawName}`;
+}
+
 export function createInvoicePdfDocument(invoice) {
   const fonts = {
     Roboto: {
@@ -303,8 +312,7 @@ export function createInvoicePdfDocument(invoice) {
   };
   const printer = new PdfPrinter(fonts);
   const items = (invoice.items || []).map(enrichInvoiceItem);
-  const clientName =
-    invoice.clientId?.fullName || invoice.clientId?.name || invoice.clientId?.companyName || "Client";
+  const clientName = formatSalutationName(invoice.clientId);
   const clientEmail = invoice.clientId?.email || "-";
   const clientPhone = invoice.clientId?.phone || "-";
   const quotationLabel =

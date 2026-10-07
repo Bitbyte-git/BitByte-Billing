@@ -36,6 +36,7 @@ export default function TablePage({ type, role }) {
     open: false,
     mode: 'create',
     id: null,
+    salutation: 'Mr',
     fullName: '',
     companyName: '',
     email: '',
@@ -298,6 +299,7 @@ export default function TablePage({ type, role }) {
       open: true,
       mode: 'edit',
       id: recordId(row),
+      salutation: row.salutation || 'Mr',
       fullName: row.fullName || '',
       companyName: row.companyName || '',
       email: row.email || '',
@@ -318,6 +320,7 @@ export default function TablePage({ type, role }) {
     setClientModal(prev => ({ ...prev, error: '', loading: true }));
     try {
       const payload = {
+        salutation: clientModal.salutation || 'Mr',
         fullName: clientModal.fullName,
         companyName: clientModal.companyName,
         email: clientModal.email,
@@ -573,7 +576,7 @@ export default function TablePage({ type, role }) {
       columns: [
         { key: 'clientId', label: 'Client ID' },
         { key: 'companyName', label: 'Company' },
-        { key: 'fullName', label: 'Contact Name' },
+        { key: 'fullName', label: 'Contact Name', render: (row) => getClientName(row) },
         { key: 'email', label: 'Email' },
         { key: 'phone', label: 'Phone' },
         { key: 'accountStatus', label: 'Status', badge: true }
@@ -757,10 +760,20 @@ export default function TablePage({ type, role }) {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-premium mb-8">
             <h2 className="text-xl font-black mb-4 text-slate-900">{clientModal.mode === 'create' ? 'Add New Client' : 'Edit Client Details'}</h2>
             <form onSubmit={saveClient} className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-xs font-bold uppercase text-slate-500">Salutation *
+                <select value={clientModal.salutation || 'Mr'} onChange={e => setClientModal(p => ({ ...p, salutation: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple bg-white">
+                  <option value="Mr">Mr.</option>
+                  <option value="Ms">Ms.</option>
+                  <option value="Mrs">Mrs.</option>
+                  <option value="Dr">Dr.</option>
+                  <option value="Prof">Prof.</option>
+                  <option value="M/s">M/s</option>
+                </select>
+              </label>
               <label className="block text-xs font-bold uppercase text-slate-500">Full Name *
                 <input required value={clientModal.fullName} onChange={e => setClientModal(p => ({ ...p, fullName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="John Doe" />
               </label>
-              <label className="block text-xs font-bold uppercase text-slate-500">Company Name
+              <label className="block text-xs font-bold uppercase text-slate-500 sm:col-span-2">Company Name
                 <input value={clientModal.companyName} onChange={e => setClientModal(p => ({ ...p, companyName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Bit Byte Tech" />
               </label>
               <label className="block text-xs font-bold uppercase text-slate-500">Email *

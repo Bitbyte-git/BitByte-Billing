@@ -25,6 +25,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [customClient, setCustomClient] = useState({
+    salutation: 'Mr',
     fullName: '',
     email: '',
     phone: '',
@@ -36,6 +37,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
 
   const [quickClientModal, setQuickClientModal] = useState({
     open: false,
+    salutation: 'Mr',
     fullName: '',
     companyName: '',
     email: '',
@@ -131,6 +133,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       const match = clients.find((c) => recordId(c) === selectedClientId);
       if (match) {
         setCustomClient({
+          salutation: match.salutation || 'Mr',
           fullName: match.fullName || '',
           email: match.email || '',
           phone: match.phone || '',
@@ -142,6 +145,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       }
     } else if (selectedClientId === 'NEW') {
       setCustomClient({
+        salutation: 'Mr',
         fullName: '',
         email: '',
         phone: '',
@@ -158,6 +162,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
     setQuickClientModal((p) => ({ ...p, loading: true, error: '' }));
     try {
       const { data } = await api.post('/clients', {
+        salutation: quickClientModal.salutation || 'Mr',
         fullName: quickClientModal.fullName,
         companyName: quickClientModal.companyName,
         email: quickClientModal.email,
@@ -170,7 +175,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       setClients(updatedClients);
       const newId = recordId(data);
       setSelectedClientId(newId);
-      setQuickClientModal({ open: false, fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false });
+      setQuickClientModal({ open: false, salutation: 'Mr', fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false });
     } catch (err) {
       setQuickClientModal((p) => ({
         ...p,
@@ -513,14 +518,28 @@ export default function InstantBilling({ role = 'Accountant' }) {
 
             <div className="p-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="text-xs font-bold uppercase text-slate-400">Client Name</label>
-                <input
-                  type="text"
-                  value={customClient.fullName}
-                  onChange={(e) => setCustomClient({ ...customClient, fullName: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
-                  placeholder="e.g. Bit Byte Tech"
-                />
+                <label className="text-xs font-bold uppercase text-slate-400">Salutation & Client Name</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={customClient.salutation || 'Mr'}
+                    onChange={(e) => setCustomClient({ ...customClient, salutation: e.target.value })}
+                    className="rounded-xl border border-line bg-white px-2.5 py-2 text-sm font-bold text-slate-700 outline-purple cursor-pointer"
+                  >
+                    <option value="Mr">Mr.</option>
+                    <option value="Ms">Ms.</option>
+                    <option value="Mrs">Mrs.</option>
+                    <option value="Dr">Dr.</option>
+                    <option value="Prof">Prof.</option>
+                    <option value="M/s">M/s</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={customClient.fullName}
+                    onChange={(e) => setCustomClient({ ...customClient, fullName: e.target.value })}
+                    className="w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                    placeholder="e.g. Varakumar"
+                  />
+                </div>
               </div>
 
               <div>
@@ -964,10 +983,20 @@ export default function InstantBilling({ role = 'Accountant' }) {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-premium mb-8">
             <h2 className="text-xl font-black mb-4 text-slate-900">Quick Register New Client</h2>
             <form onSubmit={handleSaveQuickClient} className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-xs font-bold uppercase text-slate-500">Salutation *
+                <select value={quickClientModal.salutation || 'Mr'} onChange={e => setQuickClientModal(p => ({ ...p, salutation: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple bg-white">
+                  <option value="Mr">Mr.</option>
+                  <option value="Ms">Ms.</option>
+                  <option value="Mrs">Mrs.</option>
+                  <option value="Dr">Dr.</option>
+                  <option value="Prof">Prof.</option>
+                  <option value="M/s">M/s</option>
+                </select>
+              </label>
               <label className="block text-xs font-bold uppercase text-slate-500">Full Name *
                 <input required value={quickClientModal.fullName} onChange={e => setQuickClientModal(p => ({ ...p, fullName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="John Doe" />
               </label>
-              <label className="block text-xs font-bold uppercase text-slate-500">Company Name
+              <label className="block text-xs font-bold uppercase text-slate-500 sm:col-span-2">Company Name
                 <input value={quickClientModal.companyName} onChange={e => setQuickClientModal(p => ({ ...p, companyName: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Bit Byte Tech" />
               </label>
               <label className="block text-xs font-bold uppercase text-slate-500">Email *
