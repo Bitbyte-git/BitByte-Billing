@@ -208,31 +208,37 @@ export default function InstantBilling({ role = 'Accountant' }) {
     }
   }, [availableServicesInModule]);
 
-  // Default custom price when custom service selected
-  useEffect(() => {
-    if (isCustomService) {
-      setCustomBasePrice(1990);
-    }
-  }, [isCustomService]);
-
   // Current active service object
   const activeServiceObj = useMemo(
     () => losServices.find((s) => String(s.id) === String(selectedServiceId)) || availableServicesInModule[0],
     [selectedServiceId, availableServicesInModule]
   );
 
+  // Default custom price when custom service or customised tier selected
+  useEffect(() => {
+    if (isCustomService) {
+      setCustomBasePrice(1990);
+    } else if (selectedTier === 'customised' && activeServiceObj) {
+      const defaultVal = activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 7990;
+      setCustomBasePrice(defaultVal);
+    }
+  }, [isCustomService, selectedTier, activeServiceObj]);
+
   // Calculate pricing for current service dropdown preview
   const currentTierPrice = useMemo(() => {
     if (!activeServiceObj) return 0;
+    if (selectedTier === 'customised') {
+      return Number(customBasePrice || activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 7990);
+    }
     return Number(activeServiceObj.prices?.[selectedTier] || 0);
-  }, [activeServiceObj, selectedTier]);
+  }, [activeServiceObj, selectedTier, customBasePrice]);
 
   const currentTierNote = useMemo(() => {
     if (!activeServiceObj) return '';
-    return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.description;
+    return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.tierNotes?.enterprise || activeServiceObj.description;
   }, [activeServiceObj, selectedTier]);
 
-  // Strict custom price range handlers (min: 1990, max: 9990 for custom service)
+  // Custom price change handler
   const handleCustomPriceChange = (val) => {
     if (val === '') {
       setCustomBasePrice('');
@@ -240,22 +246,13 @@ export default function InstantBilling({ role = 'Accountant' }) {
     }
     const num = Number(val);
     if (isNaN(num)) return;
-    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
-    if (num > maxBound) {
-      setCustomBasePrice(maxBound);
-    } else {
-      setCustomBasePrice(val);
-    }
+    setCustomBasePrice(val);
   };
 
   const handleCustomPriceBlur = () => {
     const num = Number(customBasePrice);
-    const minBound = isCustomService ? 1990 : modulePriceBounds.min;
-    const maxBound = isCustomService ? 9990 : modulePriceBounds.max;
-    if (isNaN(num) || num < minBound) {
-      setCustomBasePrice(minBound);
-    } else if (num > maxBound) {
-      setCustomBasePrice(maxBound);
+    if (isNaN(num) || num < 0) {
+      setCustomBasePrice(0);
     }
   };
 
@@ -267,15 +264,14 @@ export default function InstantBilling({ role = 'Accountant' }) {
         return;
       }
       let priceVal = Number(customBasePrice || 0);
-      const minBound = 1990;
-      const maxBound = 9990;
-      if (isNaN(priceVal) || priceVal < minBound || priceVal > maxBound) {
-        priceVal = Math.min(Math.max(priceVal || minBound, minBound), maxBound);
-        setCustomBasePrice(priceVal);
-        setMessage({
-          type: 'error',
-          text: `Base price restricted between ${currency(minBound)} and ${currency(maxBound)} for Custom Service.`
-        });
+      if (isNaN(priceVal) || priceVal < 0) {
+        setMessage({ type: 'error', text: 'Please enter a valid base price for Custom Service.' });
+        return;
+      }
+    } else if (selectedTier === 'customised') {
+      let priceVal = Number(customBasePrice || 0);
+      if (isNaN(priceVal) || priceVal < 0) {
+        setMessage({ type: 'error', text: 'Please enter a valid base price for Customised Tier.' });
         return;
       }
     } else if (!activeServiceObj) {
@@ -284,7 +280,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
 
     const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
     const moduleLabel = selectedModule;
-    const basePrice = isCustomService ? Number(customBasePrice) : currentTierPrice;
+    const basePrice = (isCustomService || selectedTier === 'customised') ? Number(customBasePrice) : currentTierPrice;
     const qty = Math.max(1, Number(itemQty || 1));
     const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
     const lineBaseTotal = basePrice * qty;
@@ -737,11 +733,17 @@ export default function InstantBilling({ role = 'Accountant' }) {
                   onChange={(e) => setSelectedServiceId(e.target.value)}
                   className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm font-bold text-slate-900 outline-purple"
                 >
-                  {availableServicesInModule.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.service}
-                    </option>
-                  ))}
+                  {availableServicesInModule.map((service) => {
+                    const isDuplicateName = availableServicesInModule.filter((s) => s.service === service.service).length > 1;
+                    const labelText = isDuplicateName && service.description
+                      ? `${service.service} (${service.description})`
+                      : service.service;
+                    return (
+                      <option key={service.id} value={service.id}>
+                        {labelText}
+                      </option>
+                    );
+                  })}
                   <option value="CUSTOM_SERVICE"> + Custom Service</option>
                 </select>
               )}
@@ -801,21 +803,22 @@ export default function InstantBilling({ role = 'Accountant' }) {
 
                 <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                   <div className="flex items-center gap-3">
-                    {isCustomService && (
+                    {(isCustomService || selectedTier === 'customised') && (
                       <div className="flex flex-col items-start">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">Base Price (₹)</label>
+                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                          {selectedTier === 'customised' ? 'Customised Price (₹)' : 'Base Price (₹)'}
+                        </label>
                         <input
                           type="number"
-                          min={1990}
-                          max={9990}
+                          min={0}
                           value={customBasePrice}
                           onChange={(e) => handleCustomPriceChange(e.target.value)}
                           onBlur={handleCustomPriceBlur}
-                          className="w-28 rounded-xl border border-purple bg-white px-2 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"
-                          placeholder="1990"
+                          className="w-32 rounded-xl border border-purple bg-white px-2.5 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"
+                          placeholder="7990"
                         />
                         <span className="mt-1 text-[10px] font-bold text-purple">
-                          Range: {currency(1990)} – {currency(9990)}
+                          {selectedTier === 'customised' ? 'Manual Price Entry' : 'Manual Entry'}
                         </span>
                       </div>
                     )}
@@ -844,9 +847,11 @@ export default function InstantBilling({ role = 'Accountant' }) {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs font-bold text-slate-400">{isCustomService ? 'Custom Rate' : 'Tier Rate'}</p>
+                    <p className="text-xs font-bold text-slate-400">
+                      {isCustomService ? 'Custom Rate' : selectedTier === 'customised' ? 'Customised Rate' : 'Tier Rate'}
+                    </p>
                     <p className="text-xl font-black text-purple">
-                      {currency(isCustomService ? Number(customBasePrice || 0) : currentTierPrice)}
+                      {currency((isCustomService || selectedTier === 'customised') ? Number(customBasePrice || 0) : currentTierPrice)}
                     </p>
                   </div>
 

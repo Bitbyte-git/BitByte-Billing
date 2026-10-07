@@ -18,6 +18,10 @@ export const losTiers = [
   {
     "key": "enterprise",
     "label": "Enterprise"
+  },
+  {
+    "key": "customised",
+    "label": "Customised"
   }
 ];
 
@@ -875,7 +879,7 @@ export const losServices = [
   {
     "id": 35,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Android Mobile Application - Static",
     "description": "Andriod Static Mobile Application with Target AOS Version 13.0 onwards not exceeding 20 Pages. Each page chargeable at Rs. 2500 from thereon",
     "unit": "Per Service",
     "count": "1",
@@ -900,7 +904,7 @@ export const losServices = [
   {
     "id": 36,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Android Mobile Application - Dynamic",
     "description": "Andriod Dynamic Mobile Application with Target AOS Version 13.0 onwards",
     "unit": "Per Service",
     "count": "1",
@@ -925,7 +929,7 @@ export const losServices = [
   {
     "id": 37,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Android Mobile Application - DUNS & Google Play Configuration",
     "description": "DUNS Number Purchase, Google Play Store Configuration",
     "unit": "Per Service",
     "count": "1",
@@ -950,7 +954,7 @@ export const losServices = [
   {
     "id": 38,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Android Mobile Application - App & Play Store Maintenance",
     "description": "Andriod Application Maintenance and Google Play Store Maintenance",
     "unit": "Per Service",
     "count": "1",
@@ -975,7 +979,7 @@ export const losServices = [
   {
     "id": 39,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Android Mobile Application - Enhancements & Security Updates",
     "description": "Andriod Application Enhancements and security updates for every Major Releases and App updations",
     "unit": "Per Service",
     "count": "1",
@@ -1000,7 +1004,7 @@ export const losServices = [
   {
     "id": 40,
     "module": "Mobile Apps",
-    "service": "Apple iOS Mobile Application",
+    "service": "Apple iOS Mobile Application - Static",
     "description": "Apple iOS Static Mobile Application with Target iOS Version 22.0 onwards not exceeding 20 Pages. Each page chargeable at Rs. 7500 from thereon",
     "unit": "Per Service",
     "count": "1",
@@ -1025,7 +1029,7 @@ export const losServices = [
   {
     "id": 41,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Apple iOS Mobile Application - Dynamic",
     "description": "iOS Dynamic Mobile Application with Target iOS Version 22.0 onwards",
     "unit": "Per Service",
     "count": "1",
@@ -1050,7 +1054,7 @@ export const losServices = [
   {
     "id": 42,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Apple iOS Mobile Application - DUNS & App Store Configuration",
     "description": "DUNS Number Purchase, iOS App Store Configuration",
     "unit": "Per Service",
     "count": "1",
@@ -1075,7 +1079,7 @@ export const losServices = [
   {
     "id": 43,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Apple iOS Mobile Application - App & App Store Maintenance",
     "description": "iOS Application Maintenance and Apple Play Store Maintenance",
     "unit": "Per Service",
     "count": "1",
@@ -1100,7 +1104,7 @@ export const losServices = [
   {
     "id": 44,
     "module": "Mobile Apps",
-    "service": "Andriod Mobile Application",
+    "service": "Apple iOS Mobile Application - Enhancements & Security Updates",
     "description": "iOS Application Enhancements and security updates for every Major Releases and App updations",
     "unit": "Per Service",
     "count": "1",
@@ -1125,7 +1129,7 @@ export const losServices = [
   {
     "id": 45,
     "module": "Digital Marketing",
-    "service": "Whats app automation",
+    "service": "WhatsApp Automation - Account Setup & Catalogue",
     "description": "Whats app Business Account Setup, Catalouge",
     "unit": "Per Service",
     "count": "1",
@@ -1150,7 +1154,7 @@ export const losServices = [
   {
     "id": 46,
     "module": "Digital Marketing",
-    "service": "Whats app automation",
+    "service": "WhatsApp Automation - Catalogue Updations & Maintenance",
     "description": "Catalouge Updations and Maintenance",
     "unit": "Per Service",
     "count": "1",
@@ -1175,7 +1179,7 @@ export const losServices = [
   {
     "id": 47,
     "module": "Digital Marketing",
-    "service": "Whats app automation",
+    "service": "WhatsApp Automation - Catalogue Setup Configuration (N8N / Mark)",
     "description": "Whats app Business Catalogue Automation with N8N or Mark Set up configuration",
     "unit": "Per Service",
     "count": "1",
@@ -1200,7 +1204,7 @@ export const losServices = [
   {
     "id": 48,
     "module": "Digital Marketing",
-    "service": "Whats app automation",
+    "service": "WhatsApp Automation - Catalogue API Calls & Updations (N8N / Mark)",
     "description": "Whats app Business Catalogue Automation with N8N or Mark API Calls and Updations",
     "unit": "Per Service",
     "count": "1",
@@ -1221,6 +1225,60 @@ export const losServices = [
       "enterprise": "API Calls and Updations"
     },
     "sacCode": "998313"
+  },
+  {
+    "id": 49,
+    "module": "Digital Marketing",
+    "service": "WhatsApp AI Automation - Registration, One Time Installation And Licensing",
+    "description": "WhatsApp AI Automation - Registration, One Time Installation And Licensing (Custom - Enterprise)",
+    "unit": "Per Service",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 7990,
+      "basic": 7990,
+      "standard": 7990,
+      "premium": 7990,
+      "enterprise": 7990,
+      "customised": 7990
+    },
+    "tierNotes": {
+      "starter": "Registration, One Time Installation And Licensing",
+      "basic": "Registration, One Time Installation And Licensing",
+      "standard": "Registration, One Time Installation And Licensing",
+      "premium": "Registration, One Time Installation And Licensing",
+      "enterprise": "Registration, One Time Installation And Licensing (Custom - Enterprise)",
+      "customised": "Registration, One Time Installation And Licensing (Customised)"
+    },
+    "sacCode": "998314"
+  },
+  {
+    "id": 50,
+    "module": "Digital Marketing",
+    "service": "WhatsApp AI Automation - Virtual, Dynamic, Indian Simplex Number",
+    "description": "WhatsApp AI Automation - Virtual, Dynamic, Indian Simplex Number (Custom - Enterprise)",
+    "unit": "Per Service",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 7990,
+      "basic": 7990,
+      "standard": 7990,
+      "premium": 7990,
+      "enterprise": 7990,
+      "customised": 7990
+    },
+    "tierNotes": {
+      "starter": "Virtual, Dynamic, Indian Simplex Number",
+      "basic": "Virtual, Dynamic, Indian Simplex Number",
+      "standard": "Virtual, Dynamic, Indian Simplex Number",
+      "premium": "Virtual, Dynamic, Indian Simplex Number",
+      "enterprise": "Virtual, Dynamic, Indian Simplex Number (Custom - Enterprise)",
+      "customised": "Virtual, Dynamic, Indian Simplex Number (Customised)"
+    },
+    "sacCode": "998314"
   }
 ];
 

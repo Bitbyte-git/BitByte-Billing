@@ -66,11 +66,11 @@ function serviceSearchText(service) {
 }
 
 function priceForTier(service, tier) {
-  return Number(service.prices?.[tier] || 0);
+  return Number(service.prices?.[tier] ?? service.prices?.enterprise ?? service.prices?.starter ?? 0);
 }
 
 function tierDescription(service, tier) {
-  return service.tierNotes?.[tier] || service.description;
+  return service.tierNotes?.[tier] || service.tierNotes?.enterprise || service.description;
 }
 
 function ModuleBadge({ module }) {

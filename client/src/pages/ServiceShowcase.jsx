@@ -44,7 +44,7 @@ function searchableText(service) {
 }
 
 function tierPrice(service, tierKey) {
-  return Number(service.prices?.[tierKey] || 0);
+  return Number(service.prices?.[tierKey] ?? service.prices?.enterprise ?? service.prices?.starter ?? 0);
 }
 
 function ModuleBadge({ module }) {
