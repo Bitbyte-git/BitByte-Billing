@@ -131,7 +131,18 @@ export default function QuotationDetail({ role, mode }) {
                             {item.mainService || '-'}
                             {!(quotation.mainService || []).includes(item.mainService) && <span className="ml-2 rounded-full bg-purple/10 px-2 py-0.5 text-xs font-bold text-purple">Added by accountant</span>}
                           </td>
-                          <td className="p-3">{item.subService || item.subServiceName || '-'}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5">
+                              <span>{item.subService || item.subServiceName || '-'}</span>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                                (item.frequency === 'Monthly' || item.payable === 'Monthly' || item.frequency === 'Weekly' || (item.description || '').includes('Monthly'))
+                                  ? 'bg-purple/10 text-purple border-purple/20'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
+                                {(item.frequency === 'Monthly' || item.payable === 'Monthly' || (item.description || '').includes('Monthly')) ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
+                              </span>
+                            </div>
+                          </td>
                           <td className="p-3">{item.sacCode || getSacCode(item.subService || item.subServiceName)}</td>
                           <td className="p-3">{currency(item.basePrice)}</td>
                           <td className="p-3">{item.discountPercentage || 0}%</td>

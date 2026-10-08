@@ -307,6 +307,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
       unit: isCustomService ? 'Per Service' : (activeServiceObj.unit || 'Per Service'),
       frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
+      payable: isCustomService ? 'One Time' : (activeServiceObj.payable || 'One Time'),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -914,7 +915,16 @@ export default function InstantBilling({ role = 'Accountant' }) {
                     <tr key={item.tempId || index} className="hover:bg-slate-50 transition">
                       <td className="p-3 text-center font-black text-slate-500">{index + 1}</td>
                       <td className="p-3">
-                        <p className="font-black text-slate-950">{item.subService}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-black text-slate-950">{item.subService}</p>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                            (item.frequency === 'Monthly' || item.payable === 'Monthly' || item.frequency === 'Weekly')
+                              ? 'bg-purple/10 text-purple border-purple/20'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {(item.frequency === 'Monthly' || item.payable === 'Monthly') ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
+                          </span>
+                        </div>
                         <p className="text-xs font-medium text-slate-500">{item.description}</p>
                       </td>
                       <td className="p-3 text-center font-bold text-slate-700">

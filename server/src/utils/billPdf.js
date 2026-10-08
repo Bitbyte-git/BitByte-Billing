@@ -263,6 +263,9 @@ export function createBillPdfDocument(bill) {
       service: serviceName,
       description: item.description || "",
       sacCode: item.sacCode || getSacCode(serviceName) || "-",
+      unit: item.unit || "Per Service",
+      frequency: item.frequency || "One Time",
+      payable: item.payable || "One Time",
       quantity,
       taxableValue,
       cgstAmount: cgstAmt,
@@ -287,6 +290,36 @@ export function createBillPdfDocument(bill) {
     bill.totalAmount ?? bill.finalTotal ?? totals.total ?? 0
   );
   const publicUrl = publicBillUrl(bill);
+
+  // ── Split payment totals: One Time vs. Monthly Recurring ──
+  const oneTimeItems = items.filter(
+    (item) => !(String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
+  );
+  const recurringItems = items.filter(
+    (item) => (String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
+  );
+
+  const oneTimeTotals = oneTimeItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
+
+  const recurringTotals = recurringItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
 
   // ---- Layout helpers ----
   const detailCell = (label, value, options = {}) => ({
@@ -355,37 +388,61 @@ export function createBillPdfDocument(bill) {
     },
   ];
 
+  function getFrequencyLabel(frequency, payable) {
+    const freq = String(frequency || '').trim();
+    const pay = String(payable || '').trim();
+    if (freq === 'Monthly' || pay === 'Monthly') return 'Monthly';
+    if (freq === 'Weekly') return 'Weekly';
+    if (freq === 'Quarterly' || pay === 'Quarterly') return 'Quarterly';
+    if (freq === 'Yearly' || pay === 'Yearly') return 'Yearly';
+    if (freq) return freq;
+    return 'One Time';
+  }
+
   // Line item rows
   const itemRows = items.length
-    ? items.map((item, index) => [
-      { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
-      {
-        text: [
-          { text: item.service || "Service", bold: true },
-          item.description
-            ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
-            : { text: "" },
-        ],
-        margin: [0, 8, 0, 8],
-      },
-      { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
-      { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
-      { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
-      { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-      { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-      { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-      { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
-    ])
+    ? items.map((item, index) => {
+        const freqLabel = getFrequencyLabel(item.frequency, item.payable);
+        const isRecurring = freqLabel !== 'One Time';
+        return [
+          { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
+          {
+            text: [
+              { text: item.service || "Service", bold: true },
+              { text: `\n[Mandatory]`, color: "#0F7CEB", bold: true, fontSize: 7.5 },
+              item.description
+                ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
+                : { text: "" },
+            ],
+            margin: [0, 8, 0, 8],
+          },
+          { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
+          {
+            text: freqLabel,
+            alignment: "center",
+            bold: true,
+            color: isRecurring ? "#7C3AED" : COLORS.navy,
+            fontSize: 7.5,
+            margin: [0, 8, 0, 8],
+          },
+          { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
+        ];
+      })
     : [
       [
         {
           text: "No bill line items available.",
-          colSpan: 9,
+          colSpan: 10,
           alignment: "center",
           color: COLORS.muted,
           margin: [0, 14, 0, 14],
         },
-        {}, {}, {}, {}, {}, {}, {}, {},
+        {}, {}, {}, {}, {}, {}, {}, {}, {},
       ],
     ];
 
@@ -443,22 +500,23 @@ export function createBillPdfDocument(bill) {
         margin: [0, 0, 0, 10],
         table: {
           headerRows: 2,
-          widths: [24, "*", 38, 24, 56, 48, 48, 48, 58],
+          widths: [20, "*", 36, 52, 22, 48, 42, 42, 42, 54],
           body: [
             [
               {
                 text: "PAYMENT DETAILS",
                 style: "sectionTitle",
                 alignment: "center",
-                colSpan: 9,
+                colSpan: 10,
                 fillColor: "#FFFFFF",
               },
-              {}, {}, {}, {}, {}, {}, {}, {},
+              {}, {}, {}, {}, {}, {}, {}, {}, {},
             ],
             [
               { text: "S.No", style: "tableHeader", alignment: "center" },
               { text: "Description", style: "tableHeader" },
               { text: "SAC", style: "tableHeader", alignment: "center" },
+              { text: "Frequency", style: "tableHeader", alignment: "center" },
               { text: "Qty", style: "tableHeader", alignment: "center" },
               { text: "Taxable", style: "tableHeader", alignment: "right" },
               { text: "CGST", style: "tableHeader", alignment: "right" },
@@ -481,172 +539,273 @@ export function createBillPdfDocument(bill) {
           paddingBottom: () => 5,
         },
       },
-
-      // ── Terms & Bill Summary (page break before) ──
+      // ── Terms & Bill Summary Page (Fresh Page) ──
       {
         pageBreak: "before",
-        table: {
-          widths: ["*", "*"],
-          body: [
-            [
+        stack: [
+          // ── Header: 2 Columns for Payment Summaries ──
+          {
+            columns: [
               {
-                stack: [
-                  { text: "TERMS & CONDITIONS", style: "sectionTitle" },
-                  {
-                    text: "Payment is due upon receipt of this bill unless otherwise agreed.",
-                    margin: [0, 9, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "Late payments may attract interest as per applicable norms.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "GST @18% is applicable on all services as per government norms.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "Please mention the bill number for all communications and payments.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "This is a computer-generated bill.",
-                    margin: [0, 8, 0, 0],
-                    color: COLORS.muted,
-                  },
-                ],
-                margin: [10, 10, 10, 10],
-              },
-              {
-                stack: [
-                  { text: "BILL SUMMARY", style: "sectionTitle" },
-                  {
-                    table: {
-                      widths: ["*", 96],
-                      body: [
-                        moneyRow("Taxable Amount", totals.taxable),
-                        moneyRow("CGST Total", totals.cgst),
-                        moneyRow("SGST Total", totals.sgst),
-                        moneyRow("IGST Total", totals.igst),
-                        moneyRow("Bill Total", billTotal, { bold: true }),
-                      ],
-                    },
-                    layout: "noBorders",
-                    margin: [0, 8, 0, 0],
-                  },
-                ],
-                margin: [10, 10, 10, 10],
-              },
-            ],
-          ],
-        },
-        layout: cardLayout,
-        fontSize: 8.3,
-        margin: [0, 10, 0, 12],
-      },
-
-      // ── Authorized Signatory block ──
-      {
-        table: {
-          widths: ["*"],
-          body: [
-            [
-              {
-                stack: [
-                  {
-                    text: "AUTHORIZED SIGNATORY",
-                    style: "sectionTitle",
-                    margin: [0, 0, 0, 34],
-                  },
-                  {
-                    canvas: [
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
                       {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 0.7,
-                        lineColor: COLORS.navy,
+                        stack: [
+                          { text: "ONE TIME SERVICES PAYMENT SUMMARY", style: "sectionTitle" },
+                          {
+                            table: {
+                              widths: ["*", 90],
+                              body: [
+                                moneyRow("Taxable Amount", oneTimeTotals.taxable),
+                                moneyRow("CGST Total", oneTimeTotals.cgst),
+                                moneyRow("SGST Total", oneTimeTotals.sgst),
+                                moneyRow("IGST Total", oneTimeTotals.igst),
+                                moneyRow("One Time Subtotal", oneTimeTotals.total, { bold: true, color: COLORS.blue }),
+                              ],
+                            },
+                            layout: "noBorders",
+                            margin: [0, 6, 0, 0],
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
                       },
                     ],
-                    alignment: "right",
-                  },
-                  {
-                    text: "Authorized Signatory",
-                    alignment: "right",
-                    fontSize: 9.5,
-                    bold: true,
-                    color: COLORS.navy,
-                    margin: [0, 6, 0, 0],
-                  },
-                  {
-                    text: COMPANY.name,
-                    alignment: "right",
-                    fontSize: 8,
-                    color: COLORS.blue,
-                  },
-                ],
-                margin: [14, 10, 14, 14],
+                  ],
+                },
+                layout: cardLayout,
+              },
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "MONTHLY RECURRING PAYMENT SUMMARY", style: "sectionTitle" },
+                          {
+                            table: {
+                              widths: ["*", 90],
+                              body: [
+                                moneyRow("Taxable Amount", recurringTotals.taxable),
+                                moneyRow("CGST Total", recurringTotals.cgst),
+                                moneyRow("SGST Total", recurringTotals.sgst),
+                                moneyRow("IGST Total", recurringTotals.igst),
+                                moneyRow("Monthly Subtotal", recurringTotals.total, { bold: true, color: "#7C3AED" }),
+                              ],
+                            },
+                            layout: "noBorders",
+                            margin: [0, 6, 0, 0],
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
               },
             ],
-          ],
-        },
-        layout: cardLayout,
-        margin: [0, 0, 0, 12],
-      },
+            columnGap: 12,
+            margin: [0, 70, 0, 10],
+          },
 
-      // ── Thank you + QR verification ──
-      {
-        table: {
-          dontBreakRows: true,
-          widths: ["*", 174],
-          body: [
-            [
-              {
-                stack: [
+          // ── Overall Bill Total Summary ──
+          {
+            table: {
+              widths: ["*"],
+              body: [
+                [
                   {
-                    text: "Thank you",
-                    fontSize: 14,
-                    bold: true,
-                    color: COLORS.navy,
-                  },
-                  {
-                    text: "for choosing Bit Byte Technologies.",
-                    fontSize: 8.5,
-                    color: COLORS.muted,
-                    margin: [0, 5, 0, 0],
+                    stack: [
+                      { text: "TOTAL PAYMENT SUMMARY", style: "sectionTitle" },
+                      {
+                        table: {
+                          widths: ["*", "*", "*", "*", "*"],
+                          body: [
+                            [
+                              { text: "Taxable Amount", style: "label", alignment: "center" },
+                              { text: "CGST Total", style: "label", alignment: "center" },
+                              { text: "SGST Total", style: "label", alignment: "center" },
+                              { text: "IGST Total", style: "label", alignment: "center" },
+                              { text: "Bill Total", style: "label", alignment: "center" },
+                            ],
+                            [
+                              { text: `Rs ${formatMoney(totals.taxable)}`, alignment: "center", bold: true, fontSize: 9 },
+                              { text: `Rs ${formatMoney(totals.cgst)}`, alignment: "center", bold: true, fontSize: 9 },
+                              { text: `Rs ${formatMoney(totals.sgst)}`, alignment: "center", bold: true, fontSize: 9 },
+                              { text: `Rs ${formatMoney(totals.igst)}`, alignment: "center", bold: true, fontSize: 9 },
+                              { text: `Rs ${formatMoney(billTotal)}`, alignment: "center", bold: true, fontSize: 10, color: COLORS.blue },
+                            ],
+                          ],
+                        },
+                        layout: detailTableLayout,
+                        margin: [0, 6, 0, 0],
+                      },
+                    ],
+                    margin: [10, 8, 10, 8],
                   },
                 ],
-                margin: [14, 9, 14, 9],
+              ],
+            },
+            layout: cardLayout,
+            margin: [0, 10, 0, 10],
+          },
+
+          // ── Terms & Conditions and Authorized Signatory Side-by-Side ──
+          {
+            columns: [
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "TERMS & CONDITIONS", style: "sectionTitle" },
+                          {
+                            text: "1. Payment is due upon receipt of this bill unless otherwise agreed.",
+                            margin: [0, 6, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "2. Late payments may attract interest as per applicable norms.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "3. GST @18% is applicable on all services as per government norms.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "4. Please mention the bill number for all communications.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "5. This is a computer-generated bill.",
+                            margin: [0, 6, 0, 0],
+                            color: COLORS.muted,
+                            bold: true,
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+                fontSize: 8,
               },
               {
-                stack: [
-                  {
-                    text: "QR VERIFICATION",
-                    style: "sectionTitle",
-                    alignment: "center",
-                    margin: [0, 0, 0, 4],
-                  },
-                  {
-                    text: "Scan to verify bill details",
-                    alignment: "center",
-                    fontSize: 7.5,
-                    bold: true,
-                    color: COLORS.navy,
-                    margin: [0, 0, 0, 6],
-                  },
-                  { svg: qrSvg(publicUrl), width: 56, alignment: "center" },
-                ],
-                margin: [8, 6, 8, 6],
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          {
+                            text: "AUTHORIZED SIGNATORY",
+                            style: "sectionTitle",
+                            margin: [0, 0, 0, 36],
+                          },
+                          {
+                            canvas: [
+                              {
+                                type: "line",
+                                x1: 0,
+                                y1: 0,
+                                x2: 170,
+                                y2: 0,
+                                lineWidth: 0.8,
+                                lineColor: COLORS.navy,
+                              },
+                            ],
+                            alignment: "right",
+                          },
+                          {
+                            text: "Authorized Signatory",
+                            alignment: "right",
+                            fontSize: 9,
+                            bold: true,
+                            color: COLORS.navy,
+                            margin: [0, 5, 0, 0],
+                          },
+                          {
+                            text: COMPANY.name,
+                            alignment: "right",
+                            fontSize: 8,
+                            color: COLORS.blue,
+                          },
+                        ],
+                        margin: [12, 12, 12, 12],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
               },
             ],
-          ],
-        },
-        layout: cardLayout,
+            columnGap: 12,
+            margin: [0, 0, 0, 10],
+          },
+
+          // ── Thank you + QR verification Footer ──
+          {
+            table: {
+              dontBreakRows: true,
+              widths: ["*", 174],
+              body: [
+                [
+                  {
+                    stack: [
+                      {
+                        text: "Thank you",
+                        fontSize: 13,
+                        bold: true,
+                        color: COLORS.navy,
+                      },
+                      {
+                        text: "for choosing Bit Byte Technologies.",
+                        fontSize: 8.5,
+                        color: COLORS.muted,
+                        margin: [0, 4, 0, 0],
+                      },
+                    ],
+                    margin: [14, 12, 14, 12],
+                  },
+                  {
+                    stack: [
+                      {
+                        text: "QR VERIFICATION",
+                        style: "sectionTitle",
+                        alignment: "center",
+                        margin: [0, 0, 0, 4],
+                      },
+                      {
+                        text: "Scan to verify bill details",
+                        alignment: "center",
+                        fontSize: 7.5,
+                        bold: true,
+                        color: COLORS.navy,
+                        margin: [0, 0, 0, 6],
+                      },
+                      { svg: qrSvg(publicUrl), width: 68, alignment: "center" },
+                    ],
+                    margin: [12, 10, 12, 10],
+                  },
+                ],
+              ],
+            },
+            layout: cardLayout,
+          },
+        ],
       },
     ],
 

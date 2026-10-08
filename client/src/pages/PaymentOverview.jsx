@@ -165,7 +165,18 @@ export default function PaymentOverview({ role }) {
                       return (
                         <tr key={`${line.service}-${index}`} className="border-t border-line">
                           <td className="p-3">{index + 1}</td>
-                          <td className="p-3 font-semibold">{line.service}</td>
+                          <td className="p-3 font-semibold">
+                            <div className="flex items-center gap-1.5">
+                              <span>{line.service}</span>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                                (line.frequency === 'Monthly' || line.payable === 'Monthly' || line.frequency === 'Weekly' || (line.description || '').includes('Monthly'))
+                                  ? 'bg-purple/10 text-purple border-purple/20'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
+                                {(line.frequency === 'Monthly' || line.payable === 'Monthly' || (line.description || '').includes('Monthly')) ? '🔄 Monthly Recurring' : line.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
+                              </span>
+                            </div>
+                          </td>
                           <td className="p-3">{line.sacCode}</td>
                           <td className="p-3">{line.quantity}</td>
                           <td className="p-3">{currency(line.taxableValue)}</td>

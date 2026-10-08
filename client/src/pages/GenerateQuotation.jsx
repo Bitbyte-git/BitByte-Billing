@@ -68,6 +68,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [selectedTier, setSelectedTier] = useState('starter');
   const [itemQty, setItemQty] = useState(1);
   const [itemDiscount, setItemDiscount] = useState(0);
+  const [isOptionalItem, setIsOptionalItem] = useState(false);
 
   // Custom service fields (when serviceId === 'CUSTOM_SERVICE')
   const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
@@ -313,6 +314,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
       unit: isCustomService ? 'Per Service' : (activeServiceObj.unit || 'Per Service'),
       frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
+      payable: isCustomService ? 'One Time' : (activeServiceObj.payable || 'One Time'),
+      isOptional: Boolean(isOptionalItem),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -324,6 +327,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     };
 
     setCostingItems((prev) => [...prev, newItem]);
+    setIsOptionalItem(false);
     setMessage({ type: '', text: '' });
     setToast({ show: true, message: `"${serviceName}" added to quotation queue.` });
 
@@ -368,6 +372,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           subServiceName: item.subServiceName,
           sacCode: item.sacCode,
           description: item.description,
+          unit: item.unit,
+          frequency: item.frequency,
+          payable: item.payable,
+          isOptional: item.isOptional,
           basePrice: item.basePrice,
           quantity: item.quantity,
           discountPercentage: item.discountPercentage,
@@ -843,6 +851,16 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                       className="w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
                     />
                   </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-amber-50 hover:bg-amber-100/80 px-3 py-1.5 rounded-xl border border-amber-200 text-amber-900 transition-colors self-end mb-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isOptionalItem}
+                      onChange={(e) => setIsOptionalItem(e.target.checked)}
+                      className="h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-xs font-bold whitespace-nowrap">💡 Optional Suggestion</span>
+                  </label>
                 </div>
 
                 <div className="text-right">
@@ -914,8 +932,22 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                   <tr key={item.tempId || index} className="hover:bg-slate-50 transition">
                     <td className="p-3 text-center font-black text-slate-500">{index + 1}</td>
                     <td className="p-3">
-                      <p className="font-black text-slate-950">{item.subService}</p>
-                      <p className="text-xs font-medium text-slate-500">{item.description}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-black text-slate-950">{item.subService}</p>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                          (item.frequency === 'Monthly' || item.payable === 'Monthly' || item.frequency === 'Weekly')
+                            ? 'bg-purple/10 text-purple border-purple/20'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {(item.frequency === 'Monthly' || item.payable === 'Monthly') ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
+                        </span>
+                        {item.isOptional && (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                            💡 Optional Suggestion
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs font-medium text-slate-500">{item.description}</p>
                     </td>
                     <td className="p-3 text-center font-bold text-slate-700">
                       <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{item.sacCode}</span>

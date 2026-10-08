@@ -255,20 +255,31 @@ export function createQuotationPdfDocument(quotation) {
     const sgstAmt = gstTotal / 2;
     const igstAmt = 0;
     const total = Number(item.totalAmount ?? (taxableValue + gstTotal));
+    const isOptional = Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
     return {
       service: serviceName,
       description: item.description || "",
       sacCode: item.sacCode || getSacCode(serviceName) || "-",
+      unit: item.unit || "Per Service",
+      frequency: item.frequency || "One Time",
+      payable: item.payable || "One Time",
       quantity,
       taxableValue,
       cgstAmount: cgstAmt,
       sgstAmount: sgstAmt,
       igstAmount: igstAmt,
       total,
+      isOptional,
     };
   });
 
-  const totals = items.reduce(
+  // Separate mandatory proposal items vs optional suggestions
+  const mandatoryItems = items.filter((item) => !item.isOptional);
+  const optionalItems = items.filter((item) => item.isOptional);
+  const orderedItems = [...mandatoryItems, ...optionalItems];
+  const primaryItems = mandatoryItems.length > 0 ? mandatoryItems : items;
+
+  const totals = primaryItems.reduce(
     (acc, item) => ({
       taxable: acc.taxable + item.taxableValue,
       cgst: acc.cgst + item.cgstAmount,
@@ -283,6 +294,47 @@ export function createQuotationPdfDocument(quotation) {
     quotation.totalAmount ?? quotation.finalTotal ?? totals.total ?? 0
   );
   const publicUrl = publicQuotationUrl(quotation);
+
+  // ── Split payment totals: One Time vs. Monthly Recurring ──
+  const oneTimeItems = primaryItems.filter(
+    (item) => !(String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
+  );
+  const recurringItems = primaryItems.filter(
+    (item) => (String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
+  );
+
+  const oneTimeTotals = oneTimeItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
+
+  const recurringTotals = recurringItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
+
+  const optionalTotals = optionalItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
 
   // ---- Reuse exact same layout helpers ----
   const detailCell = (label, value, options = {}) => ({
@@ -351,37 +403,64 @@ export function createQuotationPdfDocument(quotation) {
     },
   ];
 
-  // Line item rows — same as invoice format
-  const itemRows = items.length
-    ? items.map((item, index) => [
-        { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
-        {
-          text: [
-            { text: item.service || "Service", bold: true },
-            item.description
-              ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
-              : { text: "" },
-          ],
-          margin: [0, 8, 0, 8],
-        },
-        { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
-        { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-        { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
-      ])
+  function getFrequencyLabel(frequency, payable) {
+    const freq = String(frequency || '').trim();
+    const pay = String(payable || '').trim();
+    if (freq === 'Monthly' || pay === 'Monthly') return 'Monthly';
+    if (freq === 'Weekly') return 'Weekly';
+    if (freq === 'Quarterly' || pay === 'Quarterly') return 'Quarterly';
+    if (freq === 'Yearly' || pay === 'Yearly') return 'Yearly';
+    if (freq) return freq;
+    return 'One Time';
+  }
+
+  // Line item rows — mandatory items listed first, then optional items
+  const itemRows = orderedItems.length
+    ? orderedItems.map((item, index) => {
+        const freqLabel = getFrequencyLabel(item.frequency, item.payable);
+        const isRecurring = freqLabel !== 'One Time';
+        const typeBadgeText = item.isOptional ? "[Optional Suggestion]" : "[Mandatory]";
+        const typeBadgeColor = item.isOptional ? "#D97706" : "#0F7CEB";
+
+        return [
+          { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
+          {
+            text: [
+              { text: item.service || "Service", bold: true },
+              { text: `\n${typeBadgeText}`, color: typeBadgeColor, bold: true, fontSize: 7.5 },
+              item.description
+                ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
+                : { text: "" },
+            ],
+            margin: [0, 8, 0, 8],
+          },
+          { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
+          {
+            text: freqLabel,
+            alignment: "center",
+            bold: true,
+            color: isRecurring ? "#7C3AED" : COLORS.navy,
+            fontSize: 7.5,
+            margin: [0, 8, 0, 8],
+          },
+          { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
+        ];
+      })
     : [
         [
           {
             text: "No quotation line items available.",
-            colSpan: 9,
+            colSpan: 10,
             alignment: "center",
             color: COLORS.muted,
             margin: [0, 14, 0, 14],
           },
-          {}, {}, {}, {}, {}, {}, {}, {},
+          {}, {}, {}, {}, {}, {}, {}, {}, {},
         ],
       ];
 
@@ -439,22 +518,23 @@ export function createQuotationPdfDocument(quotation) {
         margin: [0, 0, 0, 10],
         table: {
           headerRows: 2,
-          widths: [24, "*", 38, 24, 56, 48, 48, 48, 58],
+          widths: [20, "*", 36, 52, 22, 48, 42, 42, 42, 54],
           body: [
             [
               {
                 text: "PAYMENT DETAILS",
                 style: "sectionTitle",
                 alignment: "center",
-                colSpan: 9,
+                colSpan: 10,
                 fillColor: "#FFFFFF",
               },
-              {}, {}, {}, {}, {}, {}, {}, {},
+              {}, {}, {}, {}, {}, {}, {}, {}, {},
             ],
             [
               { text: "S.No", style: "tableHeader", alignment: "center" },
               { text: "Description", style: "tableHeader" },
               { text: "SAC", style: "tableHeader", alignment: "center" },
+              { text: "Frequency", style: "tableHeader", alignment: "center" },
               { text: "Qty", style: "tableHeader", alignment: "center" },
               { text: "Taxable", style: "tableHeader", alignment: "right" },
               { text: "CGST", style: "tableHeader", alignment: "right" },
@@ -477,172 +557,257 @@ export function createQuotationPdfDocument(quotation) {
           paddingBottom: () => 5,
         },
       },
-
-      // ── Terms & Quotation Summary (page break before — same as invoice) ──
+      // ── Terms & Quotation Summary Page (Fresh Page) ──
       {
         pageBreak: "before",
-        table: {
-          widths: ["*", "*"],
-          body: [
-            [
+        stack: [
+          // ── Row 1: 2 Columns for MANDATORY SERVICES TOTAL SUMMARY | OPTIONAL SERVICES / SUGGESTIONS SUMMARY ──
+          {
+            columns: [
               {
-                stack: [
-                  { text: "TERMS & CONDITIONS", style: "sectionTitle" },
-                  {
-                    text: "This quotation is valid for 15 days from the date of issue.",
-                    margin: [0, 9, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "Prices are subject to change after the validity period.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "GST @18% is applicable on all services as per government norms.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "Please mention the quotation number for all communications.",
-                    margin: [0, 6, 0, 0],
-                    lineHeight: 1.25,
-                  },
-                  {
-                    text: "This is a computer-generated quotation.",
-                    margin: [0, 8, 0, 0],
-                    color: COLORS.muted,
-                  },
-                ],
-                margin: [10, 10, 10, 10],
-              },
-              {
-                stack: [
-                  { text: "QUOTATION SUMMARY", style: "sectionTitle" },
-                  {
-                    table: {
-                      widths: ["*", 96],
-                      body: [
-                        moneyRow("Taxable Amount", totals.taxable),
-                        moneyRow("CGST Total", totals.cgst),
-                        moneyRow("SGST Total", totals.sgst),
-                        moneyRow("IGST Total", totals.igst),
-                        moneyRow("Quotation Total", quotationTotal, { bold: true }),
-                      ],
-                    },
-                    layout: "noBorders",
-                    margin: [0, 8, 0, 0],
-                  },
-                ],
-                margin: [10, 10, 10, 10],
-              },
-            ],
-          ],
-        },
-        layout: cardLayout,
-        fontSize: 8.3,
-        margin: [0, 10, 0, 12],
-      },
-
-      // ── Authorized Signatory block ──
-      {
-        table: {
-          widths: ["*"],
-          body: [
-            [
-              {
-                stack: [
-                  {
-                    text: "AUTHORIZED SIGNATORY",
-                    style: "sectionTitle",
-                    margin: [0, 0, 0, 34],
-                  },
-                  {
-                    canvas: [
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
                       {
-                        type: "line",
-                        x1: 0,
-                        y1: 0,
-                        x2: 170,
-                        y2: 0,
-                        lineWidth: 0.7,
-                        lineColor: COLORS.navy,
+                        stack: [
+                          { text: "MANDATORY SERVICES TOTAL SUMMARY", style: "sectionTitle" },
+                          {
+                            table: {
+                              widths: ["*", 90],
+                              body: [
+                                moneyRow("One Time Subtotal", oneTimeTotals.total),
+                                moneyRow("Monthly Subtotal", recurringTotals.total, { color: "#7C3AED" }),
+                                moneyRow("Taxable Amount", totals.taxable),
+                                moneyRow("CGST Total", totals.cgst),
+                                moneyRow("SGST Total", totals.sgst),
+                                moneyRow("IGST Total", totals.igst),
+                                moneyRow("Mandatory Total", quotationTotal, { bold: true, color: COLORS.blue }),
+                              ],
+                            },
+                            layout: "noBorders",
+                            margin: [0, 6, 0, 0],
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
                       },
                     ],
-                    alignment: "right",
-                  },
-                  {
-                    text: "Authorized Signatory",
-                    alignment: "right",
-                    fontSize: 9.5,
-                    bold: true,
-                    color: COLORS.navy,
-                    margin: [0, 6, 0, 0],
-                  },
-                  {
-                    text: COMPANY.name,
-                    alignment: "right",
-                    fontSize: 8,
-                    color: COLORS.blue,
-                  },
-                ],
-                margin: [14, 10, 14, 14],
+                  ],
+                },
+                layout: cardLayout,
+              },
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "OPTIONAL SERVICES / SUGGESTIONS SUMMARY", style: "sectionTitle", color: "#D97706" },
+                          optionalItems.length > 0
+                            ? {
+                                table: {
+                                  widths: ["*", 90],
+                                  body: [
+                                    moneyRow("Taxable Amount", optionalTotals.taxable),
+                                    moneyRow("CGST Total", optionalTotals.cgst),
+                                    moneyRow("SGST Total", optionalTotals.sgst),
+                                    moneyRow("IGST Total", optionalTotals.igst),
+                                    moneyRow("Optional Subtotal", optionalTotals.total, { bold: true, color: "#D97706" }),
+                                  ],
+                                },
+                                layout: "noBorders",
+                                margin: [0, 6, 0, 0],
+                              }
+                            : {
+                                text: "No optional service suggestions added for this quotation proposal.",
+                                fontSize: 8,
+                                color: COLORS.muted,
+                                margin: [0, 12, 0, 12],
+                              },
+                          {
+                            text: "* Optional suggestions are add-on recommendations and are not included in mandatory total.",
+                            fontSize: 7,
+                            color: COLORS.muted,
+                            margin: [0, 6, 0, 0],
+                            italics: true,
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
               },
             ],
-          ],
-        },
-        layout: cardLayout,
-        margin: [0, 0, 0, 12],
-      },
+            columnGap: 12,
+            margin: [0, 20, 0, 10],
+          },
 
-      // ── Thank you + QR verification ──
-      {
-        table: {
-          dontBreakRows: true,
-          widths: ["*", 174],
-          body: [
-            [
+          // ── Row 2: 2 Columns for TERMS & CONDITIONS | TOTAL QUOTATION SUMMARY ──
+          {
+            columns: [
               {
-                stack: [
-                  {
-                    text: "Thank you",
-                    fontSize: 14,
-                    bold: true,
-                    color: COLORS.navy,
-                  },
-                  {
-                    text: "for choosing Bit Byte Technologies.",
-                    fontSize: 8.5,
-                    color: COLORS.muted,
-                    margin: [0, 5, 0, 0],
-                  },
-                ],
-                margin: [14, 9, 14, 9],
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "TERMS & CONDITIONS", style: "sectionTitle" },
+                          {
+                            text: "1. This quotation is valid for 15 days from the date of issue.",
+                            margin: [0, 6, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "2. Prices are subject to change after the validity period.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "3. GST @18% is applicable on all services as per government norms.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "4. Please mention the quotation number for all communications.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.2,
+                          },
+                          {
+                            text: "5. This is a computer-generated quotation.",
+                            margin: [0, 6, 0, 0],
+                            color: COLORS.muted,
+                            bold: true,
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+                fontSize: 8,
               },
               {
-                stack: [
-                  {
-                    text: "QR VERIFICATION",
-                    style: "sectionTitle",
-                    alignment: "center",
-                    margin: [0, 0, 0, 4],
-                  },
-                  {
-                    text: "Scan to verify quotation details",
-                    alignment: "center",
-                    fontSize: 7.5,
-                    bold: true,
-                    color: COLORS.navy,
-                    margin: [0, 0, 0, 6],
-                  },
-                  { svg: qrSvg(publicUrl), width: 56, alignment: "center" },
-                ],
-                margin: [8, 6, 8, 6],
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "TOTAL QUOTATION SUMMARY", style: "sectionTitle" },
+                          {
+                            table: {
+                              widths: ["*", 90],
+                              body: [
+                                moneyRow("Mandatory Proposal", quotationTotal, { bold: true, color: COLORS.blue }),
+                                moneyRow("Optional Add-Ons", optionalTotals.total, { bold: true, color: optionalTotals.total > 0 ? "#D97706" : COLORS.muted }),
+                                moneyRow("Taxable Total", totals.taxable + optionalTotals.taxable),
+                                moneyRow("GST Total (18%)", totals.cgst + totals.sgst + optionalTotals.cgst + optionalTotals.sgst),
+                                moneyRow("Overall Combined Total", quotationTotal + optionalTotals.total, { bold: true, color: COLORS.navy }),
+                              ],
+                            },
+                            layout: "noBorders",
+                            margin: [0, 6, 0, 0],
+                          },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
               },
             ],
-          ],
-        },
-        layout: cardLayout,
+            columnGap: 12,
+            margin: [0, 0, 0, 10],
+          },
+
+          // ── Row 3: AUTHORIZED SIGNATORY & THANK YOU | QR VERIFICATION ──
+          {
+            table: {
+              dontBreakRows: true,
+              widths: ["*", 174],
+              body: [
+                [
+                  {
+                    stack: [
+                      {
+                        text: "AUTHORIZED SIGNATORY",
+                        style: "sectionTitle",
+                        margin: [0, 0, 0, 36],
+                      },
+                      {
+                        canvas: [
+                          {
+                            type: "line",
+                            x1: 0,
+                            y1: 0,
+                            x2: 170,
+                            y2: 0,
+                            lineWidth: 0.8,
+                            lineColor: COLORS.navy,
+                          },
+                        ],
+                        alignment: "right",
+                      },
+                      {
+                        text: "Authorized Signatory",
+                        alignment: "right",
+                        fontSize: 9,
+                        bold: true,
+                        color: COLORS.navy,
+                        margin: [0, 4, 0, 0],
+                      },
+                      {
+                        text: COMPANY.name,
+                        alignment: "right",
+                        fontSize: 8,
+                        color: COLORS.blue,
+                        margin: [0, 1, 0, 12],
+                      },
+                      {
+                        text: "Thank you for choosing Bit Byte Technologies.",
+                        fontSize: 8.5,
+                        bold: true,
+                        color: COLORS.navy,
+                      },
+                    ],
+                    margin: [14, 12, 14, 12],
+                  },
+                  {
+                    stack: [
+                      {
+                        text: "QR VERIFICATION",
+                        style: "sectionTitle",
+                        alignment: "center",
+                        margin: [0, 0, 0, 4],
+                      },
+                      {
+                        text: "Scan to verify quotation details",
+                        alignment: "center",
+                        fontSize: 7.5,
+                        bold: true,
+                        color: COLORS.navy,
+                        margin: [0, 0, 0, 6],
+                      },
+                      { svg: qrSvg(publicUrl), width: 68, alignment: "center" },
+                    ],
+                    margin: [12, 10, 12, 10],
+                  },
+                ],
+              ],
+            },
+            layout: cardLayout,
+          },
+        ],
       },
     ],
 

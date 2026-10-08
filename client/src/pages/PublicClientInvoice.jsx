@@ -122,7 +122,16 @@ export default function PublicClientInvoice() {
                         <tr key={`${item.service}-${index}`}>
                           <td className="border-b border-slate-100 px-4 py-3 font-bold">{index + 1}</td>
                           <td className="border-b border-slate-100 px-4 py-3">
-                            <p className="font-black text-slate-950">{item.service}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-black text-slate-950">{item.service}</p>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
+                                (item.frequency === 'Monthly' || item.payable === 'Monthly' || item.frequency === 'Weekly' || (item.description || '').includes('Monthly'))
+                                  ? 'bg-purple/10 text-purple border-purple/20'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}>
+                                {(item.frequency === 'Monthly' || item.payable === 'Monthly' || (item.description || '').includes('Monthly')) ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
+                              </span>
+                            </div>
                             {item.description && <p className="mt-1 text-xs font-semibold text-slate-500">{item.description}</p>}
                           </td>
                           <td className="border-b border-slate-100 px-4 py-3 font-bold">{item.sacCode}</td>
