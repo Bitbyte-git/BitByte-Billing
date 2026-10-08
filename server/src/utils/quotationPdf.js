@@ -561,7 +561,92 @@ export function createQuotationPdfDocument(quotation) {
       {
         pageBreak: "before",
         stack: [
-          // ── Row 1: 2 Columns for MANDATORY SERVICES TOTAL SUMMARY | OPTIONAL SERVICES / SUGGESTIONS SUMMARY ──
+          // ── Row 1: 2 Columns for ONE TIME SERVICES PAYMENT SUMMARY | MONTHLY RECURRING PAYMENT SUMMARY ──
+          {
+            columns: [
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "ONE TIME SERVICES PAYMENT SUMMARY", style: "sectionTitle" },
+                          oneTimeItems.length > 0
+                            ? {
+                                table: {
+                                  widths: ["*", 90],
+                                  body: [
+                                    moneyRow("Taxable Amount", oneTimeTotals.taxable),
+                                    moneyRow("CGST Total", oneTimeTotals.cgst),
+                                    moneyRow("SGST Total", oneTimeTotals.sgst),
+                                    moneyRow("IGST Total", oneTimeTotals.igst),
+                                    moneyRow("One Time Total", oneTimeTotals.total, { bold: true, color: COLORS.blue }),
+                                  ],
+                                },
+                                layout: "noBorders",
+                                margin: [0, 4, 0, 0],
+                              }
+                            : {
+                                text: "No mandatory one-time services in this quotation.",
+                                fontSize: 8,
+                                color: COLORS.muted,
+                                margin: [0, 8, 0, 8],
+                              },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+              },
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "MONTHLY RECURRING PAYMENT SUMMARY", style: "sectionTitle", color: "#7C3AED" },
+                          recurringItems.length > 0
+                            ? {
+                                table: {
+                                  widths: ["*", 90],
+                                  body: [
+                                    moneyRow("Monthly Taxable", recurringTotals.taxable),
+                                    moneyRow("CGST Total", recurringTotals.cgst),
+                                    moneyRow("SGST Total", recurringTotals.sgst),
+                                    moneyRow("IGST Total", recurringTotals.igst),
+                                    moneyRow("Monthly Recurring Total", recurringTotals.total, { bold: true, color: "#7C3AED" }),
+                                    moneyRow("Yearly Recurring Est.", recurringTotals.total * 12, { bold: true, color: COLORS.navy }),
+                                  ],
+                                },
+                                layout: "noBorders",
+                                margin: [0, 4, 0, 0],
+                              }
+                            : {
+                                text: "No mandatory monthly recurring services in this quotation.",
+                                fontSize: 8,
+                                color: COLORS.muted,
+                                margin: [0, 8, 0, 8],
+                              },
+                        ],
+                        margin: [8, 8, 8, 8],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+              },
+            ],
+            columnGap: 12,
+            margin: [0, 16, 0, 10],
+          },
+
+          // ── Row 2: 2 Columns for MANDATORY SERVICES TOTAL SUMMARY | OPTIONAL SERVICES / SUGGESTIONS SUMMARY ──
           {
             columns: [
               {
@@ -587,7 +672,7 @@ export function createQuotationPdfDocument(quotation) {
                               ],
                             },
                             layout: "noBorders",
-                            margin: [0, 6, 0, 0],
+                            margin: [0, 4, 0, 0],
                           },
                         ],
                         margin: [8, 8, 8, 8],
@@ -619,19 +704,19 @@ export function createQuotationPdfDocument(quotation) {
                                   ],
                                 },
                                 layout: "noBorders",
-                                margin: [0, 6, 0, 0],
+                                margin: [0, 4, 0, 0],
                               }
                             : {
                                 text: "No optional service suggestions added for this quotation proposal.",
                                 fontSize: 8,
                                 color: COLORS.muted,
-                                margin: [0, 12, 0, 12],
+                                margin: [0, 10, 0, 10],
                               },
                           {
                             text: "* Optional suggestions are add-on recommendations and are not included in mandatory total.",
                             fontSize: 7,
                             color: COLORS.muted,
-                            margin: [0, 6, 0, 0],
+                            margin: [0, 4, 0, 0],
                             italics: true,
                           },
                         ],
@@ -644,10 +729,10 @@ export function createQuotationPdfDocument(quotation) {
               },
             ],
             columnGap: 12,
-            margin: [0, 20, 0, 10],
+            margin: [0, 0, 0, 10],
           },
 
-          // ── Row 2: 2 Columns for TERMS & CONDITIONS | TOTAL QUOTATION SUMMARY ──
+          // ── Row 3: 2 Columns for TERMS & CONDITIONS | TOTAL QUOTATION SUMMARY ──
           {
             columns: [
               {
@@ -661,27 +746,27 @@ export function createQuotationPdfDocument(quotation) {
                           { text: "TERMS & CONDITIONS", style: "sectionTitle" },
                           {
                             text: "1. This quotation is valid for 15 days from the date of issue.",
-                            margin: [0, 6, 0, 0],
-                            lineHeight: 1.2,
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.15,
                           },
                           {
                             text: "2. Prices are subject to change after the validity period.",
-                            margin: [0, 4, 0, 0],
-                            lineHeight: 1.2,
+                            margin: [0, 3, 0, 0],
+                            lineHeight: 1.15,
                           },
                           {
                             text: "3. GST @18% is applicable on all services as per government norms.",
-                            margin: [0, 4, 0, 0],
-                            lineHeight: 1.2,
+                            margin: [0, 3, 0, 0],
+                            lineHeight: 1.15,
                           },
                           {
                             text: "4. Please mention the quotation number for all communications.",
-                            margin: [0, 4, 0, 0],
-                            lineHeight: 1.2,
+                            margin: [0, 3, 0, 0],
+                            lineHeight: 1.15,
                           },
                           {
                             text: "5. This is a computer-generated quotation.",
-                            margin: [0, 6, 0, 0],
+                            margin: [0, 4, 0, 0],
                             color: COLORS.muted,
                             bold: true,
                           },
@@ -715,7 +800,7 @@ export function createQuotationPdfDocument(quotation) {
                               ],
                             },
                             layout: "noBorders",
-                            margin: [0, 6, 0, 0],
+                            margin: [0, 4, 0, 0],
                           },
                         ],
                         margin: [8, 8, 8, 8],
