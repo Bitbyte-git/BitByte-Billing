@@ -295,13 +295,22 @@ export function createQuotationPdfDocument(quotation) {
   );
   const publicUrl = publicQuotationUrl(quotation);
 
-  // ── Split payment totals: One Time vs. Monthly Recurring ──
-  const oneTimeItems = primaryItems.filter(
-    (item) => !(String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
-  );
-  const recurringItems = primaryItems.filter(
-    (item) => (String(item.frequency || '').includes('Monthly') || String(item.payable || '').includes('Monthly') || String(item.frequency || '').includes('Weekly'))
-  );
+  function getFrequencyLabel(frequency, payable) {
+    const freq = String(frequency || '').trim();
+    const pay = String(payable || '').trim();
+    if (freq === 'Monthly' || pay === 'Monthly') return 'Monthly';
+    if (freq === 'Weekly' || pay === 'Weekly') return 'Weekly';
+    if (freq === 'Quarterly' || pay === 'Quarterly') return 'Quarterly';
+    if (freq === 'Yearly' || pay === 'Yearly' || freq.toLowerCase().includes('annual') || freq.toLowerCase().includes('amc')) return 'Yearly';
+    if (freq && freq !== 'One Time') return freq;
+    return 'One Time';
+  }
+
+  // ── Segregate payment totals: One Time, Weekly, Monthly, Yearly/AMC ──
+  const oneTimeItems = primaryItems.filter((item) => getFrequencyLabel(item.frequency, item.payable) === 'One Time');
+  const weeklyItems = primaryItems.filter((item) => getFrequencyLabel(item.frequency, item.payable) === 'Weekly');
+  const monthlyItems = primaryItems.filter((item) => getFrequencyLabel(item.frequency, item.payable) === 'Monthly');
+  const yearlyItems = primaryItems.filter((item) => getFrequencyLabel(item.frequency, item.payable) === 'Yearly');
 
   const oneTimeTotals = oneTimeItems.reduce(
     (acc, item) => ({
@@ -314,7 +323,29 @@ export function createQuotationPdfDocument(quotation) {
     { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
   );
 
-  const recurringTotals = recurringItems.reduce(
+  const weeklyTotals = weeklyItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
+
+  const monthlyTotals = monthlyItems.reduce(
+    (acc, item) => ({
+      taxable: acc.taxable + item.taxableValue,
+      cgst: acc.cgst + item.cgstAmount,
+      sgst: acc.sgst + item.sgstAmount,
+      igst: acc.igst + item.igstAmount,
+      total: acc.total + item.total,
+    }),
+    { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+  );
+
+  const yearlyTotals = yearlyItems.reduce(
     (acc, item) => ({
       taxable: acc.taxable + item.taxableValue,
       cgst: acc.cgst + item.cgstAmount,
@@ -402,17 +433,6 @@ export function createQuotationPdfDocument(quotation) {
       margin: [0, 3, 0, 3],
     },
   ];
-
-  function getFrequencyLabel(frequency, payable) {
-    const freq = String(frequency || '').trim();
-    const pay = String(payable || '').trim();
-    if (freq === 'Monthly' || pay === 'Monthly') return 'Monthly';
-    if (freq === 'Weekly') return 'Weekly';
-    if (freq === 'Quarterly' || pay === 'Quarterly') return 'Quarterly';
-    if (freq === 'Yearly' || pay === 'Yearly') return 'Yearly';
-    if (freq) return freq;
-    return 'One Time';
-  }
 
   // Line item rows — mandatory items listed first, then optional items
   const itemRows = orderedItems.length
@@ -561,7 +581,7 @@ export function createQuotationPdfDocument(quotation) {
       {
         pageBreak: "before",
         stack: [
-          // ── Row 1: 2 Columns for ONE TIME SERVICES PAYMENT SUMMARY | MONTHLY RECURRING PAYMENT SUMMARY ──
+          // ── Row 1: 4 Columns for ONE TIME | WEEKLY RECURRING | MONTHLY RECURRING | YEARLY AMC ──
           {
             columns: [
               {
@@ -572,30 +592,30 @@ export function createQuotationPdfDocument(quotation) {
                     [
                       {
                         stack: [
-                          { text: "ONE TIME SERVICES PAYMENT SUMMARY", style: "sectionTitle" },
+                          { text: "ONE TIME SUMMARY", style: "sectionTitle", fontSize: 8 },
                           oneTimeItems.length > 0
                             ? {
                                 table: {
-                                  widths: ["*", 90],
+                                  widths: ["*", 55],
                                   body: [
-                                    moneyRow("Taxable Amount", oneTimeTotals.taxable),
-                                    moneyRow("CGST Total", oneTimeTotals.cgst),
-                                    moneyRow("SGST Total", oneTimeTotals.sgst),
-                                    moneyRow("IGST Total", oneTimeTotals.igst),
-                                    moneyRow("One Time Total", oneTimeTotals.total, { bold: true, color: COLORS.blue }),
+                                    moneyRow("Taxable", oneTimeTotals.taxable),
+                                    moneyRow("CGST", oneTimeTotals.cgst),
+                                    moneyRow("SGST", oneTimeTotals.sgst),
+                                    moneyRow("IGST", oneTimeTotals.igst),
+                                    moneyRow("Subtotal", oneTimeTotals.total, { bold: true, color: COLORS.blue }),
                                   ],
                                 },
                                 layout: "noBorders",
-                                margin: [0, 4, 0, 0],
+                                margin: [0, 2, 0, 0],
                               }
                             : {
-                                text: "No mandatory one-time services in this quotation.",
-                                fontSize: 8,
+                                text: "No one-time items.",
+                                fontSize: 7,
                                 color: COLORS.muted,
-                                margin: [0, 8, 0, 8],
+                                margin: [0, 4, 0, 4],
                               },
                         ],
-                        margin: [8, 8, 8, 8],
+                        margin: [5, 5, 5, 5],
                       },
                     ],
                   ],
@@ -610,31 +630,108 @@ export function createQuotationPdfDocument(quotation) {
                     [
                       {
                         stack: [
-                          { text: "MONTHLY RECURRING PAYMENT SUMMARY", style: "sectionTitle", color: "#7C3AED" },
-                          recurringItems.length > 0
+                          { text: "WEEKLY RECURRING SUMMARY", style: "sectionTitle", color: "#2563EB", fontSize: 8 },
+                          weeklyItems.length > 0
                             ? {
                                 table: {
-                                  widths: ["*", 90],
+                                  widths: ["*", 55],
                                   body: [
-                                    moneyRow("Monthly Taxable", recurringTotals.taxable),
-                                    moneyRow("CGST Total", recurringTotals.cgst),
-                                    moneyRow("SGST Total", recurringTotals.sgst),
-                                    moneyRow("IGST Total", recurringTotals.igst),
-                                    moneyRow("Monthly Recurring Total", recurringTotals.total, { bold: true, color: "#7C3AED" }),
-                                    moneyRow("Yearly Recurring Est.", recurringTotals.total * 12, { bold: true, color: COLORS.navy }),
+                                    moneyRow("Taxable", weeklyTotals.taxable),
+                                    moneyRow("CGST", weeklyTotals.cgst),
+                                    moneyRow("SGST", weeklyTotals.sgst),
+                                    moneyRow("IGST", weeklyTotals.igst),
+                                    moneyRow("Subtotal", weeklyTotals.total, { bold: true, color: "#2563EB" }),
+                                    moneyRow("Est. Mo. (x4)", weeklyTotals.total * 4, { bold: true, color: COLORS.navy }),
                                   ],
                                 },
                                 layout: "noBorders",
-                                margin: [0, 4, 0, 0],
+                                margin: [0, 2, 0, 0],
                               }
                             : {
-                                text: "No mandatory monthly recurring services in this quotation.",
-                                fontSize: 8,
+                                text: "No weekly items.",
+                                fontSize: 7,
                                 color: COLORS.muted,
-                                margin: [0, 8, 0, 8],
+                                margin: [0, 4, 0, 4],
                               },
                         ],
-                        margin: [8, 8, 8, 8],
+                        margin: [5, 5, 5, 5],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+              },
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "MONTHLY RECURRING SUMMARY", style: "sectionTitle", color: "#7C3AED", fontSize: 8 },
+                          monthlyItems.length > 0
+                            ? {
+                                table: {
+                                  widths: ["*", 55],
+                                  body: [
+                                    moneyRow("Taxable", monthlyTotals.taxable),
+                                    moneyRow("CGST", monthlyTotals.cgst),
+                                    moneyRow("SGST", monthlyTotals.sgst),
+                                    moneyRow("IGST", monthlyTotals.igst),
+                                    moneyRow("Subtotal", monthlyTotals.total, { bold: true, color: "#7C3AED" }),
+                                    moneyRow("Est. Yr. (x12)", monthlyTotals.total * 12, { bold: true, color: COLORS.navy }),
+                                  ],
+                                },
+                                layout: "noBorders",
+                                margin: [0, 2, 0, 0],
+                              }
+                            : {
+                                text: "No monthly items.",
+                                fontSize: 7,
+                                color: COLORS.muted,
+                                margin: [0, 4, 0, 4],
+                              },
+                        ],
+                        margin: [5, 5, 5, 5],
+                      },
+                    ],
+                  ],
+                },
+                layout: cardLayout,
+              },
+              {
+                width: "*",
+                table: {
+                  widths: ["*"],
+                  body: [
+                    [
+                      {
+                        stack: [
+                          { text: "YEARLY AMC SUMMARY", style: "sectionTitle", color: "#059669", fontSize: 8 },
+                          yearlyItems.length > 0
+                            ? {
+                                table: {
+                                  widths: ["*", 55],
+                                  body: [
+                                    moneyRow("Taxable", yearlyTotals.taxable),
+                                    moneyRow("CGST", yearlyTotals.cgst),
+                                    moneyRow("SGST", yearlyTotals.sgst),
+                                    moneyRow("IGST", yearlyTotals.igst),
+                                    moneyRow("Subtotal", yearlyTotals.total, { bold: true, color: "#059669" }),
+                                  ],
+                                },
+                                layout: "noBorders",
+                                margin: [0, 2, 0, 0],
+                              }
+                            : {
+                                text: "No yearly AMC items.",
+                                fontSize: 7,
+                                color: COLORS.muted,
+                                margin: [0, 4, 0, 4],
+                              },
+                        ],
+                        margin: [5, 5, 5, 5],
                       },
                     ],
                   ],
@@ -642,8 +739,8 @@ export function createQuotationPdfDocument(quotation) {
                 layout: cardLayout,
               },
             ],
-            columnGap: 12,
-            margin: [0, 16, 0, 10],
+            columnGap: 6,
+            margin: [0, 14, 0, 10],
           },
 
           // ── Row 2: 2 Columns for MANDATORY SERVICES TOTAL SUMMARY | OPTIONAL SERVICES / SUGGESTIONS SUMMARY ──
@@ -663,7 +760,9 @@ export function createQuotationPdfDocument(quotation) {
                               widths: ["*", 90],
                               body: [
                                 moneyRow("One Time Subtotal", oneTimeTotals.total),
-                                moneyRow("Monthly Subtotal", recurringTotals.total, { color: "#7C3AED" }),
+                                ...(weeklyTotals.total > 0 ? [moneyRow("Weekly Subtotal (Per Wk)", weeklyTotals.total, { color: "#2563EB" })] : []),
+                                ...(monthlyTotals.total > 0 ? [moneyRow("Monthly Subtotal (Per Mo)", monthlyTotals.total, { color: "#7C3AED" })] : []),
+                                ...(yearlyTotals.total > 0 ? [moneyRow("Yearly AMC Subtotal (Per Yr)", yearlyTotals.total, { color: "#059669" })] : []),
                                 moneyRow("Taxable Amount", totals.taxable),
                                 moneyRow("CGST Total", totals.cgst),
                                 moneyRow("SGST Total", totals.sgst),

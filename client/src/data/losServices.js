@@ -1279,6 +1279,33 @@ export const losServices = [
       "customised": "Virtual, Dynamic, Indian Simplex Number (Customised)"
     },
     "sacCode": "998314"
+  },
+  {
+    "id": 51,
+    "module": "Maintenance & Support",
+    "service": "Annual Maintenance Charges - AMC",
+    "description": "Annual Maintenance & Support Charges (AMC)",
+    "unit": "Per Year",
+    "count": "1",
+    "frequency": "Yearly",
+    "payable": "Yearly",
+    "prices": {
+      "starter": 5000,
+      "basic": 7500,
+      "standard": 10000,
+      "premium": 15000,
+      "enterprise": 25000,
+      "customised": 10000
+    },
+    "tierNotes": {
+      "starter": "Basic AMC Support",
+      "basic": "Standard AMC Support & Server Maintenance",
+      "standard": "Comprehensive AMC Support & Quarterly Audits",
+      "premium": "Priority AMC Support & Monthly Audits",
+      "enterprise": "24/7 Dedicated AMC Support & SLA Guarantee",
+      "customised": "Custom Manual Price Entry for AMC"
+    },
+    "sacCode": "998315"
   }
 ];
 

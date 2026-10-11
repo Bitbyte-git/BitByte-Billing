@@ -221,12 +221,12 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     [selectedServiceId, availableServicesInModule]
   );
 
-  // Default custom price when custom service or customised tier selected
+  // Default custom price when custom service, AMC, or customised tier selected
   useEffect(() => {
     if (isCustomService) {
       setCustomBasePrice(1990);
-    } else if (selectedTier === 'customised' && activeServiceObj) {
-      const defaultVal = activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 7990;
+    } else if (activeServiceObj && (selectedTier === 'customised' || activeServiceObj.frequency === 'Yearly' || activeServiceObj.service?.toLowerCase().includes('amc'))) {
+      const defaultVal = activeServiceObj.prices?.[selectedTier] || activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 10000;
       setCustomBasePrice(defaultVal);
     }
   }, [isCustomService, selectedTier, activeServiceObj]);
@@ -234,8 +234,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   // Calculate pricing for current service dropdown preview
   const currentTierPrice = useMemo(() => {
     if (!activeServiceObj) return 0;
-    if (selectedTier === 'customised') {
-      return Number(customBasePrice || activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 7990);
+    if (selectedTier === 'customised' || activeServiceObj.frequency === 'Yearly' || activeServiceObj.service?.toLowerCase().includes('amc')) {
+      return Number(customBasePrice || activeServiceObj.prices?.[selectedTier] || activeServiceObj.prices?.customised || 10000);
     }
     return Number(activeServiceObj.prices?.[selectedTier] || 0);
   }, [activeServiceObj, selectedTier, customBasePrice]);
@@ -265,6 +265,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
   // Add line item from dropdowns to table
   const addServiceLineItem = () => {
+    const isManualEntry = isCustomService || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc');
+
     if (isCustomService) {
       if (!customServiceName.trim()) {
         setMessage({ type: 'error', text: 'Please enter a custom service name.' });
@@ -275,17 +277,17 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         setMessage({ type: 'error', text: 'Please enter a valid base price for Custom Service.' });
         return;
       }
-    } else if (selectedTier === 'customised') {
+    } else if (isManualEntry) {
       let priceVal = Number(customBasePrice || 0);
       if (isNaN(priceVal) || priceVal < 0) {
-        setMessage({ type: 'error', text: 'Please enter a valid base price for Customised Tier.' });
+        setMessage({ type: 'error', text: 'Please enter a valid price for this service.' });
         return;
       }
     } else if (!activeServiceObj) {
       return;
     }
 
-    const basePrice = (isCustomService || selectedTier === 'customised') ? Number(customBasePrice) : currentTierPrice;
+    const basePrice = isManualEntry ? Number(customBasePrice) : currentTierPrice;
     const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
     const moduleLabel = selectedModule;
     const qty = Math.max(1, Number(itemQty || 1));
@@ -810,22 +812,27 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
               <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                 <div className="flex items-center gap-3">
-                  {(isCustomService || selectedTier === 'customised') && (
+                  {(isCustomService || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')) && (
                     <div className="flex flex-col items-start">
                       <label className="block text-[10px] font-black uppercase text-slate-400">
-                        {selectedTier === 'customised' ? 'Customised Price (₹)' : 'Base Price (₹)'}
+                        {activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')
+                          ? 'AMC / Yearly Price (₹)'
+                          : selectedTier === 'customised'
+                          ? 'Customised Price (₹)'
+                          : 'Base Price (₹)'}
                       </label>
                       <input
                         type="number"
                         min={0}
+                        step={500}
                         value={customBasePrice}
                         onChange={(e) => handleCustomPriceChange(e.target.value)}
                         onBlur={handleCustomPriceBlur}
-                        className="w-32 rounded-xl border border-purple bg-white px-2.5 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"
-                        placeholder="7990"
+                        className="w-36 rounded-xl border-2 border-purple bg-purple/10 px-2.5 py-1.5 text-center text-sm font-black text-slate-900 outline-purple shadow-sm hover:border-purple-600 focus:border-purple-600 transition-colors"
+                        placeholder="10000"
                       />
-                      <span className="mt-1 text-[10px] font-bold text-purple">
-                        {selectedTier === 'customised' ? 'Manual Price Entry' : 'Manual Entry'}
+                      <span className="mt-1 text-[10px] font-extrabold text-purple flex items-center gap-1">
+                        🔄 Manual Price Spinner Entry
                       </span>
                     </div>
                   )}
