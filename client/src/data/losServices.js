@@ -580,8 +580,8 @@ export const losServices = [
     "id": 23,
     "module": "Web Apps",
     "service": "Dynamic Advanced Website Design with attractive UI/UX - Updates after initial setup and website launch.",
-    "description": "After Initial Setup: Each Page Content changes up to 40 changes per modules @ Rs. 5000 for every time",
-    "unit": "Per Service",
+    "description": "After Initial Setup: Each Page Content changes @ Rs. 5000 for every time. Starter: up to 15 changes.",
+    "unit": "Per Change Pack",
     "count": "1",
     "frequency": "One Time",
     "payable": "One Time",
@@ -605,8 +605,8 @@ export const losServices = [
     "id": 24,
     "module": "Web Apps",
     "service": "Dynamic Advanced Website Design with attractive UI/UX - Updates after initial setup and website launch",
-    "description": "After Initial Setup: Each Module changes up to 5 modules at 40 New images per module @ Rs. 10000.",
-    "unit": "Per Service",
+    "description": "After Initial Setup: Addition of modules (min 2 – max 10) with up to 15 images per module @ Rs. 6990 per module (Starter). Price auto-calculated by module count.",
+    "unit": "Per Module",
     "count": "1",
     "frequency": "One Time",
     "payable": "One Time",
@@ -618,11 +618,11 @@ export const losServices = [
       "enterprise": 10990
     },
     "tierNotes": {
-      "starter": "Addition of each module up to 15 images per module",
-      "basic": "Addition of each module up to 20 images per module",
-      "standard": "Addition of each module up to 25 images per module",
-      "premium": "Addition of each module up to 25 images up to 2 modules",
-      "enterprise": "Addition of each module up to 30 images up to 4 modules"
+      "starter": "Addition of each module up to 15 images per module (min 2, max 10 modules)",
+      "basic": "Addition of each module up to 20 images per module (min 2, max 10 modules)",
+      "standard": "Addition of each module up to 25 images per module (min 2, max 10 modules)",
+      "premium": "Addition of each module up to 25 images per module (min 2, max 10 modules)",
+      "enterprise": "Addition of each module up to 30 images per module (min 2, max 10 modules)"
     },
     "sacCode": "998314"
   },

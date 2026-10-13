@@ -70,6 +70,14 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [itemDiscount, setItemDiscount] = useState(0);
   const [isOptionalItem, setIsOptionalItem] = useState(false);
 
+  // Special configurators for service 23 (changes) and 24 (modules+images)
+  const [moduleCount, setModuleCount] = useState(2);      // 2-10 modules (service 24)
+  const [imagesPerModule, setImagesPerModule] = useState(15); // 1-15 images/module (service 24)
+  const [changesCount, setChangesCount] = useState(15);   // 1-15 changes (service 23)
+
+  // Price override — lets user edit the default tier price for ANY service
+  const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
+
   // Custom service fields (when serviceId === 'CUSTOM_SERVICE')
   const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
   const [customServiceName, setCustomServiceName] = useState('');
@@ -221,13 +229,35 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     [selectedServiceId, availableServicesInModule]
   );
 
+  // ── Special service flags ──
+  // Service 24: module-images service (price × moduleCount)
+  const isModuleService = !isCustomService && activeServiceObj?.id === 24;
+  // Service 23: changes service (count up to 15)
+  const isChangesService = !isCustomService && activeServiceObj?.id === 23;
+
+  // Reset special-service params when active service changes
+  useEffect(() => {
+    if (isModuleService) {
+      setModuleCount(2);
+      setImagesPerModule(15);
+    } else if (isChangesService) {
+      setChangesCount(15);
+    }
+  }, [activeServiceObj?.id]);
+
   // Default custom price when custom service, AMC, or customised tier selected
   useEffect(() => {
     if (isCustomService) {
       setCustomBasePrice(1990);
+      setPriceOverrideEnabled(false);
     } else if (activeServiceObj && (selectedTier === 'customised' || activeServiceObj.frequency === 'Yearly' || activeServiceObj.service?.toLowerCase().includes('amc'))) {
       const defaultVal = activeServiceObj.prices?.[selectedTier] || activeServiceObj.prices?.customised || activeServiceObj.prices?.enterprise || 10000;
       setCustomBasePrice(defaultVal);
+      setPriceOverrideEnabled(false);
+    } else if (activeServiceObj) {
+      // For standard services: reset override and sync customBasePrice to the new tier price
+      setPriceOverrideEnabled(false);
+      setCustomBasePrice(Number(activeServiceObj.prices?.[selectedTier] || 0));
     }
   }, [isCustomService, selectedTier, activeServiceObj]);
 
@@ -265,7 +295,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
   // Add line item from dropdowns to table
   const addServiceLineItem = () => {
-    const isManualEntry = isCustomService || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc');
+    // isManualEntry: original conditions + price override
+    const isManualEntry = isCustomService || priceOverrideEnabled || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc');
 
     if (isCustomService) {
       if (!customServiceName.trim()) {
@@ -287,10 +318,26 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       return;
     }
 
+    // For module-images service: validate module count
+    if (isModuleService) {
+      const mc = Number(moduleCount);
+      if (isNaN(mc) || mc < 2 || mc > 10) {
+        setMessage({ type: 'error', text: 'Module count must be between 2 and 10.' });
+        return;
+      }
+    }
+
     const basePrice = isManualEntry ? Number(customBasePrice) : currentTierPrice;
     const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
     const moduleLabel = selectedModule;
-    const qty = Math.max(1, Number(itemQty || 1));
+
+    // For module service: quantity = moduleCount; for changes: quantity = changesCount; else: user qty
+    const qty = isModuleService
+      ? Math.max(2, Math.min(10, Number(moduleCount || 2)))
+      : isChangesService
+        ? Math.max(1, Math.min(15, Number(changesCount || 15)))
+        : Math.max(1, Number(itemQty || 1));
+
     const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
     const lineBaseTotal = basePrice * qty;
     const discAmount = (lineBaseTotal * discPct) / 100;
@@ -302,15 +349,28 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     const tierObj = losTiers.find((t) => t.key === selectedTier);
     const tierLabel = tierObj ? tierObj.label : 'Starter';
 
+    // Build an enriched description for special services
+    let itemDescription;
+    if (isModuleService) {
+      const mc = Number(moduleCount);
+      const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
+      itemDescription = `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
+    } else if (isChangesService) {
+      const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
+      itemDescription = `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
+    } else if (isCustomService) {
+      itemDescription = `${serviceName} (Custom - ${tierLabel})`;
+    } else {
+      itemDescription = `${serviceName} (${tierLabel}) - ${currentTierNote}`;
+    }
+
     const newItem = {
       tempId: Date.now() + Math.random(),
       serviceId: isCustomService ? null : activeServiceObj.id,
       mainService: moduleLabel,
       subService: serviceName,
       subServiceName: serviceName,
-      description: isCustomService
-        ? `${serviceName} (Custom - ${tierLabel})`
-        : `${serviceName} (${tierLabel}) - ${currentTierNote}`,
+      description: itemDescription,
       tier: tierLabel,
       tierKey: selectedTier,
       sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
@@ -318,6 +378,9 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
       payable: isCustomService ? 'One Time' : (activeServiceObj.payable || 'One Time'),
       isOptional: Boolean(isOptionalItem),
+      // Store extra config for display
+      ...(isModuleService ? { moduleCount: Number(moduleCount), imagesPerModule: Math.max(1, Math.min(15, Number(imagesPerModule || 15))) } : {}),
+      ...(isChangesService ? { changesCount: Math.max(1, Math.min(15, Number(changesCount || 15))) } : {}),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -810,16 +873,149 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 )}
               </div>
 
+              {/* ── SPECIAL SERVICE CONFIGURATOR (service 24 — Module Images) ── */}
+              {isModuleService && (
+                <div className="mt-4 w-full rounded-2xl border-2 border-purple/30 bg-gradient-to-br from-purple/10 to-purple/5 p-5">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="rounded-full bg-purple px-3 py-0.5 text-xs font-black text-white">📦 Module Configuration</span>
+                    <span className="text-[11px] font-semibold text-slate-500">Min 2 modules · Max 10 modules · Up to 15 images/module</span>
+                  </div>
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    {/* Module Count */}
+                    <div className="rounded-xl border border-purple/20 bg-white p-4">
+                      <label className="block text-xs font-black uppercase tracking-wider text-purple mb-2">📐 Number of Modules</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setModuleCount((c) => Math.max(2, Number(c) - 1))}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-purple/30 bg-purple/10 font-black text-purple text-lg hover:bg-purple hover:text-white transition-all"
+                        >−</button>
+                        <div className="flex-1 text-center">
+                          <span className="text-3xl font-black text-slate-950">{moduleCount}</span>
+                          <p className="text-[10px] font-bold text-slate-400 mt-0.5">{moduleCount} × {currency(currentTierPrice)} = {currency(currentTierPrice * Number(moduleCount))}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setModuleCount((c) => Math.min(10, Number(c) + 1))}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-purple/30 bg-purple/10 font-black text-purple text-lg hover:bg-purple hover:text-white transition-all"
+                        >+</button>
+                      </div>
+                      <input
+                        type="range"
+                        min={2}
+                        max={10}
+                        step={1}
+                        value={moduleCount}
+                        onChange={(e) => setModuleCount(Number(e.target.value))}
+                        className="mt-3 w-full accent-purple"
+                      />
+                      <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
+                        <span>2 min</span><span>10 max</span>
+                      </div>
+                    </div>
+                    {/* Images per Module */}
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                      <label className="block text-xs font-black uppercase tracking-wider text-emerald-700 mb-2">🖼️ Images per Module</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setImagesPerModule((c) => Math.max(1, Number(c) - 1))}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-emerald-200 bg-white font-black text-emerald-700 text-lg hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all"
+                        >−</button>
+                        <div className="flex-1 text-center">
+                          <span className="text-3xl font-black text-slate-950">{imagesPerModule}</span>
+                          <p className="text-[10px] font-bold text-emerald-600 mt-0.5">{imagesPerModule} images × {moduleCount} module{moduleCount > 1 ? 's' : ''} = {imagesPerModule * moduleCount} total</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setImagesPerModule((c) => Math.min(15, Number(c) + 1))}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-emerald-200 bg-white font-black text-emerald-700 text-lg hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all"
+                        >+</button>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={15}
+                        step={1}
+                        value={imagesPerModule}
+                        onChange={(e) => setImagesPerModule(Number(e.target.value))}
+                        className="mt-3 w-full accent-emerald-500"
+                      />
+                      <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
+                        <span>1 min</span><span>15 max</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Summary bar */}
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-purple/20 bg-white p-3">
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black uppercase text-slate-400">Module Total Price</p>
+                      <p className="text-2xl font-black text-purple">{currency(currentTierPrice * Number(moduleCount))}</p>
+                      <p className="text-[10px] text-slate-500">{moduleCount} modules × {currency(currentTierPrice)}/module (excl. GST)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase text-slate-400">Total Images</p>
+                      <p className="text-2xl font-black text-emerald-600">{imagesPerModule * Number(moduleCount)}</p>
+                      <p className="text-[10px] text-slate-500">{imagesPerModule} images × {moduleCount} module{moduleCount > 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SPECIAL SERVICE CONFIGURATOR (service 23 — Changes) ── */}
+              {isChangesService && (
+                <div className="mt-4 w-full rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-50 to-orange-50 p-5">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="rounded-full bg-amber-500 px-3 py-0.5 text-xs font-black text-white">✏️ Change Pack Configuration</span>
+                    <span className="text-[11px] font-semibold text-slate-500">Max 15 changes after initial setup (Starter tier)</span>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-white p-4">
+                    <label className="block text-xs font-black uppercase tracking-wider text-amber-700 mb-2">🔧 Number of Changes</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setChangesCount((c) => Math.max(1, Number(c) - 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-amber-300 bg-amber-50 font-black text-amber-700 text-lg hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all"
+                      >−</button>
+                      <div className="flex-1 text-center">
+                        <span className="text-3xl font-black text-slate-950">{changesCount}</span>
+                        <p className="text-[10px] font-bold text-amber-600 mt-0.5">of 15 max changes</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setChangesCount((c) => Math.min(15, Number(c) + 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-amber-300 bg-amber-50 font-black text-amber-700 text-lg hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all"
+                      >+</button>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={15}
+                      step={1}
+                      value={changesCount}
+                      onChange={(e) => setChangesCount(Number(e.target.value))}
+                      className="mt-3 w-full accent-amber-500"
+                    />
+                    <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
+                      <span>1 min</span><span>15 max</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                 <div className="flex items-center gap-3">
-                  {(isCustomService || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')) && (
+                  {/* Price input — always shown when manual/AMC/customised/custom/override */}
+                  {(isCustomService || priceOverrideEnabled || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')) && (
                     <div className="flex flex-col items-start">
                       <label className="block text-[10px] font-black uppercase text-slate-400">
                         {activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')
-                          ? 'AMC / Yearly Price (₹)'
+                          ? 'AMC / Yearly Price (\u20b9)'
                           : selectedTier === 'customised'
-                          ? 'Customised Price (₹)'
-                          : 'Base Price (₹)'}
+                          ? 'Customised Price (\u20b9)'
+                          : priceOverrideEnabled
+                          ? 'Override Price (\u20b9)'
+                          : 'Base Price (\u20b9)'}
                       </label>
                       <input
                         type="number"
@@ -828,11 +1024,15 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                         value={customBasePrice}
                         onChange={(e) => handleCustomPriceChange(e.target.value)}
                         onBlur={handleCustomPriceBlur}
-                        className="w-36 rounded-xl border-2 border-purple bg-purple/10 px-2.5 py-1.5 text-center text-sm font-black text-slate-900 outline-purple shadow-sm hover:border-purple-600 focus:border-purple-600 transition-colors"
-                        placeholder="10000"
+                        className={`w-36 rounded-xl border-2 px-2.5 py-1.5 text-center text-sm font-black text-slate-900 shadow-sm transition-colors outline-none ${
+                          priceOverrideEnabled
+                            ? 'border-orange-400 bg-orange-50 focus:border-orange-500'
+                            : 'border-purple bg-purple/10 hover:border-purple-600 focus:border-purple-600'
+                        }`}
+                        placeholder="0"
                       />
-                      <span className="mt-1 text-[10px] font-extrabold text-purple flex items-center gap-1">
-                        🔄 Manual Price Spinner Entry
+                      <span className="mt-1 text-[10px] font-extrabold flex items-center gap-1 text-purple">
+                        {priceOverrideEnabled ? '✏️ Price Overridden' : '🔄 Manual Price Entry'}
                       </span>
                     </div>
                   )}
@@ -844,6 +1044,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                       value={itemQty}
                       onChange={(e) => setItemQty(e.target.value)}
                       className="w-16 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
+                      disabled={isModuleService || isChangesService}
+                      title={isModuleService ? 'Qty is set by module count' : isChangesService ? 'Qty is set by changes count' : ''}
                     />
                   </div>
 
@@ -871,12 +1073,45 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-xs font-bold text-slate-400">
-                    {isCustomService ? 'Custom Rate' : selectedTier === 'customised' ? 'Customised Rate' : 'Tier Rate'}
+                  <p className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-end gap-1.5">
+                    {isCustomService ? 'Custom Rate' : isModuleService ? 'Per Module Rate' : selectedTier === 'customised' ? 'Customised Rate' : priceOverrideEnabled ? 'Overridden Rate' : 'Tier Rate'}
+                    {/* Edit price toggle — only shown for standard (non-manual) services */}
+                    {!isCustomService && !isModuleService && selectedTier !== 'customised' && activeServiceObj?.frequency !== 'Yearly' && !activeServiceObj?.service?.toLowerCase().includes('amc') && (
+                      <button
+                        type="button"
+                        title={priceOverrideEnabled ? 'Reset to tier price' : 'Override default price'}
+                        onClick={() => {
+                          if (priceOverrideEnabled) {
+                            // Reset to tier price
+                            setPriceOverrideEnabled(false);
+                            setCustomBasePrice(Number(activeServiceObj?.prices?.[selectedTier] || 0));
+                          } else {
+                            // Enable override: pre-fill with current tier price
+                            setCustomBasePrice(Number(activeServiceObj?.prices?.[selectedTier] || 0));
+                            setPriceOverrideEnabled(true);
+                          }
+                        }}
+                        className={`ml-1 rounded-lg px-1.5 py-0.5 text-[10px] font-black transition-all border ${
+                          priceOverrideEnabled
+                            ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200'
+                            : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-purple/10 hover:border-purple/30 hover:text-purple'
+                        }`}
+                      >
+                        {priceOverrideEnabled ? '↩ Reset' : '✏️ Edit'}
+                      </button>
+                    )}
                   </p>
                   <p className="text-xl font-black text-purple">
-                    {currency((isCustomService || selectedTier === 'customised') ? Number(customBasePrice || 0) : currentTierPrice)}
+                    {isModuleService
+                      ? currency(currentTierPrice * Number(moduleCount))
+                      : currency((isCustomService || selectedTier === 'customised' || priceOverrideEnabled) ? Number(customBasePrice || 0) : currentTierPrice)}
                   </p>
+                  {isModuleService && (
+                    <p className="text-[10px] text-slate-500">{moduleCount} × {currency(currentTierPrice)}</p>
+                  )}
+                  {priceOverrideEnabled && !isModuleService && (
+                    <p className="text-[10px] text-orange-500 font-bold">was {currency(activeServiceObj?.prices?.[selectedTier] || 0)}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col items-end gap-1.5">
@@ -927,6 +1162,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 <th className="p-3 text-center">Tier</th>
                 <th className="p-3 text-right">Base Price</th>
                 <th className="p-3 text-center">Qty</th>
+                <th className="p-3 text-right">Discount</th>
                 <th className="p-3 text-right">Taxable</th>
                 <th className="p-3 text-right">GST (18%)</th>
                 <th className="p-3 text-right">Total</th>
@@ -953,6 +1189,21 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                             💡 Optional Suggestion
                           </span>
                         )}
+                        {item.moduleCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-purple/10 text-purple border border-purple/20">
+                            📦 {item.moduleCount} module{item.moduleCount > 1 ? 's' : ''}
+                          </span>
+                        )}
+                        {item.imagesPerModule > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🖼️ {item.imagesPerModule} imgs/mod
+                          </span>
+                        )}
+                        {item.changesCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                            ✏️ {item.changesCount} change{item.changesCount > 1 ? 's' : ''}
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 text-xs font-medium text-slate-500">{item.description}</p>
                     </td>
@@ -966,6 +1217,16 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                     </td>
                     <td className="p-3 text-right font-semibold">{currency(item.basePrice)}</td>
                     <td className="p-3 text-center font-bold">{item.quantity}</td>
+                    <td className="p-3 text-right">
+                      {item.discountPercentage > 0 ? (
+                        <span className="text-red-600 font-bold">
+                          {item.discountPercentage}%
+                          <span className="block text-[10px] text-red-400">-{currency(item.discountAmount)}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="p-3 text-right font-semibold">{currency(item.taxableValue)}</td>
                     <td className="p-3 text-right font-semibold text-slate-600">{currency(item.gstAmount)}</td>
                     <td className="p-3 text-right font-black text-purple">{currency(item.totalAmount)}</td>
@@ -983,7 +1244,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     <Sparkles className="mx-auto mb-2 text-slate-300" size={32} />
                     <p className="text-sm font-bold text-slate-600">No services selected yet</p>
                     <p className="text-xs text-slate-400">Use the 3-tier dropdown selector above to add services.</p>

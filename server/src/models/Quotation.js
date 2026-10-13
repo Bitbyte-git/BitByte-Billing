@@ -61,7 +61,9 @@ const quotationSchema = new mongoose.Schema({
   subtotal: { type: Number, default: 0 },
   gstAmount: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
-  submittedAt: Date
+  submittedAt: Date,
+  adminEditCount: { type: Number, default: 0, min: 0, max: 2 },
+  lastAdminEditAt: Date
 }, { timestamps: true });
 
 export default mongoose.model('Quotation', quotationSchema);

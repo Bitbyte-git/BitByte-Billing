@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
+import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import QuotationTimeline from '../components/QuotationTimeline.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -14,6 +15,7 @@ export default function QuotationDetail({ role, mode }) {
   const [quotation, setQuotation] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [remark, setRemark] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -62,6 +64,7 @@ export default function QuotationDetail({ role, mode }) {
   if (!quotation) return <p className="rounded-xl bg-red-50 p-5 text-sm font-semibold text-red-600">{message.text}</p>;
 
   return (
+    <>
     <div>
       {message.text && <p className={`mb-4 rounded-xl px-4 py-3 text-sm font-semibold ${message.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>{message.text}</p>}
       <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
@@ -70,7 +73,28 @@ export default function QuotationDetail({ role, mode }) {
           <h1 className="text-3xl font-black">{quotation.projectTitle}</h1>
           <p className="mt-1 text-slate-500">{quotation.quotationId}</p>
         </div>
-        <StatusBadge status={quotation.status} />
+        <div className="flex flex-wrap items-center gap-3">
+          {role === 'Admin' && (() => {
+            const editCount = quotation.adminEditCount || 0;
+            const editsLeft = 2 - editCount;
+            return editsLeft > 0 ? (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 font-bold"
+              >
+                ✏️ Edit Quotation
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-black">
+                  {editsLeft} left
+                </span>
+              </button>
+            ) : (
+              <span className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600">
+                🔒 Max edits used (2/2)
+              </span>
+            );
+          })()}
+          <StatusBadge status={quotation.status} />
+        </div>
       </div>
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <section className="space-y-6">
@@ -207,5 +231,17 @@ export default function QuotationDetail({ role, mode }) {
         </aside>
       </div>
     </div>
+      {showEditModal && quotation && (
+        <EditQuotationModal
+          quotation={quotation}
+          onClose={() => setShowEditModal(false)}
+          onSaved={(updated) => {
+            setQuotation(updated);
+            setShowEditModal(false);
+            setMessage({ type: 'success', text: `Quotation updated successfully. (Edit ${updated.adminEditCount}/2)` });
+          }}
+        />
+      )}
+    </>
   );
 }

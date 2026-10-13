@@ -211,6 +211,96 @@ export async function updateStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
+export async function adminEditQuotation(req, res, next) {
+  try {
+    const quotation = await Quotation.findById(req.params.id);
+    if (!quotation) throw Object.assign(new Error('Quotation not found'), { status: 404 });
+
+    const currentEditCount = quotation.adminEditCount || 0;
+    if (currentEditCount >= 2) {
+      throw Object.assign(new Error('This quotation has already been edited the maximum of 2 times by an admin.'), { status: 403 });
+    }
+
+    // Update description / project fields if provided
+    const allowedDescFields = ['projectTitle', 'projectDescription', 'requirementDetails', 'priorityLevel', 'serviceRequirement', 'technologyPreference'];
+    for (const field of allowedDescFields) {
+      if (req.body[field] !== undefined) quotation[field] = req.body[field];
+    }
+
+    // Update costing items if provided
+    if (Array.isArray(req.body.costingItems) && req.body.costingItems.length > 0) {
+      const items = req.body.costingItems.map((item) => {
+        const basePrice = Number(item.basePrice || 0);
+        const quantity = Number(item.quantity || 1);
+        const discountPercentage = Number(item.discountPercentage || 0);
+        const discountAmount = Number(item.discountAmount ?? ((basePrice * quantity) * discountPercentage / 100));
+        const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const gstPercentage = Number(item.gstPercentage || 18);
+        const gstAmount = Number(item.gstAmount ?? (taxableValue * gstPercentage / 100));
+        const totalAmount = Number(item.totalAmount ?? (taxableValue + gstAmount));
+        return {
+          serviceId: item.serviceId || undefined,
+          mainService: item.mainService || 'General',
+          subService: item.subService || item.subServiceName || 'Service',
+          subServiceName: item.subService || item.subServiceName || 'Service',
+          sacCode: item.sacCode || getSacCode(item.subService || item.subServiceName),
+          description: item.description || '',
+          unit: item.unit || 'Per Service',
+          frequency: item.frequency || 'One Time',
+          payable: item.payable || 'One Time',
+          isOptional: Boolean(item.isOptional),
+          basePrice,
+          quantity,
+          discountPercentage,
+          discountAmount,
+          taxableValue,
+          gstPercentage,
+          gstAmount,
+          totalAmount,
+          priceType: item.priceType || 'Manual',
+          addedByAccountant: item.addedByAccountant || req.user._id,
+          addedByAccountantName: item.addedByAccountantName || req.user.name || req.user.email,
+          pricingAddedAt: item.pricingAddedAt || new Date()
+        };
+      });
+
+      quotation.costingItems = items;
+
+      // Recalculate totals
+      const subtotal = items.reduce((sum, i) => sum + i.taxableValue, 0);
+      const gstAmount = items.reduce((sum, i) => sum + i.gstAmount, 0);
+      quotation.subtotal = subtotal;
+      quotation.gstAmount = gstAmount;
+      quotation.totalAmount = subtotal + gstAmount;
+
+      // Sync mainService / subServices arrays from new items
+      quotation.mainService = [...new Set(items.map((i) => i.mainService).filter(Boolean))];
+      quotation.subServices = [...new Set(items.map((i) => i.subService || i.subServiceName).filter(Boolean))];
+
+      // Sync QuotationItem collection
+      await QuotationItem.deleteMany({ quotationId: quotation._id });
+      if (items.length > 0) {
+        await QuotationItem.insertMany(items.map((item) => ({ ...item, quotationId: quotation._id })));
+      }
+    }
+
+    quotation.adminEditCount = currentEditCount + 1;
+    quotation.lastAdminEditAt = new Date();
+    await quotation.save();
+
+    await recordAudit({
+      userId: req.user._id,
+      action: `Admin edited quotation (edit #${quotation.adminEditCount})`,
+      entityType: 'Quotation',
+      entityId: quotation._id,
+      newValue: { adminEditCount: quotation.adminEditCount }
+    });
+
+    const populated = await Quotation.findById(quotation._id).populate('clientId');
+    res.json(populated);
+  } catch (err) { next(err); }
+}
+
 export async function addRemark(req, res, next) {
   try {
     res.status(201).json(await Remark.create({ quotationId: req.params.id, addedBy: req.user._id, role: req.user.role, message: req.body.message }));

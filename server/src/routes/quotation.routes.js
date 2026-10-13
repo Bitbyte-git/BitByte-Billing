@@ -1,7 +1,7 @@
 // trigger reload
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { addCosting, addRemark, approve, clarification, createQuotation, forwardToAdmin, getPublicQuotation, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
+import { addCosting, addRemark, adminEditQuotation, approve, clarification, createQuotation, forwardToAdmin, getPublicQuotation, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -24,5 +24,6 @@ router.post('/:id/forward-to-admin', authorize('Accountant'), forwardToAdmin);
 router.post('/:id/clarification', authorize('Accountant'), body('message').notEmpty(), validate, clarification);
 router.post('/:id/approve', authorize('Admin'), approve);
 router.post('/:id/reject', authorize('Admin'), reject);
+router.put('/:id/admin-edit', authorize('Admin'), adminEditQuotation);
 
 export default router;
