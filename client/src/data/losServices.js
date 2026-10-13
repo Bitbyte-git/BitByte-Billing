@@ -555,8 +555,8 @@ export const losServices = [
     "id": 22,
     "module": "Web Apps",
     "service": "Dynamic Website Design with attractive UI/UX without updates",
-    "description": "More 4 pages than up to 15 pages / 5 modules.",
-    "unit": "Per Service",
+    "description": "Starter Web Design: Configurable modules (min 2 – max 10) with up to 15 images per module. Price auto-calculated by module count.",
+    "unit": "Per Module",
     "count": "1",
     "frequency": "One Time",
     "payable": "One Time",
@@ -568,11 +568,11 @@ export const losServices = [
       "enterprise": 27490
     },
     "tierNotes": {
-      "starter": "Starter Web Design",
-      "basic": "Basic Web Design with Normal UI/UX",
-      "standard": "Standard Web Design with Catchy and trending UI/UX",
-      "premium": "Advanced Web Design with Catchy Animations and trending UI/UX",
-      "enterprise": "Advanced Web Design with Catchy Animations and trending UI/UX in 3D or Parallax"
+      "starter": "Starter Web Design — configurable modules (2–10), up to 15 images/module",
+      "basic": "Basic Web Design with Normal UI/UX — configurable modules (2–10), up to 15 images/module",
+      "standard": "Standard Web Design with Catchy and trending UI/UX — configurable modules (2–10), up to 15 images/module",
+      "premium": "Advanced Web Design with Catchy Animations and trending UI/UX — configurable modules (2–10), up to 15 images/module",
+      "enterprise": "Advanced Web Design with Catchy Animations and trending UI/UX in 3D or Parallax — configurable modules (2–10), up to 15 images/module"
     },
     "sacCode": "998314"
   },

@@ -82,7 +82,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     activeServiceObj?.service?.toLowerCase().includes('amc');
 
   // Special service flags
-  const isModuleService = !isCustomService && activeServiceObj?.id === 24;
+  const isModuleService = !isCustomService && (activeServiceObj?.id === 24 || activeServiceObj?.id === 22);
   const isChangesService = !isCustomService && activeServiceObj?.id === 23;
 
   // Reset special params when service changes

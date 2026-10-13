@@ -231,7 +231,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
   // ── Special service flags ──
   // Service 24: module-images service (price × moduleCount)
-  const isModuleService = !isCustomService && activeServiceObj?.id === 24;
+  const isModuleService = !isCustomService && (activeServiceObj?.id === 24 || activeServiceObj?.id === 22);
   // Service 23: changes service (count up to 15)
   const isChangesService = !isCustomService && activeServiceObj?.id === 23;
 
