@@ -63,7 +63,17 @@ const quotationSchema = new mongoose.Schema({
   totalAmount: { type: Number, default: 0 },
   submittedAt: Date,
   adminEditCount: { type: Number, default: 0, min: 0, max: 2 },
-  lastAdminEditAt: Date
+  lastAdminEditAt: Date,
+  pdfUrl: String,
+  whatsappStatus: {
+    type: String,
+    enum: ['Not Sent', 'Sent', 'Failed'],
+    default: 'Not Sent'
+  },
+  whatsappSentAt: Date,
+  whatsappRecipient: String,
+  whatsappResponse: mongoose.Schema.Types.Mixed,
+  whatsappError: String
 }, { timestamps: true });
 
 export default mongoose.model('Quotation', quotationSchema);

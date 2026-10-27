@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { MessageCircle } from 'lucide-react';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
@@ -16,6 +17,7 @@ export default function QuotationDetail({ role, mode }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [remark, setRemark] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -43,6 +45,33 @@ export default function QuotationDetail({ role, mode }) {
       setMessage({ type: 'success', text: 'Clarification request sent.' });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to send clarification.' });
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!quotation) return;
+    setSendingWhatsApp(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const { data } = await api.post(`/quotations/${recordId(quotation)}/send-whatsapp`);
+      if (data.success) {
+        setMessage({
+          type: 'success',
+          text: `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || quotation.clientId?.phone})!`
+        });
+      } else {
+        const errDetail = typeof data.result?.error === 'string'
+          ? data.result.error
+          : (data.result?.error?.ErrorMessage?.error?.message || data.result?.error?.ApiMessage || data.message || 'Check Tendigit credentials in server/.env');
+        setMessage({ type: 'error', text: `WhatsApp delivery: ${errDetail}` });
+      }
+      if (data.quotation) {
+        setQuotation(data.quotation);
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to send WhatsApp message.' });
+    } finally {
+      setSendingWhatsApp(false);
     }
   };
 
@@ -74,6 +103,17 @@ export default function QuotationDetail({ role, mode }) {
           <p className="mt-1 text-slate-500">{quotation.quotationId}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {['Accountant', 'Admin'].includes(role) && (
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={sendingWhatsApp}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
+              title="Send or resend quotation PDF directly to client's WhatsApp"
+            >
+              <MessageCircle size={15} />
+              <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend WhatsApp' : 'Send WhatsApp')}</span>
+            </button>
+          )}
           {role === 'Admin' && (() => {
             const editCount = quotation.adminEditCount || 0;
             const editsLeft = 2 - editCount;
@@ -107,6 +147,7 @@ export default function QuotationDetail({ role, mode }) {
                 ['Email', quotation.clientId?.email || '-'],
                 ['Phone', quotation.clientId?.phone || '-'],
                 ['Priority', quotation.priorityLevel],
+                ['WhatsApp Status', quotation.whatsappStatus ? (quotation.whatsappStatus === 'Sent' ? '✅ Sent' : `❌ ${quotation.whatsappStatus}`) : '⏳ Not Sent'],
                 ['Submitted', formatDate(quotation.submittedAt || quotation.createdAt)]
               ].map(([label, value]) => <div key={label} className="rounded-xl bg-surface p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>)}
             </div>

@@ -11,6 +11,7 @@ import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { changeQuotationStatus, recordAudit, notifyRole } from '../services/workflowService.js';
 import { createInvoiceForQuotation } from '../services/invoiceService.js';
 import { createQuotationPdfDocument } from '../utils/quotationPdf.js';
+import { sendQuotationWhatsApp } from '../utils/whatsapp.js';
 
 export async function listQuotations(req, res, next) {
   try {
@@ -160,7 +161,29 @@ export async function createQuotation(req, res, next) {
     await recordAudit({ userId: req.user._id, action: `Quotation created by ${req.user.role}`, entityType: 'Quotation', entityId: quotation._id, newValue: quotation.toObject() });
 
     const populated = await Quotation.findById(quotation._id).populate('clientId');
-    res.status(201).json(populated);
+
+    // Send quotation PDF to client WhatsApp if requested
+    let whatsappResult = null;
+    if (req.body.sendWhatsApp !== false && populated) {
+      try {
+        whatsappResult = await sendQuotationWhatsApp({
+          quotation: populated,
+          contactOverride: req.body.clientDetails?.phone || req.body.phone,
+          clientDetails: req.body.clientDetails
+        });
+      } catch (waErr) {
+        console.error('[WhatsApp] Auto send on quotation creation error:', waErr.message);
+        whatsappResult = { success: false, error: waErr.message };
+      }
+    }
+
+    const finalQuotation = await Quotation.findById(quotation._id).populate('clientId');
+    const responsePayload = finalQuotation ? finalQuotation.toObject() : populated.toObject();
+    if (whatsappResult) {
+      responsePayload.whatsapp = whatsappResult;
+    }
+
+    res.status(201).json(responsePayload);
   } catch (err) { console.error('CreateQuotation error:', err); next(err); }
 }
 
@@ -610,3 +633,54 @@ export async function getPublicQuotation(req, res, next) {
     next(err);
   }
 }
+
+export async function publicQuotationPdf(req, res, next) {
+  try {
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    }).populate('clientId createdBy');
+
+    if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+    const pdfDoc = createQuotationPdfDocument(quotation);
+    const safeId = quotation.quotationId || String(quotation._id);
+    const isDownload = req.query.download === 'true' || req.query.download === '1' || req.query.dl === '1';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${safeId}.pdf"`);
+    pdfDoc.pipe(res);
+    pdfDoc.end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function sendQuotationWhatsAppController(req, res, next) {
+  try {
+    const quotation = await Quotation.findById(req.params.id).populate('clientId createdBy');
+    if (!quotation) {
+      return res.status(404).json({ message: 'Quotation not found' });
+    }
+
+    const result = await sendQuotationWhatsApp({
+      quotation,
+      contactOverride: req.body.phone
+    });
+
+    const updated = await Quotation.findById(quotation._id).populate('clientId createdBy');
+    res.json({
+      success: result.success,
+      message: result.success
+        ? `Quotation sent via WhatsApp to ${result.contact}`
+        : (result.error || 'Failed to send WhatsApp message'),
+      result,
+      quotation: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

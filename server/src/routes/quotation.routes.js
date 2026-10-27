@@ -1,13 +1,14 @@
 // trigger reload
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { addCosting, addRemark, adminEditQuotation, approve, clarification, createQuotation, forwardToAdmin, getPublicQuotation, getQuotation, listQuotations, quotationPdf, reject, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
+import { addCosting, addRemark, adminEditQuotation, approve, clarification, createQuotation, forwardToAdmin, getPublicQuotation, getQuotation, listQuotations, publicQuotationPdf, quotationPdf, reject, sendQuotationWhatsAppController, updateQuotation, updateStatus } from '../controllers/quotation.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
 router.get('/public/:id', getPublicQuotation);
+router.get('/public/:id/pdf', publicQuotationPdf);
 
 router.use(authenticate);
 router.get('/', listQuotations);
@@ -16,6 +17,7 @@ router.post('/', authorize('Client', 'Accountant', 'Admin'), [
   body('projectTitle').optional(),
 ], validate, createQuotation);
 router.get('/:id/pdf', authorize('Accountant', 'Admin'), quotationPdf);
+router.post('/:id/send-whatsapp', authorize('Accountant', 'Admin'), sendQuotationWhatsAppController);
 router.put('/:id', updateQuotation);
 router.put('/:id/status', updateStatus);
 router.post('/:id/remarks', body('message').notEmpty(), validate, addRemark);

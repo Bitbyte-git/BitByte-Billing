@@ -15,7 +15,8 @@ import {
   Sparkles,
   Trash2,
   UserCheck,
-  UserPlus
+  UserPlus,
+  MessageCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
@@ -121,6 +122,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [submitting, setSubmitting] = useState(false);
   const [savedQuotation, setSavedQuotation] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '' });
@@ -430,6 +433,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         priorityLevel: quotationMeta.priorityLevel,
         status: 'Approved',
         clientDetails: customClient,
+        sendWhatsApp,
         clientId: (selectedClientId && selectedClientId !== 'NEW') ? selectedClientId : undefined,
         costingItems: costingItems.map((item) => ({
           mainService: item.mainService,
@@ -457,11 +461,66 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
       const { data } = await api.post('/quotations', payload);
       setSavedQuotation(data);
-      setMessage({ type: 'success', text: `Quotation ${data.quotationId} generated and saved successfully!` });
+
+      if (data.whatsapp?.success) {
+        setMessage({
+          type: 'success',
+          text: `Quotation ${data.quotationId} generated and sent directly to client WhatsApp (+${data.whatsapp.contact})!`
+        });
+      } else if (data.whatsapp?.error) {
+        const errStr = typeof data.whatsapp.error === 'string'
+          ? data.whatsapp.error
+          : (data.whatsapp.error?.ErrorMessage?.error?.message || data.whatsapp.error?.ApiMessage || JSON.stringify(data.whatsapp.error));
+        setMessage({
+          type: 'success',
+          text: `Quotation ${data.quotationId} saved successfully! (WhatsApp note: ${errStr})`
+        });
+      } else {
+        setMessage({
+          type: 'success',
+          text: `Quotation ${data.quotationId} generated and saved successfully!`
+        });
+      }
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Unable to generate quotation.' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+    if (!savedQuotation) return;
+    const id = recordId(savedQuotation);
+    setSendingWhatsApp(true);
+    try {
+      setMessage({ type: '', text: '' });
+      const { data } = await api.post(`/quotations/${id}/send-whatsapp`, {
+        phone: customClient.phone
+      });
+      if (data.success) {
+        setMessage({
+          type: 'success',
+          text: `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || customClient.phone})!`
+        });
+      } else {
+        const errDetail = typeof data.result?.error === 'string'
+          ? data.result.error
+          : (data.result?.error?.ErrorMessage?.error?.message || data.result?.error?.ApiMessage || data.message || 'Check Tendigit credentials in server/.env');
+        setMessage({
+          type: 'error',
+          text: `WhatsApp delivery: ${errDetail}`
+        });
+      }
+      if (data.quotation) {
+        setSavedQuotation(data.quotation);
+      }
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: 'WhatsApp send failed: ' + (err.response?.data?.message || err.message)
+      });
+    } finally {
+      setSendingWhatsApp(false);
     }
   };
 
@@ -506,6 +565,15 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           {savedQuotation ? (
             <>
               <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                disabled={sendingWhatsApp}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-bold text-white shadow-glow hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                title="Send or resend quotation PDF directly to client WhatsApp"
+              >
+                <MessageCircle size={18} /> {sendingWhatsApp ? 'Sending WhatsApp...' : 'Send WhatsApp'}
+              </button>
+              <button
                 onClick={handleDownloadPdf}
                 className="gradient-button flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold shadow-glow"
               >
@@ -523,13 +591,28 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
               </button>
             </>
           ) : (
-            <button
-              onClick={handleSaveQuotation}
-              disabled={submitting || costingItems.length === 0}
-              className="gradient-button flex items-center gap-2 rounded-xl px-6 py-3 font-bold shadow-glow disabled:opacity-40"
-            >
-              <FileCheck2 size={18} /> {submitting ? 'Generating...' : 'Save & Issue Quotation'}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer select-none rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-bold text-emerald-950 hover:bg-emerald-100 transition-colors shadow-sm">
+                <input
+                  type="checkbox"
+                  checked={sendWhatsApp}
+                  onChange={(e) => setSendWhatsApp(e.target.checked)}
+                  className="h-4 w-4 rounded accent-emerald-600 cursor-pointer"
+                />
+                <MessageCircle size={16} className="text-emerald-700" />
+                <span>Auto-send PDF to client WhatsApp</span>
+                {customClient.phone ? (
+                  <span className="font-mono text-emerald-700 font-semibold">(+91 {customClient.phone})</span>
+                ) : null}
+              </label>
+              <button
+                onClick={handleSaveQuotation}
+                disabled={submitting || costingItems.length === 0}
+                className="gradient-button flex items-center gap-2 rounded-xl px-6 py-3 font-bold shadow-glow disabled:opacity-40"
+              >
+                <FileCheck2 size={18} /> {submitting ? 'Generating...' : 'Save & Issue Quotation'}
+              </button>
+            </div>
           )}
         </div>
       </div>
