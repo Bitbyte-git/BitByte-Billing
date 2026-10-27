@@ -138,9 +138,9 @@ export async function ensureQuotationPdfUrl(quotation) {
   }
 
   // 3. Fallback to server route
-  const rawBase = (process.env.APP_URL || process.env.CLIENT_URL || 'https://bit-byte-billing-client.vercel.app').trim().replace(/\/+$/, '');
+  const rawBase = (process.env.APP_URL || process.env.BACKEND_URL || 'https://bitbyte-server.onrender.com').trim().replace(/\/+$/, '');
   const baseUrl = /^https?:\/\//i.test(rawBase) ? rawBase : `https://${rawBase}`;
-  const fallbackUrl = `${baseUrl}/api/quotations/public/${quotation._id || quotation.quotationId}/pdf`;
+  const fallbackUrl = `${baseUrl}/api/quotations/public/${quotation._id || quotation.quotationId}/pdf?download=true`;
   quotation.pdfUrl = fallbackUrl;
   await safeUpdateQuotation(quotation._id, { pdfUrl: fallbackUrl });
   return fallbackUrl;
