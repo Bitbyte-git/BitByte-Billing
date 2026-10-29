@@ -155,42 +155,43 @@ export default function QuotationDetail({ role, mode }) {
                   <span>Invoice PDF</span>
                 </button>
               )}
-              {/* Management WhatsApp Dispatch */}
+              {/* Manual Trigger: Send to Management WhatsApp */}
               <button
                 type="button"
                 onClick={() => handleSendWhatsApp('management')}
-                disabled={sendingWhatsApp}
+                disabled={Boolean(sendingWhatsApp)}
                 className="flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/10 px-3.5 py-2 text-xs font-bold text-purple hover:bg-purple hover:text-white disabled:opacity-50 transition-all shadow-sm"
                 title="Send quotation PDF to Management (MD, ED, CEO, Bit Byte Office)"
               >
                 <MessageCircle size={15} />
-                <span>{sendingWhatsApp ? 'Sending...' : '📱 Send to Management'}</span>
+                <span>{sendingWhatsApp === 'management' ? 'Sending to Management...' : '📱 Send to Management'}</span>
               </button>
 
-              {/* Client WhatsApp Dispatch (or Manual Admin Approval) */}
-              {quotation.status === 'Approved' || ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
-                <button
-                  type="button"
-                  onClick={() => handleSendWhatsApp('client')}
-                  disabled={sendingWhatsApp}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                  title="Resend quotation PDF directly to client's WhatsApp"
-                >
-                  <MessageCircle size={15} />
-                  <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend to Client' : 'Send to Client WhatsApp')}</span>
-                </button>
-              ) : role === 'Admin' ? (
+              {/* Manual Trigger: Send to Client WhatsApp (Always accessible to staff) */}
+              <button
+                type="button"
+                onClick={() => handleSendWhatsApp('client')}
+                disabled={Boolean(sendingWhatsApp)}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                title="Send quotation PDF directly to client's WhatsApp"
+              >
+                <MessageCircle size={15} />
+                <span>{sendingWhatsApp === 'client' ? 'Sending to Client...' : (quotation.whatsappStatus === 'Sent' ? '📱 Resend to Client' : '📱 Send to Client WhatsApp')}</span>
+              </button>
+
+              {/* Admin Manual Approval Trigger */}
+              {role === 'Admin' && quotation.status !== 'Approved' && !['Invoice Generated', 'Paid'].includes(quotation.status) && (
                 <button
                   type="button"
                   onClick={handleApprove}
-                  disabled={sendingWhatsApp}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                  title="Approve quotation and automatically dispatch to client's WhatsApp"
+                  disabled={Boolean(sendingWhatsApp)}
+                  className="flex items-center gap-1.5 rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-md hover:bg-slate-800 disabled:opacity-50 transition-all"
+                  title="Approve quotation and update official status"
                 >
                   <CheckCircle2 size={15} />
-                  <span>{sendingWhatsApp ? 'Approving...' : '✅ Approve & Send to Client'}</span>
+                  <span>{sendingWhatsApp === 'approving' ? 'Approving...' : '✅ Approve Quotation'}</span>
                 </button>
-              ) : null}
+              )}
             </>
           )}
           {['Admin', 'Accountant'].includes(role) && (() => {

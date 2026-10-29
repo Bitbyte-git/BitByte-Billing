@@ -225,25 +225,10 @@ export async function createQuotation(req, res, next) {
 
     const populated = await Quotation.findById(quotation._id).populate('clientId');
 
-    // Send quotation PDF to Management members (MD, ED, CEO, Bit Byte Office) for review
-    let managementWhatsAppResult = null;
-    if (req.body.sendWhatsApp !== false && populated) {
-      try {
-        managementWhatsAppResult = await sendQuotationToManagementWhatsApp(populated);
-        console.log(`[WhatsApp Management] Sent to management for quotation ${quotation.quotationId}: status=${managementWhatsAppResult?.status}`);
-      } catch (waErr) {
-        console.error('[WhatsApp Management] Auto send on quotation creation error:', waErr.message);
-        managementWhatsAppResult = { success: false, error: waErr.message };
-      }
-    }
-
-    const finalQuotation = await Quotation.findById(quotation._id).populate('clientId');
-    const responsePayload = finalQuotation ? finalQuotation.toObject() : populated.toObject();
-    if (managementWhatsAppResult) {
-      responsePayload.managementWhatsApp = managementWhatsAppResult;
-    }
-
-    res.status(201).json(responsePayload);
+    // Return populated quotation without automatic WhatsApp dispatch.
+    // Manual triggers for Management and Client are provided in the UI.
+    const populatedQuotation = await Quotation.findById(quotation._id).populate('clientId');
+    res.status(201).json(populatedQuotation);
   } catch (err) { console.error('CreateQuotation error:', err); next(err); }
 }
 

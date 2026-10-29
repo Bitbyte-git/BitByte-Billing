@@ -510,22 +510,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       const { data } = await api.post('/quotations', payload);
       setSavedQuotation(data);
 
-      if (data.managementWhatsApp?.success) {
-        setMessage({
-          type: 'success',
-          text: `Quotation ${data.quotationId} generated and sent to Management WhatsApp (MD, ED, CEO, Office) for review! Once approved by Admin, it will be sent to the client.`
-        });
-      } else if (data.managementWhatsApp?.error) {
-        setMessage({
-          type: 'success',
-          text: `Quotation ${data.quotationId} saved for management approval. (Management WhatsApp note: ${data.managementWhatsApp.error})`
-        });
-      } else {
-        setMessage({
-          type: 'success',
-          text: `Quotation ${data.quotationId} generated and forwarded to Admin & Management for review!`
-        });
-      }
+      setMessage({
+        type: 'success',
+        text: `Quotation ${data.quotationId} generated successfully! You can now manually trigger sending to Management or Client via WhatsApp below.`
+      });
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Unable to generate quotation.' });
     } finally {
@@ -533,27 +521,30 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     }
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = async (target = 'client') => {
     if (!savedQuotation) return;
     const id = recordId(savedQuotation);
-    setSendingWhatsApp(true);
+    setSendingWhatsApp(target);
     try {
       setMessage({ type: '', text: '' });
       const { data } = await api.post(`/quotations/${id}/send-whatsapp`, {
+        target,
         phone: customClient.phone
       });
       if (data.success) {
         setMessage({
           type: 'success',
-          text: `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || customClient.phone})!`
+          text: target === 'management'
+            ? `Quotation PDF sent to Management WhatsApp (${data.result?.successCount || 4}/${data.result?.totalCount || 4} delivered: MD, ED, CEO, Bit Byte Office)!`
+            : `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || customClient.phone})!`
         });
       } else {
         const errDetail = typeof data.result?.error === 'string'
           ? data.result.error
-          : (data.result?.error?.ErrorMessage?.error?.message || data.result?.error?.ApiMessage || data.message || 'Check Tendigit credentials in server/.env');
+          : (data.result?.error?.ErrorMessage?.error?.message || data.result?.error?.ApiMessage || data.message || 'Check WhatsApp credentials in server/.env');
         setMessage({
           type: 'error',
-          text: `WhatsApp delivery: ${errDetail}`
+          text: `WhatsApp delivery (${target}): ${errDetail}`
         });
       }
       if (data.quotation) {
@@ -562,10 +553,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     } catch (err) {
       setMessage({
         type: 'error',
-        text: 'WhatsApp send failed: ' + (err.response?.data?.message || err.message)
+        text: `WhatsApp send to ${target} failed: ` + (err.response?.data?.message || err.message)
       });
     } finally {
-      setSendingWhatsApp(false);
+      setSendingWhatsApp(null);
     }
   };
 
@@ -611,16 +602,27 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
             <>
               <button
                 type="button"
-                onClick={handleSendWhatsApp}
-                disabled={sendingWhatsApp}
-                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-bold text-white shadow-glow hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                title="Send or resend quotation PDF directly to client WhatsApp"
+                onClick={() => handleSendWhatsApp('management')}
+                disabled={Boolean(sendingWhatsApp)}
+                className="flex items-center gap-2 rounded-xl border border-purple/40 bg-purple/10 px-4 py-2.5 font-bold text-purple hover:bg-purple hover:text-white disabled:opacity-50 transition-all shadow-sm"
+                title="Send quotation PDF to Management WhatsApp (MD, ED, CEO, Bit Byte Office)"
               >
-                <MessageCircle size={18} /> {sendingWhatsApp ? 'Sending WhatsApp...' : 'Send WhatsApp'}
+                <MessageCircle size={18} />
+                <span>{sendingWhatsApp === 'management' ? 'Sending to Management...' : '📱 Send to Management'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendWhatsApp('client')}
+                disabled={Boolean(sendingWhatsApp)}
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-bold text-white shadow-glow hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                title="Send quotation PDF directly to client WhatsApp"
+              >
+                <MessageCircle size={18} />
+                <span>{sendingWhatsApp === 'client' ? 'Sending to Client...' : '📱 Send to Client WhatsApp'}</span>
               </button>
               <button
                 onClick={handleDownloadPdf}
-                className="gradient-button flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold shadow-glow"
+                className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2.5 font-bold shadow-glow"
               >
                 <Download size={18} /> Download / Print PDF
               </button>
@@ -637,23 +639,12 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
             </>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer select-none rounded-xl border border-purple/30 bg-purple/5 px-3.5 py-2.5 text-xs font-bold text-slate-800 hover:bg-purple/10 transition-colors shadow-sm">
-                <input
-                  type="checkbox"
-                  checked={sendWhatsApp}
-                  onChange={(e) => setSendWhatsApp(e.target.checked)}
-                  className="h-4 w-4 rounded accent-purple cursor-pointer"
-                />
-                <MessageCircle size={16} className="text-purple" />
-                <span>Send PDF to Management WhatsApp</span>
-                <span className="font-semibold text-purple text-[10px] bg-purple/10 px-2 py-0.5 rounded-full">MD · ED · CEO · Office</span>
-              </label>
               <button
                 onClick={handleSaveQuotation}
                 disabled={submitting || costingItems.length === 0}
                 className="gradient-button flex items-center gap-2 rounded-xl px-6 py-3 font-bold shadow-glow disabled:opacity-40"
               >
-                <FileCheck2 size={18} /> {submitting ? 'Submitting...' : 'Submit for Management Approval'}
+                <FileCheck2 size={18} /> {submitting ? 'Generating Quotation...' : 'Generate Quotation'}
               </button>
             </div>
           )}
@@ -664,6 +655,58 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         <p className={`rounded-xl px-4 py-3 text-sm font-semibold ${message.type === 'error' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
           {message.text}
         </p>
+      )}
+
+      {/* MANUAL WHATSAPP DISPATCH CARD (After quotation is generated) */}
+      {savedQuotation && (
+        <div className="rounded-2xl border border-purple/20 bg-gradient-to-r from-purple/5 via-white to-emerald-50/40 p-5 shadow-premium">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-purple/10 p-2.5 text-purple mt-0.5">
+                <MessageCircle size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-purple">Manual WhatsApp Dispatch</span>
+                  <span className="text-xs font-mono font-bold text-slate-800 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">{savedQuotation.quotationId}</span>
+                </div>
+                <p className="text-xs font-semibold text-slate-700 mt-1">
+                  Quotation generated successfully. Click below to manually dispatch the quotation PDF via WhatsApp:
+                </p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple"></span>
+                    <strong>Management:</strong> MD, ED, CEO, Bit Byte Office (4 contacts)
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                    <strong>Client:</strong> {customClient.fullName || 'Client'} (+{customClient.phone || savedQuotation.clientId?.phone || 'Phone'})
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleSendWhatsApp('management')}
+                disabled={Boolean(sendingWhatsApp)}
+                className="flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/10 px-4 py-2.5 text-xs font-bold text-purple hover:bg-purple hover:text-white disabled:opacity-50 transition shadow-sm"
+              >
+                <MessageCircle size={15} />
+                <span>{sendingWhatsApp === 'management' ? 'Sending to Management...' : '📱 Send to Management WhatsApp'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendWhatsApp('client')}
+                disabled={Boolean(sendingWhatsApp)}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+              >
+                <MessageCircle size={15} />
+                <span>{sendingWhatsApp === 'client' ? 'Sending to Client...' : '📱 Send to Client WhatsApp'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* SECTION 1: INVOICE-STYLE TWO-BOX HEADER CARDS */}

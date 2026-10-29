@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
+import { CheckCircle2, MessageCircle, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
 import DataTable from '../components/DataTable.jsx';
 import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
@@ -56,6 +56,40 @@ export default function TablePage({ type, role }) {
   const [paymentEdits, setPaymentEdits] = useState({});
   const [editingQuotation, setEditingQuotation] = useState(null);
   const [loadingEditId, setLoadingEditId] = useState(null);
+  const [sendingWaRow, setSendingWaRow] = useState(null);
+  const [waToast, setWaToast] = useState({ show: false, message: '', type: 'success' });
+
+  const triggerWhatsApp = async (row, target) => {
+    const id = recordId(row);
+    setSendingWaRow({ id, target });
+    try {
+      const { data } = await api.post(`/quotations/${id}/send-whatsapp`, { target });
+      if (data.success) {
+        setWaToast({
+          show: true,
+          type: 'success',
+          message: target === 'management'
+            ? `Quotation ${row.quotationId} PDF sent to Management WhatsApp (MD, ED, CEO, Office)!`
+            : `Quotation ${row.quotationId} PDF sent directly to Client WhatsApp!`
+        });
+      } else {
+        setWaToast({
+          show: true,
+          type: 'error',
+          message: `WhatsApp (${target}): ` + (data.result?.error || data.message || 'Delivery failed')
+        });
+      }
+    } catch (err) {
+      setWaToast({
+        show: true,
+        type: 'error',
+        message: `WhatsApp send failed: ` + (err.response?.data?.message || err.message)
+      });
+    } finally {
+      setSendingWaRow(null);
+      setTimeout(() => setWaToast({ show: false, message: '', type: 'success' }), 5000);
+    }
+  };
 
   const openEditQuotation = async (row) => {
     const id = recordId(row);
@@ -667,6 +701,30 @@ export default function TablePage({ type, role }) {
                 </button>
               );
             })()}
+            {['Admin', 'Accountant'].includes(role) && (
+              <div className="inline-flex items-center shadow-2xs rounded-lg overflow-hidden border border-slate-200 bg-white">
+                <button
+                  type="button"
+                  onClick={() => triggerWhatsApp(row, 'management')}
+                  disabled={sendingWaRow?.id === recordId(row)}
+                  className="inline-flex items-center gap-1 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition disabled:opacity-50"
+                  title="Send quotation PDF to Management WhatsApp (MD, ED, CEO, Bit Byte Office)"
+                >
+                  <MessageCircle size={13} />
+                  <span>{sendingWaRow?.id === recordId(row) && sendingWaRow?.target === 'management' ? 'Sending...' : 'Mgmt WA'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerWhatsApp(row, 'client')}
+                  disabled={sendingWaRow?.id === recordId(row)}
+                  className="inline-flex items-center gap-1 border-l border-slate-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-600 hover:text-white transition disabled:opacity-50"
+                  title={`Send quotation PDF directly to Client WhatsApp (${row.clientId?.phone || 'client'})`}
+                >
+                  <MessageCircle size={13} />
+                  <span>{sendingWaRow?.id === recordId(row) && sendingWaRow?.target === 'client' ? 'Sending...' : 'Client WA'}</span>
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation')}
@@ -916,6 +974,21 @@ export default function TablePage({ type, role }) {
 
   return (
     <div>
+      {waToast.show && (
+        <div className={`mb-4 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold border shadow-sm ${
+          waToast.type === 'error'
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            <MessageCircle size={16} />
+            <span>{waToast.message}</span>
+          </div>
+          <button onClick={() => setWaToast({ show: false, message: '', type: 'success' })} className="text-slate-400 hover:text-slate-600 font-bold px-1">
+            ✕
+          </button>
+        </div>
+      )}
       <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
           <p className="text-sm font-bold uppercase tracking-widest text-purple">{role} Workspace</p>
