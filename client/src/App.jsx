@@ -101,6 +101,7 @@ export default function App() {
         <Route path="/admin/quotations" element={<TablePage type="quotations" role="Admin" />} />
         <Route path="/admin/quotations/:id" element={<QuotationDetail role="Admin" />} />
         <Route path="/admin/approvals" element={<AdminApproval />} />
+        <Route path="/admin/invoices" element={<TablePage type="invoices" role="Admin" />} />
         <Route path="/admin/invoices/generate" element={<InvoiceGeneration />} />
         <Route path="/admin/intern-invoices/new" element={<InternInvoiceGeneration />} />
         <Route path="/admin/intern-invoices" element={<InternInvoiceManagement />} />

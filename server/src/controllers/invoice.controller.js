@@ -78,7 +78,14 @@ export async function invoicePdf(req, res, next) {
     if (req.user.role === 'Client') {
       return res.status(403).json({ message: 'PDF download not allowed for clients' });
     }
-    const invoice = await Invoice.findById(req.params.id).populate('clientId quotationId');
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const invoice = await Invoice.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { invoiceId: rawId }
+      ]
+    }).populate('clientId quotationId');
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
 
     const pdfDoc = createInvoicePdfDocument(invoice);

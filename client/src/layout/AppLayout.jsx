@@ -55,6 +55,7 @@ const nav = {
     ["Instant Billing", "/admin/instant-billing", ReceiptText],
     ["All Quotations", "/admin/quotations", FileText],
     ["Approvals", "/admin/approvals", ShieldCheck],
+    ["Invoices", "/admin/invoices", ReceiptText],
     ["Invoice Generation", "/admin/invoices/generate", ReceiptText],
     ["Intern Form", "/admin/intern-invoices/new", ReceiptText],
     ["Intern Invoices", "/admin/intern-invoices", FileText],

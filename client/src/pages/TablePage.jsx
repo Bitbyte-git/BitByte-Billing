@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Edit3, Eye, Key, Plus, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
+import { CheckCircle2, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
 import DataTable from '../components/DataTable.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import api, { downloadPaymentAttachment, downloadPdf } from '../api.js';
+import api, { downloadInvoiceForQuotation, downloadPaymentAttachment, downloadPdf, downloadQuotationPdf } from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId, serviceNames } from '../utils/format.js';
 
 function buildPaymentDraftFromRow(row) {
@@ -532,7 +532,64 @@ export default function TablePage({ type, role }) {
         { key: 'status', label: 'Status', badge: true },
         { key: 'submittedAt', label: 'Submitted On', render: (row) => formatDate(row.submittedAt || row.createdAt) }
       ],
-      actions: (row) => <Link to={`/${role.toLowerCase()}/quotations/${recordId(row)}`} className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple"><Eye size={16} /> View</Link>
+      actions: (row) => {
+        if (role === 'Client') {
+          return (
+            <Link
+              to={`/client/quotations/${recordId(row)}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 transition"
+            >
+              <Eye size={14} /> View
+            </Link>
+          );
+        }
+
+        const hasInvoice = Boolean(row.invoice || ['Invoice Generated', 'Paid'].includes(row.status));
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Link
+              to={`/${role.toLowerCase()}/quotations/${recordId(row)}`}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
+              title="View quotation details"
+            >
+              <Eye size={14} /> View
+            </Link>
+            <button
+              type="button"
+              onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation')}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-sm"
+              title="Download Quotation PDF at anytime"
+            >
+              <Download size={14} /> Quotation PDF
+            </button>
+            {hasInvoice ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (row.invoice?._id) {
+                    downloadPdf(recordId(row.invoice), row.invoice.invoiceId || 'Invoice');
+                  } else {
+                    downloadInvoiceForQuotation(recordId(row), row.quotationId);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-600 hover:text-white transition shadow-sm"
+                title="Download Invoice PDF at anytime"
+              >
+                <ReceiptText size={14} /> Invoice PDF
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed opacity-60"
+                title="Invoice has not been generated for this quotation yet"
+              >
+                <ReceiptText size={14} /> Invoice PDF
+              </button>
+            )}
+          </div>
+        );
+      }
     },
     invoices: {
       title: 'Invoices',
@@ -547,9 +604,40 @@ export default function TablePage({ type, role }) {
         { key: 'paymentStatus', label: 'Status', badge: true },
         { key: 'emailDeliveryStatus', label: 'Email', render: (row) => row.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : row.emailDeliveryStatus || 'Pending' }
       ],
-      actions: (row) => role === 'Client' ? (
-        <Link to={`/public/client-invoice/${recordId(row)}`} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800"><Eye size={14} /> View / Pay</Link>
-      ) : <PdfDownloadButton onClick={() => downloadPdf(recordId(row), row.invoiceId)} />
+      actions: (row) => {
+        if (role === 'Client') {
+          return (
+            <Link to={`/public/client-invoice/${recordId(row)}`} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
+              <Eye size={14} /> View / Pay
+            </Link>
+          );
+        }
+
+        const linkedQuotationId = row.quotationId ? recordId(row.quotationId) : null;
+        const quotationNum = getQuotationNumber(row);
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => downloadPdf(recordId(row), row.invoiceId)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 transition shadow-sm"
+              title="Download Invoice PDF at anytime"
+            >
+              <Download size={14} /> Invoice PDF
+            </button>
+            {linkedQuotationId && (
+              <button
+                type="button"
+                onClick={() => downloadQuotationPdf(linkedQuotationId, quotationNum || 'Quotation')}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-sm"
+                title="Download linked Quotation PDF at anytime"
+              >
+                <FileText size={14} /> Quotation PDF
+              </button>
+            )}
+          </div>
+        );
+      }
     },
     payments: {
       title: 'Payments Management',

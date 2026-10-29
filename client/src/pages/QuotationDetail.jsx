@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { Download, MessageCircle, ReceiptText } from 'lucide-react';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import QuotationTimeline from '../components/QuotationTimeline.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import api, { downloadPdf } from '../api.js';
+import api, { downloadInvoiceForQuotation, downloadPdf, downloadQuotationPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
 import priceMap from '../utils/priceList.js';
 import { getSacCode } from '../utils/sacCodes.js';
@@ -77,16 +77,16 @@ export default function QuotationDetail({ role, mode }) {
 
   const handleDownload = async () => {
     if (role === 'Client') return;
-    try {
-      const { data } = await api.get(`/invoices?quotationId=${recordId(quotation)}`);
-      if (data && data.length > 0) {
-        await downloadPdf(recordId(data[0]), data[0].invoiceId);
-      } else {
-        alert('Invoice not found for this quotation.');
-      }
-    } catch (err) {
-      alert('Unable to fetch invoice details.');
+    if (quotation?.invoice?._id) {
+      await downloadPdf(recordId(quotation.invoice), quotation.invoice.invoiceId || 'Invoice');
+      return;
     }
+    await downloadInvoiceForQuotation(recordId(quotation), quotation.quotationId);
+  };
+
+  const handleDownloadQuotation = async () => {
+    if (!quotation) return;
+    await downloadQuotationPdf(recordId(quotation), quotation.quotationId || 'Quotation');
   };
 
   if (!quotation && !message.text) return <p className="rounded-xl bg-white p-5 text-sm font-semibold text-slate-500 shadow-sm">Loading quotation...</p>;
@@ -104,15 +104,38 @@ export default function QuotationDetail({ role, mode }) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {['Accountant', 'Admin'].includes(role) && (
-            <button
-              onClick={handleSendWhatsApp}
-              disabled={sendingWhatsApp}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
-              title="Send or resend quotation PDF directly to client's WhatsApp"
-            >
-              <MessageCircle size={15} />
-              <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend WhatsApp' : 'Send WhatsApp')}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleDownloadQuotation}
+                className="flex items-center gap-1.5 rounded-xl bg-purple px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple/90 transition-all"
+                title="Download Quotation PDF at anytime"
+              >
+                <Download size={15} />
+                <span>Quotation PDF</span>
+              </button>
+              {(quotation.invoice || ['Invoice Generated', 'Paid'].includes(quotation.status)) && (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-800 transition-all"
+                  title="Download Invoice PDF at anytime"
+                >
+                  <ReceiptText size={15} />
+                  <span>Invoice PDF</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                disabled={sendingWhatsApp}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                title="Send or resend quotation PDF directly to client's WhatsApp"
+              >
+                <MessageCircle size={15} />
+                <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend WhatsApp' : 'Send WhatsApp')}</span>
+              </button>
+            </>
           )}
           {role === 'Admin' && (() => {
             const editCount = quotation.adminEditCount || 0;
@@ -257,15 +280,39 @@ export default function QuotationDetail({ role, mode }) {
             <QuotationTimeline status={quotation.status} />
           </div>
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
-            <h2 className="text-lg font-black">Invoice Link</h2>
-            <p className="mt-2 text-sm text-slate-500">Available after approval and invoice generation.</p>
+            <h2 className="text-lg font-black">Quotation Document</h2>
+            <p className="mt-2 text-sm text-slate-500">Official quotation document is available to download at anytime.</p>
+            <div className="mt-4">
+              {['Accountant', 'Admin'].includes(role) ? (
+                <PdfDownloadButton label="Download Quotation PDF" onClick={handleDownloadQuotation} />
+              ) : (
+                <a
+                  href={`/public/quotation/${recordId(quotation)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple hover:bg-purple/5"
+                >
+                  <Download size={16} /> View Online
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+            <h2 className="text-lg font-black">Invoice Document</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              {(quotation.invoice || ['Invoice Generated', 'Paid'].includes(quotation.status))
+                ? 'Official invoice is available for download at anytime.'
+                : 'Available after quotation approval and invoice generation.'}
+            </p>
             <div className="mt-4">
               {role === 'Client' && ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
                 <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">Invoice has been sent to your registered email.</p>
-              ) : ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
-                <PdfDownloadButton onClick={handleDownload} />
+              ) : (quotation.invoice || ['Invoice Generated', 'Paid'].includes(quotation.status)) ? (
+                <PdfDownloadButton label="Download Invoice PDF" onClick={handleDownload} />
               ) : (
-                <button disabled className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-slate-400 opacity-60">PDF Unavailable</button>
+                <button disabled className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-slate-400 opacity-60 cursor-not-allowed">
+                  <ReceiptText size={16} /> Invoice Not Generated
+                </button>
               )}
             </div>
           </div>

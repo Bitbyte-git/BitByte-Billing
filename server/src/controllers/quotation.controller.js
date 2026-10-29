@@ -1,6 +1,7 @@
 import Client from '../models/Client.js';
 import Quotation from '../models/Quotation.js';
 import QuotationItem from '../models/QuotationItem.js';
+import Invoice from '../models/Invoice.js';
 import Remark from '../models/Remark.js';
 import User from '../models/User.js';
 import { nextQuotationId } from '../utils/idGenerator.js';
@@ -17,14 +18,38 @@ export async function listQuotations(req, res, next) {
   try {
     const client = req.user.role === 'Client' ? await Client.findOne({ email: req.user.email }) : null;
     const query = req.user.role === 'Client' ? { $or: [{ createdBy: req.user._id }, ...(client ? [{ clientId: client._id }] : [])] } : {};
-    res.json(await Quotation.find(query).populate('clientId servicesSelected').sort({ createdAt: -1 }));
+    const quotations = await Quotation.find(query).populate('clientId servicesSelected').sort({ createdAt: -1 }).lean();
+
+    const quotationIds = quotations.map((q) => q._id);
+    const invoices = await Invoice.find({ quotationId: { $in: quotationIds } }).select('_id invoiceId quotationId paymentStatus totalAmount').lean();
+    const invoiceMap = {};
+    invoices.forEach((inv) => {
+      invoiceMap[String(inv.quotationId)] = inv;
+    });
+
+    const populatedQuotations = quotations.map((q) => ({
+      ...q,
+      invoice: invoiceMap[String(q._id)] || null
+    }));
+
+    res.json(populatedQuotations);
   } catch (err) { next(err); }
 }
 
 export async function getQuotation(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.id).populate('clientId servicesSelected');
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    }).populate('clientId servicesSelected').lean();
     if (!quotation) throw Object.assign(new Error('Quotation not found'), { status: 404 });
+
+    const invoice = await Invoice.findOne({ quotationId: quotation._id }).lean();
+    quotation.invoice = invoice || null;
     res.json(quotation);
   } catch (err) { next(err); }
 }
@@ -209,7 +234,14 @@ async function resolveClientId(req) {
 
 export async function quotationPdf(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.id).populate('clientId createdBy');
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    }).populate('clientId createdBy servicesSelected');
     if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
     const pdfDoc = createQuotationPdfDocument(quotation);
     const safeId = quotation.quotationId || String(quotation._id);

@@ -74,3 +74,38 @@ export const downloadInternInvoicePdf = async (invoiceId, invoiceNumber = 'Inter
     alert('Unable to download intern invoice PDF. Please try again.');
   }
 };
+
+export const downloadQuotationPdf = async (quotationId, quotationNumber = 'Quotation') => {
+  try {
+    const response = await api.get(`/quotations/${quotationId}/pdf`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${quotationNumber}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    return true;
+  } catch (error) {
+    console.error('Error downloading quotation PDF', error);
+    alert('Unable to download quotation PDF. Please try again.');
+    return false;
+  }
+};
+
+export const downloadInvoiceForQuotation = async (quotationId, fallbackNumber = 'Invoice') => {
+  try {
+    const { data } = await api.get(`/invoices?quotationId=${quotationId}`);
+    if (data && data.length > 0) {
+      await downloadPdf(data[0]._id || quotationId, data[0].invoiceId || fallbackNumber);
+      return true;
+    } else {
+      alert('Invoice has not been generated for this quotation yet.');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error downloading invoice for quotation', error);
+    alert('Unable to download invoice. Please try again.');
+    return false;
+  }
+};
