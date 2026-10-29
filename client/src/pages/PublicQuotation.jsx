@@ -106,7 +106,7 @@ export default function PublicQuotation() {
                           <td className="border-b border-slate-100 px-4 py-3">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-black text-slate-950">{item.service}</p>
-                              {(item.isComplimentary || (item.total === 0 && (item.description || '').toLowerCase().includes('complimentary'))) && (
+                              {(item.isComplimentary || item.tier === 'Complimentary' || (Number(item.total || 0) === 0 && (item.description || '').toLowerCase().includes('complimentary')) || (Number(item.basePrice || 0) === 0 && Number(item.total || 0) === 0)) && (
                                 <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800 border border-emerald-300">
                                   🎁 Complimentary
                                 </span>

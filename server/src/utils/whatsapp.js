@@ -101,6 +101,18 @@ export async function ensureQuotationPdfUrl(quotation) {
     }
   }
 
+  if (!quotation.costingItems || quotation.costingItems.length === 0) {
+    try {
+      const QuotationItem = (await import('../models/QuotationItem.js')).default;
+      const qItems = await QuotationItem.find({ quotationId: quotation._id }).lean();
+      if (qItems && qItems.length > 0) {
+        quotation.costingItems = qItems;
+      }
+    } catch {
+      // ignore fallback error
+    }
+  }
+
   const pdfBuffer = await quotationPdfBuffer(quotation);
   const safeId = quotation.quotationId || String(quotation._id || 'quotation');
   const filename = `${safeId}.pdf`;

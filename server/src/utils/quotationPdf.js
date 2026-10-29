@@ -243,11 +243,24 @@ export function createQuotationPdfDocument(quotation) {
   // Build line items from costingItems
   const rawItems = (quotation.costingItems && quotation.costingItems.length > 0)
     ? quotation.costingItems
-    : [];
+    : (quotation.items && quotation.items.length > 0
+      ? quotation.items
+      : (quotation.quotationItems && quotation.quotationItems.length > 0
+        ? quotation.quotationItems
+        : []));
 
   const items = rawItems.map((item) => {
-    const serviceName = item.subService || item.subServiceName || item.service || "Service";
-    const isComplimentary = Boolean(item.isComplimentary);
+    const serviceName = item.subService || item.subServiceName || item.service || item.serviceName || "Service";
+    const isComplimentary = Boolean(
+      item.isComplimentary ||
+      item.tier === "Complimentary" ||
+      item.tierKey === "complimentary" ||
+      item.priceType === "Complimentary" ||
+      (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
+      (item.subService && /complimentary/i.test(item.subService)) ||
+      (item.service && /complimentary/i.test(item.service)) ||
+      ((item.basePrice === 0 || item.basePrice === "0") && Number(item.totalAmount ?? item.total ?? 0) === 0 && Number(item.taxableValue ?? 0) === 0)
+    );
     const quantity = Number(item.quantity || 1);
     const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? (item.basePrice * quantity - (item.discountAmount || 0)));
     const gstPct = isComplimentary ? 0 : Number(item.gstPercentage || 18);
@@ -255,7 +268,7 @@ export function createQuotationPdfDocument(quotation) {
     const cgstAmt = gstTotal / 2;
     const sgstAmt = gstTotal / 2;
     const igstAmt = 0;
-    const total = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstTotal));
+    const total = isComplimentary ? 0 : Number(item.totalAmount ?? item.total ?? (taxableValue + gstTotal));
     const isOptional = !isComplimentary && Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
     return {
       service: serviceName,
@@ -275,11 +288,12 @@ export function createQuotationPdfDocument(quotation) {
     };
   });
 
-  // Separate mandatory proposal items vs optional suggestions
-  const mandatoryItems = items.filter((item) => !item.isOptional);
-  const optionalItems = items.filter((item) => item.isOptional);
-  const orderedItems = [...mandatoryItems, ...optionalItems];
-  const primaryItems = mandatoryItems.length > 0 ? mandatoryItems : items;
+  // Separate mandatory proposal items, complimentary items, and optional suggestions
+  const complimentaryItems = items.filter((item) => item.isComplimentary);
+  const mandatoryItems = items.filter((item) => !item.isOptional && !item.isComplimentary);
+  const optionalItems = items.filter((item) => item.isOptional && !item.isComplimentary);
+  const orderedItems = [...mandatoryItems, ...complimentaryItems, ...optionalItems];
+  const primaryItems = mandatoryItems.length > 0 ? mandatoryItems : items.filter((item) => !item.isOptional);
 
   const totals = primaryItems.reduce(
     (acc, item) => ({
@@ -436,41 +450,57 @@ export function createQuotationPdfDocument(quotation) {
     },
   ];
 
-  // Line item rows — mandatory items listed first, then optional items
+  // Line item rows — mandatory items listed first, then complimentary, then optional items
   const itemRows = orderedItems.length
     ? orderedItems.map((item, index) => {
         const freqLabel = getFrequencyLabel(item.frequency, item.payable);
         const isRecurring = freqLabel !== 'One Time';
-        const typeBadgeText = item.isComplimentary ? "[Complimentary - Free]" : item.isOptional ? "[Optional Suggestion]" : "[Mandatory]";
+        const typeBadgeText = item.isComplimentary
+          ? "[🎁 Complimentary - 100% Free]"
+          : item.isOptional
+          ? "[Optional Suggestion]"
+          : "[Mandatory]";
         const typeBadgeColor = item.isComplimentary ? "#059669" : item.isOptional ? "#D97706" : "#0F7CEB";
 
         return [
           { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
           {
             text: [
-              { text: item.service || "Service", bold: true },
+              { text: item.service || "Service", bold: true, color: item.isComplimentary ? "#065F46" : COLORS.text },
               { text: `\n${typeBadgeText}`, color: typeBadgeColor, bold: true, fontSize: 7.5 },
               item.description
-                ? { text: `\n${item.description}`, color: COLORS.muted, fontSize: 7.2 }
+                ? { text: `\n${item.description}`, color: item.isComplimentary ? "#047857" : COLORS.muted, fontSize: 7.2 }
                 : { text: "" },
             ],
             margin: [0, 8, 0, 8],
           },
           { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
           {
-            text: freqLabel,
+            text: item.isComplimentary ? "Complimentary" : freqLabel,
             alignment: "center",
             bold: true,
-            color: isRecurring ? "#7C3AED" : COLORS.navy,
+            color: item.isComplimentary ? "#059669" : (isRecurring ? "#7C3AED" : COLORS.navy),
             fontSize: 7.5,
             margin: [0, 8, 0, 8],
           },
           { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
-          { text: formatMoney(item.taxableValue), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: formatMoney(item.total), alignment: "right", bold: true, margin: [0, 8, 0, 8] },
+          {
+            text: item.isComplimentary ? "FREE" : formatMoney(item.taxableValue),
+            alignment: "right",
+            bold: item.isComplimentary,
+            color: item.isComplimentary ? "#059669" : COLORS.text,
+            margin: [0, 8, 0, 8],
+          },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          {
+            text: item.isComplimentary ? "FREE (Rs 0)" : formatMoney(item.total),
+            alignment: "right",
+            bold: true,
+            color: item.isComplimentary ? "#059669" : COLORS.navy,
+            margin: [0, 8, 0, 8],
+          },
         ];
       })
     : [
@@ -765,6 +795,10 @@ export function createQuotationPdfDocument(quotation) {
                                 ...(weeklyTotals.total > 0 ? [moneyRow("Weekly Subtotal (Per Wk)", weeklyTotals.total, { color: "#2563EB" })] : []),
                                 ...(monthlyTotals.total > 0 ? [moneyRow("Monthly Subtotal (Per Mo)", monthlyTotals.total, { color: "#7C3AED" })] : []),
                                 ...(yearlyTotals.total > 0 ? [moneyRow("Yearly AMC Subtotal (Per Yr)", yearlyTotals.total, { color: "#059669" })] : []),
+                                ...(complimentaryItems.length > 0 ? [[
+                                  { text: `Complimentary (${complimentaryItems.length} service${complimentaryItems.length > 1 ? 's' : ''})`, color: "#059669", bold: true, margin: [0, 3, 0, 3] },
+                                  { text: "FREE (Rs 0.00)", alignment: "right", color: "#059669", bold: true, margin: [0, 3, 0, 3] }
+                                ]] : []),
                                 moneyRow("Taxable Amount", totals.taxable),
                                 moneyRow("CGST Total", totals.cgst),
                                 moneyRow("SGST Total", totals.sgst),
@@ -832,6 +866,62 @@ export function createQuotationPdfDocument(quotation) {
             columnGap: 12,
             margin: [0, 0, 0, 10],
           },
+
+          // ── Dedicated Complimentary Services Card (Shown whenever complimentary items exist) ──
+          ...(complimentaryItems.length > 0 ? [
+            {
+              table: {
+                widths: ["*"],
+                body: [
+                  [
+                    {
+                      stack: [
+                        { text: "🎁 COMPLIMENTARY SERVICES INCLUDED (100% FREE OF CHARGE)", style: "sectionTitle", color: "#059669" },
+                        {
+                          table: {
+                            widths: [20, "*", 80, 80],
+                            body: [
+                              [
+                                { text: "S.No", bold: true, fontSize: 7.5, color: "#065F46", alignment: "center" },
+                                { text: "Complimentary Service & Details", bold: true, fontSize: 7.5, color: "#065F46" },
+                                { text: "Billing Frequency", bold: true, fontSize: 7.5, color: "#065F46", alignment: "center" },
+                                { text: "Client Cost", bold: true, fontSize: 7.5, color: "#065F46", alignment: "right" },
+                              ],
+                              ...complimentaryItems.map((cItem, cIdx) => [
+                                { text: String(cIdx + 1), fontSize: 7.5, alignment: "center", margin: [0, 3, 0, 3] },
+                                {
+                                  text: [
+                                    { text: cItem.service, bold: true, fontSize: 8, color: "#065F46" },
+                                    cItem.description ? { text: `\n${cItem.description}`, color: COLORS.muted, fontSize: 7 } : { text: "" }
+                                  ],
+                                  margin: [0, 3, 0, 3]
+                                },
+                                { text: cItem.frequency || "Included", fontSize: 7.5, alignment: "center", margin: [0, 3, 0, 3] },
+                                { text: "100% FREE (Rs 0.00)", bold: true, color: "#059669", fontSize: 7.5, alignment: "right", margin: [0, 3, 0, 3] }
+                              ])
+                            ]
+                          },
+                          layout: detailTableLayout,
+                          margin: [0, 4, 0, 0]
+                        },
+                        {
+                          text: "✓ Note: Complimentary services are delivered 100% free of charge as part of this project quotation package.",
+                          fontSize: 7.2,
+                          color: "#059669",
+                          bold: true,
+                          margin: [0, 4, 0, 0],
+                          italics: true
+                        }
+                      ],
+                      margin: [8, 8, 8, 8]
+                    }
+                  ]
+                ]
+              },
+              layout: cardLayout,
+              margin: [0, 0, 0, 10]
+            }
+          ] : []),
 
           // ── Row 3: 2 Columns for TERMS & CONDITIONS | TOTAL QUOTATION SUMMARY ──
           {

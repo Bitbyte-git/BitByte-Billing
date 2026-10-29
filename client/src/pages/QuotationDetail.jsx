@@ -193,7 +193,7 @@ export default function QuotationDetail({ role, mode }) {
               ) : null}
             </>
           )}
-          {role === 'Admin' && (() => {
+          {['Admin', 'Accountant'].includes(role) && (() => {
             const editCount = quotation.adminEditCount || 0;
             const editsLeft = 2 - editCount;
             return editsLeft > 0 ? (
@@ -315,7 +315,7 @@ export default function QuotationDetail({ role, mode }) {
                               }`}>
                                 {(item.frequency === 'Monthly' || item.payable === 'Monthly' || (item.description || '').includes('Monthly')) ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
                               </span>
-                              {(item.isComplimentary || (item.totalAmount === 0 && (item.description || '').toLowerCase().includes('complimentary'))) && (
+                              {(item.isComplimentary || item.tier === 'Complimentary' || (item.totalAmount === 0 && (item.description || '').toLowerCase().includes('complimentary')) || (Number(item.basePrice || 0) === 0 && Number(item.totalAmount || 0) === 0)) && (
                                 <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800 border border-emerald-300">
                                   🎁 Complimentary
                                 </span>

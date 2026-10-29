@@ -407,7 +407,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
     const newItem = {
       tempId: Date.now() + Math.random(),
-      serviceId: isCustomService ? null : activeServiceObj.id,
+      serviceId: (typeof activeServiceObj?._id === 'string' && /^[0-9a-fA-F]{24}$/.test(activeServiceObj._id)) ? activeServiceObj._id : undefined,
       mainService: moduleLabel,
       subService: serviceName,
       subServiceName: serviceName,
@@ -478,6 +478,9 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         sendWhatsApp,
         clientId: (selectedClientId && selectedClientId !== 'NEW') ? selectedClientId : undefined,
         costingItems: costingItems.map((item) => ({
+          serviceId: (typeof item.serviceId === 'string' && /^[0-9a-fA-F]{24}$/.test(item.serviceId))
+            ? item.serviceId
+            : undefined,
           mainService: item.mainService,
           subService: item.subService,
           subServiceName: item.subServiceName,
@@ -486,7 +489,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           unit: item.unit,
           frequency: item.frequency,
           payable: item.payable,
-          isOptional: item.isOptional,
+          isOptional: Boolean(item.isOptional),
+          isComplimentary: Boolean(item.isComplimentary),
+          tier: item.tier || (item.isComplimentary ? 'Complimentary' : undefined),
+          tierKey: item.tierKey,
           basePrice: item.basePrice,
           quantity: item.quantity,
           discountPercentage: item.discountPercentage,

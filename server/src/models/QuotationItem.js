@@ -1,8 +1,16 @@
 import mongoose from 'mongoose';
 
+const toSafeObjectId = (v) => {
+  if (!v) return undefined;
+  if (v instanceof mongoose.Types.ObjectId) return v;
+  const str = String(v).trim();
+  return /^[0-9a-fA-F]{24}$/.test(str) ? new mongoose.Types.ObjectId(str) : undefined;
+};
+
+
 const quotationItemSchema = new mongoose.Schema({
   quotationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quotation', required: true },
-  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', set: toSafeObjectId },
   mainService: { type: String, required: true },
   subService: { type: String, required: true },
   subServiceName: { type: String, required: true },

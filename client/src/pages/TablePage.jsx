@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
 import DataTable from '../components/DataTable.jsx';
+import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -53,6 +54,21 @@ export default function TablePage({ type, role }) {
   const [serviceSync, setServiceSync] = useState({ loading: false, message: '', error: '' });
   const [invoiceOptions, setInvoiceOptions] = useState([]);
   const [paymentEdits, setPaymentEdits] = useState({});
+  const [editingQuotation, setEditingQuotation] = useState(null);
+  const [loadingEditId, setLoadingEditId] = useState(null);
+
+  const openEditQuotation = async (row) => {
+    const id = recordId(row);
+    try {
+      setLoadingEditId(id);
+      const { data: fullQuotation } = await api.get(`/quotations/${id}`);
+      setEditingQuotation(fullQuotation || row);
+    } catch {
+      setEditingQuotation(row);
+    } finally {
+      setLoadingEditId(null);
+    }
+  };
 
   const endpoint = {
     quotations: '/quotations',
@@ -625,6 +641,32 @@ export default function TablePage({ type, role }) {
             >
               <Eye size={13} className="text-slate-500" /> View
             </Link>
+            {['Admin', 'Accountant'].includes(role) && (() => {
+              const editCount = row.adminEditCount || 0;
+              const editsLeft = 2 - editCount;
+              const canEdit = editsLeft > 0;
+              return (
+                <button
+                  type="button"
+                  onClick={() => openEditQuotation(row)}
+                  disabled={!canEdit || loadingEditId === recordId(row)}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition shadow-2xs ${
+                    canEdit
+                      ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white hover:border-amber-600'
+                      : 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                  }`}
+                  title={canEdit ? `Edit quotation (${editsLeft} edit${editsLeft !== 1 ? 's' : ''} left)` : 'Maximum edits used (2/2)'}
+                >
+                  <Edit3 size={13} />
+                  <span>{loadingEditId === recordId(row) ? 'Loading...' : 'Edit'}</span>
+                  {canEdit && (
+                    <span className="rounded-full bg-amber-200/70 px-1.5 py-0.2 text-[9px] font-black text-amber-900">
+                      {editsLeft}
+                    </span>
+                  )}
+                </button>
+              );
+            })()}
             <button
               type="button"
               onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation')}
@@ -994,6 +1036,18 @@ export default function TablePage({ type, role }) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Edit Quotation Modal */}
+      {editingQuotation && (
+        <EditQuotationModal
+          quotation={editingQuotation}
+          onClose={() => setEditingQuotation(null)}
+          onSaved={(updated) => {
+            setEditingQuotation(null);
+            loadData();
+          }}
+        />
       )}
 
       {/* Client Modal (Create/Edit) */}

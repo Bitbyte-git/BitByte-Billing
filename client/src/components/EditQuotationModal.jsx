@@ -203,7 +203,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
 
     const newItem = {
       tempId: Date.now() + Math.random(),
-      serviceId: isCustomService ? null : activeServiceObj?.id,
+      serviceId: (typeof activeServiceObj?._id === 'string' && /^[0-9a-fA-F]{24}$/.test(activeServiceObj._id)) ? activeServiceObj._id : undefined,
       mainService: moduleLabel,
       subService: serviceName,
       subServiceName: serviceName,

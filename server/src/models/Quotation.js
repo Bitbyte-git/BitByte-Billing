@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
 
+const toSafeObjectId = (v) => {
+  if (!v) return undefined;
+  if (v instanceof mongoose.Types.ObjectId) return v;
+  const str = String(v).trim();
+  return /^[0-9a-fA-F]{24}$/.test(str) ? new mongoose.Types.ObjectId(str) : undefined;
+};
+
+
 export const quotationStatuses = ['Draft', 'Submitted', 'Under Review', 'Needs Clarification', 'Forwarded to Admin', 'Approved', 'Rejected', 'Invoice Generated', 'Paid'];
 
 const attachmentSchema = new mongoose.Schema({
@@ -10,7 +18,7 @@ const attachmentSchema = new mongoose.Schema({
 }, { _id: false });
 
 const costingItemSchema = new mongoose.Schema({
-  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service' },
+  serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', set: toSafeObjectId },
   mainService: String,
   subService: String,
   subServiceName: String,

@@ -26,6 +26,6 @@ router.post('/:id/forward-to-admin', authorize('Accountant'), forwardToAdmin);
 router.post('/:id/clarification', authorize('Accountant'), body('message').notEmpty(), validate, clarification);
 router.post('/:id/approve', authorize('Admin'), approve);
 router.post('/:id/reject', authorize('Admin'), reject);
-router.put('/:id/admin-edit', authorize('Admin'), adminEditQuotation);
+router.put('/:id/admin-edit', authorize('Admin', 'Accountant'), adminEditQuotation);
 
 export default router;

@@ -1,4 +1,13 @@
+import mongoose from 'mongoose';
 import Client from '../models/Client.js';
+
+const toSafeObjectId = (v) => {
+  if (!v) return undefined;
+  if (v instanceof mongoose.Types.ObjectId) return v;
+  const str = String(v).trim();
+  return /^[0-9a-fA-F]{24}$/.test(str) ? new mongoose.Types.ObjectId(str) : undefined;
+};
+
 import Quotation from '../models/Quotation.js';
 import QuotationItem from '../models/QuotationItem.js';
 import Invoice from '../models/Invoice.js';
@@ -47,6 +56,13 @@ export async function getQuotation(req, res, next) {
       ]
     }).populate('clientId servicesSelected').lean();
     if (!quotation) throw Object.assign(new Error('Quotation not found'), { status: 404 });
+
+    if (!quotation.costingItems || quotation.costingItems.length === 0) {
+      const qItems = await QuotationItem.find({ quotationId: quotation._id }).lean();
+      if (qItems && qItems.length > 0) {
+        quotation.costingItems = qItems;
+      }
+    }
 
     const invoice = await Invoice.findOne({ quotationId: quotation._id }).lean();
     quotation.invoice = invoice || null;
@@ -109,7 +125,12 @@ export async function createQuotation(req, res, next) {
 
     // Compute costing if costingItems provided
     let costingItems = (req.body.costingItems || []).map(item => {
-      const isComplimentary = Boolean(item.isComplimentary);
+      const isComplimentary = Boolean(
+        item.isComplimentary ||
+        item.tier === 'Complimentary' ||
+        (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
+        ((item.basePrice === 0 || item.basePrice === '0') && Number(item.totalAmount || 0) === 0)
+      );
       const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
       const quantity = Number(item.quantity || 1);
       const discountAmount = isComplimentary ? 0 : Number(item.discountAmount || 0);
@@ -168,12 +189,14 @@ export async function createQuotation(req, res, next) {
 
     if (costingItems.length > 0) {
       const qItems = costingItems.map(item => {
-        const basePrice = Number(item.basePrice || 0);
+        const isComplimentary = Boolean(item.isComplimentary);
+        const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
-        const discountAmount = Number(item.discountAmount || 0);
-        const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const discountAmount = isComplimentary ? 0 : Number(item.discountAmount || 0);
+        const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
         return {
           quotationId: quotation._id,
+          serviceId: toSafeObjectId(item.serviceId),
           mainService: item.mainService || 'General',
           subService: item.subService || item.subServiceName || item.serviceName || 'Service',
           subServiceName: item.subService || item.subServiceName || item.serviceName || 'Service',
@@ -181,13 +204,15 @@ export async function createQuotation(req, res, next) {
           description: item.description || '',
           basePrice,
           quantity,
-          discountPercentage: Number(item.discountPercentage || 0),
+          discountPercentage: isComplimentary ? 0 : Number(item.discountPercentage || 0),
           discountAmount,
           taxableValue,
-          gstPercentage: Number(item.gstPercentage || 18),
-          gstAmount: Number(item.gstAmount || 0),
-          totalAmount: Number(item.totalAmount || 0),
-          priceType: 'Auto',
+          gstPercentage: isComplimentary ? 0 : Number(item.gstPercentage || 18),
+          gstAmount: isComplimentary ? 0 : Number(item.gstAmount || 0),
+          totalAmount: isComplimentary ? 0 : Number(item.totalAmount || 0),
+          isOptional: Boolean(item.isOptional),
+          isComplimentary,
+          priceType: item.priceType || 'Auto',
           addedByAccountant: req.user._id,
           addedByAccountantName: req.user.name || req.user.email,
           pricingAddedAt: new Date()
@@ -253,6 +278,15 @@ export async function quotationPdf(req, res, next) {
       ]
     }).populate('clientId createdBy servicesSelected');
     if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+
+    // Fallback: If costingItems is empty, load items from QuotationItem collection
+    if (!quotation.costingItems || quotation.costingItems.length === 0) {
+      const qItems = await QuotationItem.find({ quotationId: quotation._id }).lean();
+      if (qItems && qItems.length > 0) {
+        quotation.costingItems = qItems;
+      }
+    }
+
     const pdfDoc = createQuotationPdfDocument(quotation);
     const safeId = quotation.quotationId || String(quotation._id);
     res.setHeader('Content-Type', 'application/pdf');
@@ -295,7 +329,12 @@ export async function adminEditQuotation(req, res, next) {
     // Update costing items if provided
     if (Array.isArray(req.body.costingItems) && req.body.costingItems.length > 0) {
       const items = req.body.costingItems.map((item) => {
-        const isComplimentary = Boolean(item.isComplimentary);
+        const isComplimentary = Boolean(
+          item.isComplimentary ||
+          item.tier === 'Complimentary' ||
+          (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
+          ((item.basePrice === 0 || item.basePrice === '0') && Number(item.totalAmount || 0) === 0)
+        );
         const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
         const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
@@ -305,7 +344,7 @@ export async function adminEditQuotation(req, res, next) {
         const gstAmount = isComplimentary ? 0 : Number(item.gstAmount ?? (taxableValue * gstPercentage / 100));
         const totalAmount = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstAmount));
         return {
-          serviceId: item.serviceId || undefined,
+          serviceId: toSafeObjectId(item.serviceId),
           mainService: item.mainService || 'General',
           subService: item.subService || item.subServiceName || 'Service',
           subServiceName: item.subService || item.subServiceName || 'Service',
@@ -404,7 +443,7 @@ export async function addCosting(req, res, next) {
       }
       return {
         quotationId: quotation._id,
-        serviceId: item.serviceId || undefined,
+        serviceId: toSafeObjectId(item.serviceId),
         mainService,
         subService,
         subServiceName: subService,
@@ -434,7 +473,7 @@ export async function addCosting(req, res, next) {
     quotation.gstAmount = totalGst;
     quotation.totalAmount = totalAmount;
     quotation.costingItems = insertedItems.map((item) => ({
-      serviceId: item.serviceId,
+      serviceId: toSafeObjectId(item.serviceId),
       mainService: item.mainService,
       subService: item.subService,
       subServiceName: item.subServiceName,
@@ -444,9 +483,12 @@ export async function addCosting(req, res, next) {
       quantity: item.quantity,
       discountPercentage: item.discountPercentage,
       discountAmount: item.discountAmount,
+      taxableValue: item.taxableValue,
       gstPercentage: item.gstPercentage,
       gstAmount: item.gstAmount,
       totalAmount: item.totalAmount,
+      isOptional: Boolean(item.isOptional),
+      isComplimentary: Boolean(item.isComplimentary),
       priceType: item.priceType,
       addedByAccountant: item.addedByAccountant,
       addedByAccountantName: item.addedByAccountantName,
@@ -668,7 +710,15 @@ function publicQuotationPayload(quotation) {
       basePrice: Number(item.basePrice || 0),
       taxableValue: Number(item.taxableValue || 0),
       gstAmount: Number(item.gstAmount || 0),
-      total: Number(item.totalAmount || 0)
+      total: Number(item.totalAmount || 0),
+      isOptional: Boolean(item.isOptional),
+      isComplimentary: Boolean(
+        item.isComplimentary ||
+        item.tier === 'Complimentary' ||
+        (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
+        ((item.basePrice === 0 || item.basePrice === '0') && Number(item.totalAmount || 0) === 0)
+      ),
+      tier: item.tier
     })),
     subtotal,
     gstAmount,
@@ -692,6 +742,13 @@ export async function getPublicQuotation(req, res, next) {
       return res.status(404).json({ message: 'Quotation not found' });
     }
 
+    if (!quotation.costingItems || quotation.costingItems.length === 0) {
+      const qItems = await QuotationItem.find({ quotationId: quotation._id }).lean();
+      if (qItems && qItems.length > 0) {
+        quotation.costingItems = qItems;
+      }
+    }
+
     res.json(publicQuotationPayload(quotation));
   } catch (err) {
     next(err);
@@ -710,6 +767,15 @@ export async function publicQuotationPdf(req, res, next) {
     }).populate('clientId createdBy');
 
     if (!quotation) return res.status(404).json({ message: 'Quotation not found' });
+
+    // Fallback: If costingItems is empty, load items from QuotationItem collection
+    if (!quotation.costingItems || quotation.costingItems.length === 0) {
+      const qItems = await QuotationItem.find({ quotationId: quotation._id }).lean();
+      if (qItems && qItems.length > 0) {
+        quotation.costingItems = qItems;
+      }
+    }
+
     const pdfDoc = createQuotationPdfDocument(quotation);
     const safeId = quotation.quotationId || String(quotation._id);
     const isDownload = req.query.download === 'true' || req.query.download === '1' || req.query.dl === '1';
