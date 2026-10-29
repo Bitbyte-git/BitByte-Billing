@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Download, MessageCircle, ReceiptText } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Download, MessageCircle, ReceiptText, Trash2 } from 'lucide-react';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
@@ -18,6 +18,22 @@ export default function QuotationDetail({ role, mode }) {
   const [remark, setRemark] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDeleteQuotation = async () => {
+    if (!quotation) return;
+    const label = quotation.quotationId || 'this quotation';
+    if (!window.confirm(`Are you sure you want to delete quotation ${label}? This will permanently remove it along with any linked invoice and payments.`)) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/quotations/${recordId(quotation)}`);
+      navigate(`/${role.toLowerCase()}/quotations`);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to delete quotation: ' + (err.response?.data?.message || err.message) });
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -213,6 +229,18 @@ export default function QuotationDetail({ role, mode }) {
               </span>
             );
           })()}
+          {['Admin', 'Accountant'].includes(role) && (
+            <button
+              type="button"
+              onClick={handleDeleteQuotation}
+              disabled={deleting}
+              className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
+              title="Delete quotation at anytime"
+            >
+              <Trash2 size={15} />
+              <span>{deleting ? 'Deleting...' : '🗑️ Delete Quotation'}</span>
+            </button>
+          )}
           <StatusBadge status={quotation.status} />
         </div>
       </div>
@@ -366,7 +394,13 @@ export default function QuotationDetail({ role, mode }) {
           )}
         </section>
         <aside className="space-y-6">
-          <AmountSummaryCard subtotal={subtotal} gst={gst} paid={quotation.status === 'Paid' ? quotation.amount : 0} />
+          <AmountSummaryCard
+            subtotal={quotation.finalDiscountAmount > 0 ? Math.max(0, (quotation.subtotal || subtotal) - quotation.finalDiscountAmount) : subtotal}
+            gst={quotation.gstAmount ?? gst}
+            paid={quotation.status === 'Paid' ? quotation.amount : 0}
+            originalSubtotal={quotation.finalDiscountAmount > 0 ? (quotation.subtotal || subtotal) : null}
+            discount={quotation.finalDiscountAmount || 0}
+          />
           {/* Payment Milestones (Terms & Conditions) Card */}
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
             <h2 className="text-lg font-black text-slate-950">Payment Milestones</h2>

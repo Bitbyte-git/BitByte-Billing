@@ -1,5 +1,7 @@
 import Invoice from '../models/Invoice.js';
 import Client from '../models/Client.js';
+import Payment from '../models/Payment.js';
+import Quotation from '../models/Quotation.js';
 import mongoose from 'mongoose';
 import { recordAudit } from '../services/workflowService.js';
 import { createInvoiceForQuotation, emailInvoiceToClient } from '../services/invoiceService.js';
@@ -110,4 +112,60 @@ export async function sendInvoiceEmail(req, res, next) {
     };
     res.json({ message: messages[invoice.emailDeliveryStatus] || 'Invoice email status updated', invoice });
   } catch (err) { next(err); }
+}
+
+
+export async function deleteInvoice(req, res, next) {
+  try {
+    const rawId = req.params.id;
+    const isObjectId = mongoose.isValidObjectId(rawId);
+    const invoice = await Invoice.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { invoiceId: rawId }
+      ]
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    const invId = invoice._id;
+    const qId = invoice.quotationId;
+
+    // 1. Delete associated payments
+    await Payment.deleteMany({ invoiceId: invId });
+
+    // 2. Delete the invoice itself
+    await Invoice.findByIdAndDelete(invId);
+
+    // 3. If quotation was in 'Invoice Generated' or 'Paid', revert back to 'Approved'
+    if (qId) {
+      const remainingInvoices = await Invoice.countDocuments({ quotationId: qId });
+      if (remainingInvoices === 0) {
+        await Quotation.findByIdAndUpdate(qId, { status: 'Approved' });
+      }
+    }
+
+    // 4. Record audit
+    try {
+      await recordAudit({
+        userId: req.user._id,
+        action: 'Invoice deleted',
+        entityType: 'Invoice',
+        entityId: invId,
+        oldValue: { invoiceId: invoice.invoiceId, totalAmount: invoice.totalAmount }
+      });
+    } catch (auditErr) {
+      // audit failure shouldn't block delete
+    }
+
+    res.json({
+      success: true,
+      message: `Invoice ${invoice.invoiceId} and its payment stages deleted successfully.`
+    });
+  } catch (err) {
+    console.error('Delete invoice error:', err);
+    next(err);
+  }
 }

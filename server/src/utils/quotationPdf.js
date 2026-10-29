@@ -306,8 +306,23 @@ export function createQuotationPdfDocument(quotation) {
     { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
   );
 
+  const discountType = quotation.finalDiscountType || 'None';
+  const discountValue = Number(quotation.finalDiscountValue || 0);
+  let discountAmount = Number(quotation.finalDiscountAmount || 0);
+
+  const baseTaxable = totals.taxable;
+  if (!discountAmount && discountType !== 'None' && discountValue > 0) {
+    if (discountType === 'Percentage') {
+      discountAmount = Math.round(baseTaxable * (Math.min(discountValue, 100) / 100));
+    } else if (discountType === 'Fixed Amount') {
+      discountAmount = Math.min(discountValue, baseTaxable);
+    }
+  }
+
+  const netTaxable = Math.max(0, baseTaxable - discountAmount);
+  const effectiveGst = Number(quotation.gstAmount || Math.round(netTaxable * 0.18));
   const quotationTotal = Number(
-    quotation.totalAmount ?? quotation.finalTotal ?? totals.total ?? 0
+    quotation.totalAmount ?? quotation.finalTotal ?? (netTaxable + effectiveGst)
   );
   const publicUrl = publicQuotationUrl(quotation);
 
@@ -434,72 +449,99 @@ export function createQuotationPdfDocument(quotation) {
     layout: detailTableLayout,
   });
 
-  const moneyRow = (label, value, options = {}) => [
-    {
-      text: label,
-      bold: options.bold || false,
-      color: options.color || COLORS.navy,
-      margin: [0, 3, 0, 3],
-    },
-    {
-      text: `Rs ${formatMoney(value)}`,
-      alignment: "right",
-      bold: options.bold || false,
-      color: options.color || COLORS.navy,
-      margin: [0, 3, 0, 3],
-    },
-  ];
+  const moneyRow = (label, value, options = {}) => {
+    const num = Number(value || 0);
+    const isNeg = num < 0;
+    const formatted = Math.abs(num).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return [
+      {
+        text: label,
+        bold: options.bold || false,
+        color: options.color || COLORS.navy,
+        margin: [0, 3, 0, 3],
+      },
+      {
+        text: isNeg ? `-Rs ${formatted}` : `Rs ${formatted}`,
+        alignment: "right",
+        bold: options.bold || false,
+        color: options.color || COLORS.navy,
+        margin: [0, 3, 0, 3],
+      },
+    ];
+  };
 
   // Line item rows — mandatory items listed first, then complimentary, then optional items
   const itemRows = orderedItems.length
     ? orderedItems.map((item, index) => {
         const freqLabel = getFrequencyLabel(item.frequency, item.payable);
         const isRecurring = freqLabel !== 'One Time';
+        // Clean ASCII badges without emoji (emojis break font metrics in pdfmake/Helvetica)
         const typeBadgeText = item.isComplimentary
-          ? "[🎁 Complimentary - 100% Free]"
+          ? "[Complimentary - 100% Free]"
           : item.isOptional
           ? "[Optional Suggestion]"
           : "[Mandatory]";
         const typeBadgeColor = item.isComplimentary ? "#059669" : item.isOptional ? "#D97706" : "#0F7CEB";
 
         return [
-          { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
+          { text: String(index + 1), alignment: "center", margin: [0, 4, 0, 4], fontSize: 8 },
           {
-            text: [
-              { text: item.service || "Service", bold: true, color: item.isComplimentary ? "#065F46" : COLORS.text },
-              { text: `\n${typeBadgeText}`, color: typeBadgeColor, bold: true, fontSize: 7.5 },
-              item.description
-                ? { text: `\n${item.description}`, color: item.isComplimentary ? "#047857" : COLORS.muted, fontSize: 7.2 }
-                : { text: "" },
+            // Use stack instead of newline strings in an array to avoid font-metric line collisions
+            stack: [
+              {
+                text: item.service || "Service",
+                bold: true,
+                fontSize: 8.5,
+                color: item.isComplimentary ? "#065F46" : COLORS.text,
+              },
+              {
+                text: typeBadgeText,
+                color: typeBadgeColor,
+                bold: true,
+                fontSize: 7.2,
+                margin: [0, 2, 0, 1],
+              },
+              ...(item.description ? [{
+                text: item.description,
+                color: item.isComplimentary ? "#047857" : COLORS.muted,
+                fontSize: 7,
+                lineHeight: 1.15,
+              }] : []),
             ],
-            margin: [0, 8, 0, 8],
+            margin: [0, 3, 0, 3],
           },
-          { text: item.sacCode || "-", alignment: "center", margin: [0, 8, 0, 8] },
+          { text: item.sacCode || "-", alignment: "center", margin: [0, 4, 0, 4], fontSize: 7.5 },
           {
-            text: item.isComplimentary ? "Complimentary" : freqLabel,
+            // Fits cleanly without wrapping into multiple lines
+            text: item.isComplimentary ? "100% Free" : freqLabel,
             alignment: "center",
             bold: true,
             color: item.isComplimentary ? "#059669" : (isRecurring ? "#7C3AED" : COLORS.navy),
             fontSize: 7.5,
-            margin: [0, 8, 0, 8],
+            margin: [0, 4, 0, 4],
           },
-          { text: String(item.quantity || 1), alignment: "center", margin: [0, 8, 0, 8] },
+          { text: String(item.quantity || 1), alignment: "center", margin: [0, 4, 0, 4], fontSize: 8 },
           {
             text: item.isComplimentary ? "FREE" : formatMoney(item.taxableValue),
             alignment: "right",
             bold: item.isComplimentary,
             color: item.isComplimentary ? "#059669" : COLORS.text,
-            margin: [0, 8, 0, 8],
+            fontSize: 7.5,
+            margin: [0, 4, 0, 4],
           },
-          { text: item.isComplimentary ? "0.00" : formatMoney(item.cgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: item.isComplimentary ? "0.00" : formatMoney(item.sgstAmount), alignment: "right", margin: [0, 8, 0, 8] },
-          { text: item.isComplimentary ? "0.00" : formatMoney(item.igstAmount), alignment: "right", margin: [0, 8, 0, 8] },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.cgstAmount), alignment: "right", margin: [0, 4, 0, 4], fontSize: 7.5 },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.sgstAmount), alignment: "right", margin: [0, 4, 0, 4], fontSize: 7.5 },
+          { text: item.isComplimentary ? "0.00" : formatMoney(item.igstAmount), alignment: "right", margin: [0, 4, 0, 4], fontSize: 7.5 },
           {
             text: item.isComplimentary ? "FREE (Rs 0)" : formatMoney(item.total),
             alignment: "right",
             bold: true,
             color: item.isComplimentary ? "#059669" : COLORS.navy,
-            margin: [0, 8, 0, 8],
+            fontSize: item.isComplimentary ? 7.2 : 7.8,
+            margin: [0, 4, 0, 4],
           },
         ];
       })
@@ -570,7 +612,7 @@ export function createQuotationPdfDocument(quotation) {
         margin: [0, 0, 0, 10],
         table: {
           headerRows: 2,
-          widths: [20, "*", 36, 52, 22, 48, 42, 42, 42, 54],
+          widths: [18, "*", 38, 58, 20, 48, 38, 38, 38, 58],
           body: [
             [
               {
@@ -799,10 +841,18 @@ export function createQuotationPdfDocument(quotation) {
                                   { text: `Complimentary (${complimentaryItems.length} service${complimentaryItems.length > 1 ? 's' : ''})`, color: "#059669", bold: true, margin: [0, 3, 0, 3] },
                                   { text: "FREE (Rs 0.00)", alignment: "right", color: "#059669", bold: true, margin: [0, 3, 0, 3] }
                                 ]] : []),
-                                moneyRow("Taxable Amount", totals.taxable),
-                                moneyRow("CGST Total", totals.cgst),
-                                moneyRow("SGST Total", totals.sgst),
-                                moneyRow("IGST Total", totals.igst),
+                                moneyRow("Base Subtotal", baseTaxable),
+                                ...(discountAmount > 0 ? [
+                                  moneyRow(
+                                    `Overall Discount (${discountType === 'Percentage' ? `${discountValue}%` : 'Flat'})`,
+                                    -discountAmount,
+                                    { color: "#DC2626", bold: true }
+                                  ),
+                                  moneyRow("Net Taxable Amount", netTaxable, { bold: true, color: "#1E293B" }),
+                                ] : []),
+                                moneyRow("CGST (9%)", effectiveGst / 2),
+                                moneyRow("SGST (9%)", effectiveGst / 2),
+                                moneyRow("IGST Total", 0),
                                 moneyRow("Mandatory Total", quotationTotal, { bold: true, color: COLORS.blue }),
                               ],
                             },
@@ -876,7 +926,7 @@ export function createQuotationPdfDocument(quotation) {
                   [
                     {
                       stack: [
-                        { text: "🎁 COMPLIMENTARY SERVICES INCLUDED (100% FREE OF CHARGE)", style: "sectionTitle", color: "#059669" },
+                        { text: "COMPLIMENTARY SERVICES INCLUDED (100% FREE OF CHARGE)", style: "sectionTitle", color: "#059669" },
                         {
                           table: {
                             widths: [20, "*", 80, 80],
@@ -890,9 +940,9 @@ export function createQuotationPdfDocument(quotation) {
                               ...complimentaryItems.map((cItem, cIdx) => [
                                 { text: String(cIdx + 1), fontSize: 7.5, alignment: "center", margin: [0, 3, 0, 3] },
                                 {
-                                  text: [
+                                  stack: [
                                     { text: cItem.service, bold: true, fontSize: 8, color: "#065F46" },
-                                    cItem.description ? { text: `\n${cItem.description}`, color: COLORS.muted, fontSize: 7 } : { text: "" }
+                                    ...(cItem.description ? [{ text: cItem.description, color: COLORS.muted, fontSize: 7, margin: [0, 2, 0, 0] }] : [])
                                   ],
                                   margin: [0, 3, 0, 3]
                                 },
@@ -942,21 +992,21 @@ export function createQuotationPdfDocument(quotation) {
                             lineHeight: 1.15,
                           },
                           {
-                            text: "   • Initial Payment: 70%",
+                            text: `   • Initial Payment: 70% (Rs. ${Math.round(quotationTotal * 0.70).toLocaleString('en-IN')})`,
                             margin: [6, 2, 0, 0],
                             bold: true,
                             color: COLORS.navy,
                             lineHeight: 1.15,
                           },
                           {
-                            text: "   • Client Checking Handover: 15%",
+                            text: `   • Client Checking Handover: 15% (Rs. ${Math.round(quotationTotal * 0.15).toLocaleString('en-IN')})`,
                             margin: [6, 2, 0, 0],
                             bold: true,
                             color: COLORS.navy,
                             lineHeight: 1.15,
                           },
                           {
-                            text: "   • Final Handover: 15%",
+                            text: `   • Final Handover: 15% (Rs. ${Math.max(0, quotationTotal - Math.round(quotationTotal * 0.70) - Math.round(quotationTotal * 0.15)).toLocaleString('en-IN')})`,
                             margin: [6, 2, 0, 0],
                             bold: true,
                             color: COLORS.navy,
@@ -1010,10 +1060,18 @@ export function createQuotationPdfDocument(quotation) {
                             table: {
                               widths: ["*", 90],
                               body: [
+                                moneyRow("Base Subtotal", baseTaxable),
+                                ...(discountAmount > 0 ? [
+                                  moneyRow(
+                                    `Overall Discount (${discountType === 'Percentage' ? `${discountValue}%` : 'Flat'})`,
+                                    -discountAmount,
+                                    { color: "#DC2626", bold: true }
+                                  ),
+                                  moneyRow("Net Taxable Amount", netTaxable, { bold: true }),
+                                ] : []),
+                                moneyRow("GST Total (18%)", effectiveGst + optionalTotals.cgst + optionalTotals.sgst),
                                 moneyRow("Mandatory Proposal", quotationTotal, { bold: true, color: COLORS.blue }),
                                 moneyRow("Optional Add-Ons", optionalTotals.total, { bold: true, color: optionalTotals.total > 0 ? "#D97706" : COLORS.muted }),
-                                moneyRow("Taxable Total", totals.taxable + optionalTotals.taxable),
-                                moneyRow("GST Total (18%)", totals.cgst + totals.sgst + optionalTotals.cgst + optionalTotals.sgst),
                                 moneyRow("Overall Combined Total", quotationTotal + optionalTotals.total, { bold: true, color: COLORS.navy }),
                               ],
                             },

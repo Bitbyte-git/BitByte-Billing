@@ -165,7 +165,18 @@ export default function PublicQuotation() {
                 <div className="border border-slate-200 bg-white p-5">
                   <h2 className="text-base font-black uppercase tracking-[0.14em] text-slate-950">Quotation Summary</h2>
                   <div className="mt-4">
-                    <SummaryRow label="Taxable Amount" value={record.subtotal} />
+                    <SummaryRow label="Base Subtotal" value={record.subtotal} />
+                    {Number(record.finalDiscountAmount || 0) > 0 && (
+                      <>
+                        <SummaryRow
+                          label={`Overall Special Discount (${record.finalDiscountType === 'Percentage' ? `${record.finalDiscountValue}%` : 'Flat'})`}
+                          value={`-${currency(record.finalDiscountAmount)}`}
+                          tone="emerald"
+                          strong
+                        />
+                        <SummaryRow label="Net Taxable Subtotal" value={Math.max(0, (record.subtotal || 0) - record.finalDiscountAmount)} strong />
+                      </>
+                    )}
                     <SummaryRow label="GST Total (18%)" value={record.gstAmount} />
                     <SummaryRow label="Quotation Total" value={record.totalAmount} strong tone="purple" />
                   </div>

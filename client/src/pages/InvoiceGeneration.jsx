@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AmountSummaryCard from '../components/AmountSummaryCard.jsx';
 import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
+import { Trash2 } from 'lucide-react';
 import api, { downloadPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
 import { enrichInvoiceItem } from '../utils/invoiceItems.js';
@@ -12,6 +13,26 @@ export default function InvoiceGeneration() {
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [discount, setDiscount] = useState({ type: 'None', value: '' });
+  const [deletingInvoice, setDeletingInvoice] = useState(false);
+
+  const handleDeleteInvoice = async () => {
+    if (!invoice) return;
+    if (!window.confirm(`Are you sure you want to delete invoice ${invoice.invoiceId}? This will remove associated payment records and reset the quotation status.`)) return;
+    setDeletingInvoice(true);
+    try {
+      await api.delete(`/invoices/${recordId(invoice)}`);
+      setMessage({ type: 'success', text: `Invoice ${invoice.invoiceId} deleted successfully.` });
+      setInvoice(null);
+      // Refresh quotations list
+      const { data } = await api.get('/quotations');
+      const eligible = data.filter((item) => ['Approved', 'Invoice Generated', 'Paid'].includes(item.status));
+      setQuotations(eligible);
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to delete invoice: ' + (err.response?.data?.message || err.message) });
+    } finally {
+      setDeletingInvoice(false);
+    }
+  };
   const selectedQuotation = useMemo(() => quotations.find((item) => recordId(item) === quotationId), [quotations, quotationId]);
   const pricing = useMemo(() => {
     const baseSubtotal = Number(invoice?.subtotal || selectedQuotation?.subtotal || 0);
@@ -128,7 +149,21 @@ export default function InvoiceGeneration() {
                 </div>
               )}
             </div>
-            {invoice && <PdfDownloadButton onClick={() => downloadPdf(recordId(invoice), invoice.invoiceId)} />}
+            {invoice && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteInvoice}
+                  disabled={deletingInvoice}
+                  className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition shadow-sm disabled:opacity-50"
+                  title="Delete this invoice at anytime"
+                >
+                  <Trash2 size={15} />
+                  <span>{deletingInvoice ? 'Deleting...' : 'Delete Invoice'}</span>
+                </button>
+                <PdfDownloadButton onClick={() => downloadPdf(recordId(invoice), invoice.invoiceId)} />
+              </div>
+            )}
           </div>
 
           {/* Quotation selector */}

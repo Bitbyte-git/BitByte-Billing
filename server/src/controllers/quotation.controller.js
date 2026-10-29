@@ -11,6 +11,7 @@ const toSafeObjectId = (v) => {
 import Quotation from '../models/Quotation.js';
 import QuotationItem from '../models/QuotationItem.js';
 import Invoice from '../models/Invoice.js';
+import Payment from '../models/Payment.js';
 import Remark from '../models/Remark.js';
 import User from '../models/User.js';
 import { nextQuotationId } from '../utils/idGenerator.js';
@@ -148,14 +149,29 @@ export async function createQuotation(req, res, next) {
         totalAmount
       };
     });
+    const finalDiscountType = req.body.finalDiscountType || 'None';
+    const finalDiscountValue = Number(req.body.finalDiscountValue || 0);
+    let finalDiscountAmount = Number(req.body.finalDiscountAmount || 0);
+
     let subtotal = Number(req.body.subtotal || 0);
     let gstAmount = Number(req.body.gstAmount || 0);
     let totalAmount = Number(req.body.totalAmount || 0);
 
     if (costingItems.length > 0) {
       subtotal = costingItems.reduce((sum, item) => sum + item.taxableValue, 0);
-      gstAmount = costingItems.reduce((sum, item) => sum + Number(item.gstAmount || 0), 0);
-      totalAmount = subtotal + gstAmount;
+
+      // Compute overall discount
+      if (finalDiscountType === 'Percentage' && finalDiscountValue > 0) {
+        finalDiscountAmount = Math.round(subtotal * (Math.min(finalDiscountValue, 100) / 100));
+      } else if (finalDiscountType === 'Fixed Amount' && finalDiscountValue > 0) {
+        finalDiscountAmount = Math.min(finalDiscountValue, subtotal);
+      } else {
+        finalDiscountAmount = 0;
+      }
+
+      const netTaxable = Math.max(0, subtotal - finalDiscountAmount);
+      gstAmount = Math.round(netTaxable * 0.18);
+      totalAmount = netTaxable + gstAmount;
     }
 
     const mainService = req.body.mainService?.length
@@ -180,6 +196,9 @@ export async function createQuotation(req, res, next) {
       mainService,
       subServices,
       costingItems,
+      finalDiscountType,
+      finalDiscountValue,
+      finalDiscountAmount,
       subtotal,
       gstAmount,
       totalAmount,
@@ -357,12 +376,27 @@ export async function adminEditQuotation(req, res, next) {
 
       quotation.costingItems = items;
 
-      // Recalculate totals
+      // Recalculate totals with overall discount support
       const subtotal = items.reduce((sum, i) => sum + i.taxableValue, 0);
-      const gstAmount = items.reduce((sum, i) => sum + i.gstAmount, 0);
+      const discountType = req.body.finalDiscountType !== undefined ? req.body.finalDiscountType : (quotation.finalDiscountType || 'None');
+      const discountValue = req.body.finalDiscountValue !== undefined ? Number(req.body.finalDiscountValue || 0) : Number(quotation.finalDiscountValue || 0);
+
+      let finalDiscountAmount = 0;
+      if (discountType === 'Percentage' && discountValue > 0) {
+        finalDiscountAmount = Math.round(subtotal * (Math.min(discountValue, 100) / 100));
+      } else if (discountType === 'Fixed Amount' && discountValue > 0) {
+        finalDiscountAmount = Math.min(discountValue, subtotal);
+      }
+
+      const netTaxable = Math.max(0, subtotal - finalDiscountAmount);
+      const gstAmount = Math.round(netTaxable * 0.18);
+
+      quotation.finalDiscountType = discountType;
+      quotation.finalDiscountValue = discountValue;
+      quotation.finalDiscountAmount = finalDiscountAmount;
       quotation.subtotal = subtotal;
       quotation.gstAmount = gstAmount;
-      quotation.totalAmount = subtotal + gstAmount;
+      quotation.totalAmount = netTaxable + gstAmount;
 
       // Sync mainService / subServices arrays from new items
       quotation.mainService = [...new Set(items.map((i) => i.mainService).filter(Boolean))];
@@ -706,6 +740,9 @@ function publicQuotationPayload(quotation) {
       tier: item.tier
     })),
     subtotal,
+    finalDiscountType: quotation.finalDiscountType || 'None',
+    finalDiscountValue: Number(quotation.finalDiscountValue || 0),
+    finalDiscountAmount: Number(quotation.finalDiscountAmount || 0),
     gstAmount,
     totalAmount,
     requirementDetails: quotation.requirementDetails || ''
@@ -815,4 +852,61 @@ export async function sendQuotationWhatsAppController(req, res, next) {
     next(err);
   }
 }
+
+export async function deleteQuotation(req, res, next) {
+  try {
+    const rawId = req.params.id;
+    const isObjectId = mongoose.isValidObjectId(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    });
+
+    if (!quotation) {
+      return res.status(404).json({ success: false, message: 'Quotation not found' });
+    }
+
+    const qId = quotation._id;
+
+    // 1. Delete associated invoices & their payments
+    const linkedInvoices = await Invoice.find({ quotationId: qId });
+    for (const inv of linkedInvoices) {
+      await Payment.deleteMany({ invoiceId: inv._id });
+    }
+    await Invoice.deleteMany({ quotationId: qId });
+
+    // 2. Delete quotation items
+    await QuotationItem.deleteMany({ quotationId: qId });
+
+    // 3. Delete remarks
+    await Remark.deleteMany({ quotationId: qId });
+
+    // 4. Delete the quotation document
+    await Quotation.findByIdAndDelete(qId);
+
+    // 5. Audit log
+    try {
+      await recordAudit({
+        userId: req.user._id,
+        action: 'Quotation deleted',
+        entityType: 'Quotation',
+        entityId: qId,
+        oldValue: { quotationId: quotation.quotationId, projectTitle: quotation.projectTitle }
+      });
+    } catch (auditErr) {
+      // audit log fail shouldn't block delete
+    }
+
+    res.json({
+      success: true,
+      message: `Quotation ${quotation.quotationId} deleted successfully.`
+    });
+  } catch (err) {
+    console.error('Delete quotation error:', err);
+    next(err);
+  }
+}
+
 

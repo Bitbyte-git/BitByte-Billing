@@ -298,6 +298,75 @@ export default function TablePage({ type, role }) {
     }
   };
 
+  const deleteQuotation = async (row) => {
+    const id = recordId(row);
+    const label = row.quotationId || 'this quotation';
+    if (!window.confirm(`Are you sure you want to delete quotation ${label}? This will permanently remove it along with any linked invoice and payments.`)) return;
+    try {
+      await api.delete(`/quotations/${id}`);
+      setWaToast({
+        show: true,
+        type: 'success',
+        message: `Quotation ${label} deleted successfully!`
+      });
+      loadData();
+    } catch (err) {
+      setWaToast({
+        show: true,
+        type: 'error',
+        message: 'Failed to delete quotation: ' + (err.response?.data?.message || err.message)
+      });
+    } finally {
+      setTimeout(() => setWaToast({ show: false, message: '', type: 'success' }), 5000);
+    }
+  };
+
+  const deleteInvoice = async (row) => {
+    const id = recordId(row);
+    const label = row.invoiceId || 'this invoice';
+    if (!window.confirm(`Are you sure you want to delete invoice ${label}? This will remove associated payment stages and reset quotation status.`)) return;
+    try {
+      await api.delete(`/invoices/${id}`);
+      setWaToast({
+        show: true,
+        type: 'success',
+        message: `Invoice ${label} deleted successfully!`
+      });
+      loadData();
+    } catch (err) {
+      setWaToast({
+        show: true,
+        type: 'error',
+        message: 'Failed to delete invoice: ' + (err.response?.data?.message || err.message)
+      });
+    } finally {
+      setTimeout(() => setWaToast({ show: false, message: '', type: 'success' }), 5000);
+    }
+  };
+
+  const deleteClient = async (row) => {
+    const id = recordId(row);
+    const label = getClientName(row) || row.clientId || 'this client';
+    if (!window.confirm(`Are you sure you want to delete client "${label}"? This will also remove any quotations and invoices for this client.`)) return;
+    try {
+      await api.delete(`/clients/${id}`);
+      setWaToast({
+        show: true,
+        type: 'success',
+        message: `Client "${label}" deleted successfully!`
+      });
+      loadData();
+    } catch (err) {
+      setWaToast({
+        show: true,
+        type: 'error',
+        message: 'Failed to delete client: ' + (err.response?.data?.message || err.message)
+      });
+    } finally {
+      setTimeout(() => setWaToast({ show: false, message: '', type: 'success' }), 5000);
+    }
+  };
+
   const deleteService = async (id) => {
     if (!window.confirm('Are you sure you want to delete this service?')) return;
     try {
@@ -758,6 +827,17 @@ export default function TablePage({ type, role }) {
                 <ReceiptText size={13} /> Invoice
               </button>
             )}
+            {['Admin', 'Accountant'].includes(role) && (
+              <button
+                type="button"
+                onClick={() => deleteQuotation(row)}
+                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition shadow-2xs"
+                title={`Delete quotation ${row.quotationId}`}
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
         );
       }
@@ -887,6 +967,17 @@ export default function TablePage({ type, role }) {
                 <span>Quotation</span>
               </button>
             )}
+            {['Admin', 'Accountant'].includes(role) && (
+              <button
+                type="button"
+                onClick={() => deleteInvoice(row)}
+                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition shadow-2xs"
+                title={`Delete invoice ${row.invoiceId}`}
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
         );
       }
@@ -922,13 +1013,23 @@ export default function TablePage({ type, role }) {
         { key: 'accountStatus', label: 'Status', badge: true }
       ],
       actions: (row) => (
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-1.5">
           <button
             onClick={() => openEditClient(row)}
             className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 shadow-2xs transition"
           >
             <Edit3 size={13} /> Edit Details
           </button>
+          {['Admin', 'Accountant'].includes(role) && (
+            <button
+              type="button"
+              onClick={() => deleteClient(row)}
+              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-600 hover:text-white transition shadow-2xs"
+              title={`Delete client ${getClientName(row)}`}
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
         </div>
       )
     },

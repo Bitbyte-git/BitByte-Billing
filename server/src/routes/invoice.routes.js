@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateInvoice, getInvoice, getPublicInvoice, invoicePdf, listInvoices, sendInvoiceEmail } from '../controllers/invoice.controller.js';
+import { deleteInvoice, generateInvoice, getInvoice, getPublicInvoice, invoicePdf, listInvoices, sendInvoiceEmail } from '../controllers/invoice.controller.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = Router();
@@ -12,5 +12,6 @@ router.get('/:id', getInvoice);
 router.post('/generate/:quotationId', authorize('Admin'), generateInvoice);
 router.get('/:id/pdf', invoicePdf);
 router.post('/:id/send-email', authorize('Admin'), sendInvoiceEmail);
+router.delete('/:id', authorize('Admin', 'Accountant'), deleteInvoice);
 
 export default router;

@@ -58,6 +58,10 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
 
   // Price override — edit default cost for any standard service
   const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
+  const [overallDiscount, setOverallDiscount] = useState({
+    type: quotation.finalDiscountType || 'None',
+    value: quotation.finalDiscountValue || ''
+  });
 
   const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
 
