@@ -1391,7 +1391,7 @@ export const losServices = [
   {
     "id": 55,
     "module": "Web Apps",
-    "service": "ERP, CRM, PRM, HRMS Web / Mobile Application",
+    "service": "ERP, CRM, PRM, HRMS",
     "description": "Enterprise Web & Mobile App (ERP, CRM, PRM, HRMS) including up to 6 modules @ Rs. 39,990. More than 6 modules @ Rs. 6,990 per additional module.",
     "unit": "Up to 6 Modules",
     "count": "1",

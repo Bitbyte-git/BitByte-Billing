@@ -59,5 +59,5 @@ export const priceMap = {
   'Entire WhatsApp Automation': 9990,
   'WhatsApp Automation Customization': 9990,
   'WhatsApp Automation - Annual Maintenance Charges (AMC)': 7990,
-  'ERP, CRM, PRM, HRMS Web / Mobile Application': 39990
+  'ERP, CRM, PRM, HRMS': 39990
 };
