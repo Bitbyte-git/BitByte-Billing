@@ -12,18 +12,51 @@ export async function createInitialPaymentStage(invoice) {
   const existing = await Payment.countDocuments({ invoiceId: invoice._id });
   if (existing > 0) return null;
 
-  return Payment.create({
-    paymentId: await nextPaymentId(),
-    invoiceId: invoice._id,
-    quotationId: invoice.quotationId,
-    clientId: invoice.clientId,
-    paymentLabel: 'Payment 1',
-    paymentStageOrder: 1,
-    amount: Number(invoice.totalAmount || invoice.finalTotal || 0),
-    paymentMethod: 'Pending',
-    status: 'Pending',
-    paymentStatus: 'Pending'
-  });
+  const total = Number(invoice.totalAmount || invoice.finalTotal || 0);
+  const initialAmount = Math.round(total * 0.70);
+  const checkingAmount = Math.round(total * 0.15);
+  const finalAmount = Math.max(0, total - initialAmount - checkingAmount);
+
+  const stages = [
+    {
+      paymentId: await nextPaymentId(),
+      invoiceId: invoice._id,
+      quotationId: invoice.quotationId,
+      clientId: invoice.clientId,
+      paymentLabel: 'Initial Payment (70%)',
+      paymentStageOrder: 1,
+      amount: initialAmount,
+      paymentMethod: 'Pending',
+      status: 'Pending',
+      paymentStatus: 'Pending'
+    },
+    {
+      paymentId: await nextPaymentId(),
+      invoiceId: invoice._id,
+      quotationId: invoice.quotationId,
+      clientId: invoice.clientId,
+      paymentLabel: 'Client Checking Handover (15%)',
+      paymentStageOrder: 2,
+      amount: checkingAmount,
+      paymentMethod: 'Pending',
+      status: 'Pending',
+      paymentStatus: 'Pending'
+    },
+    {
+      paymentId: await nextPaymentId(),
+      invoiceId: invoice._id,
+      quotationId: invoice.quotationId,
+      clientId: invoice.clientId,
+      paymentLabel: 'Final Handover (15%)',
+      paymentStageOrder: 3,
+      amount: finalAmount,
+      paymentMethod: 'Pending',
+      status: 'Pending',
+      paymentStatus: 'Pending'
+    }
+  ];
+
+  return Payment.insertMany(stages);
 }
 
 export async function createInvoiceForQuotation(quotationId, user, options = {}) {

@@ -1306,6 +1306,114 @@ export const losServices = [
       "customised": "Custom Manual Price Entry for AMC"
     },
     "sacCode": "998315"
+  },
+  {
+    "id": 52,
+    "module": "WhatsApp Automation",
+    "service": "Entire WhatsApp Automation",
+    "description": "Entire WhatsApp Automation complete setup and integration (One Time @ Rs. 9,990)",
+    "unit": "Per Setup",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 9990,
+      "basic": 9990,
+      "standard": 9990,
+      "premium": 9990,
+      "enterprise": 9990,
+      "customised": 9990
+    },
+    "tierNotes": {
+      "starter": "Entire WhatsApp Automation Setup (One Time)",
+      "basic": "Entire WhatsApp Automation Setup (One Time)",
+      "standard": "Entire WhatsApp Automation Setup (One Time)",
+      "premium": "Entire WhatsApp Automation Setup (One Time)",
+      "enterprise": "Entire WhatsApp Automation Setup (One Time)",
+      "customised": "Entire WhatsApp Automation Setup (One Time)"
+    },
+    "sacCode": "998314"
+  },
+  {
+    "id": 53,
+    "module": "WhatsApp Automation",
+    "service": "WhatsApp Automation Customization",
+    "description": "WhatsApp Automation customization up to 15 categories @ Rs. 9,990. More than 15 categories @ Rs. 2,990 per additional category.",
+    "unit": "Up to 15 Categories",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 9990,
+      "basic": 9990,
+      "standard": 9990,
+      "premium": 9990,
+      "enterprise": 9990,
+      "customised": 9990
+    },
+    "tierNotes": {
+      "starter": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)",
+      "basic": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)",
+      "standard": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)",
+      "premium": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)",
+      "enterprise": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)",
+      "customised": "Customization up to 15 categories (@ Rs. 9,990; >15 @ Rs. 2,990/cat)"
+    },
+    "sacCode": "998314"
+  },
+  {
+    "id": 54,
+    "module": "WhatsApp Automation",
+    "service": "WhatsApp Automation - Annual Maintenance Charges (AMC)",
+    "description": "Annual Maintenance & Support Charges for WhatsApp Automation @ Rs. 7,990/year",
+    "unit": "Per Year",
+    "count": "1",
+    "frequency": "Yearly",
+    "payable": "Yearly",
+    "prices": {
+      "starter": 7990,
+      "basic": 7990,
+      "standard": 7990,
+      "premium": 7990,
+      "enterprise": 7990,
+      "customised": 7990
+    },
+    "tierNotes": {
+      "starter": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)",
+      "basic": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)",
+      "standard": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)",
+      "premium": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)",
+      "enterprise": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)",
+      "customised": "WhatsApp Automation AMC Support (@ Rs. 7,990/year)"
+    },
+    "sacCode": "998315"
+  },
+  {
+    "id": 55,
+    "module": "Web Apps",
+    "service": "ERP, CRM, PRM, HRMS Web / Mobile Application",
+    "description": "Enterprise Web & Mobile App (ERP, CRM, PRM, HRMS) including up to 6 modules @ Rs. 39,990. More than 6 modules @ Rs. 6,990 per additional module.",
+    "unit": "Up to 6 Modules",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 39990,
+      "basic": 39990,
+      "standard": 39990,
+      "premium": 39990,
+      "enterprise": 39990,
+      "customised": 39990
+    },
+    "tierNotes": {
+      "starter": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)",
+      "basic": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)",
+      "standard": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)",
+      "premium": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)",
+      "enterprise": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)",
+      "customised": "ERP, CRM, PRM, HRMS (up to 6 modules @ Rs. 39,990; >6 modules @ Rs. 6,990/module)"
+    },
+    "sacCode": "998314"
   }
 ];
 

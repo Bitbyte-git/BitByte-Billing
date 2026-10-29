@@ -247,15 +247,16 @@ export function createQuotationPdfDocument(quotation) {
 
   const items = rawItems.map((item) => {
     const serviceName = item.subService || item.subServiceName || item.service || "Service";
+    const isComplimentary = Boolean(item.isComplimentary);
     const quantity = Number(item.quantity || 1);
-    const taxableValue = Number(item.taxableValue ?? (item.basePrice * quantity - (item.discountAmount || 0)));
-    const gstPct = Number(item.gstPercentage || 18);
-    const gstTotal = Number(item.gstAmount ?? (taxableValue * gstPct / 100));
+    const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? (item.basePrice * quantity - (item.discountAmount || 0)));
+    const gstPct = isComplimentary ? 0 : Number(item.gstPercentage || 18);
+    const gstTotal = isComplimentary ? 0 : Number(item.gstAmount ?? (taxableValue * gstPct / 100));
     const cgstAmt = gstTotal / 2;
     const sgstAmt = gstTotal / 2;
     const igstAmt = 0;
-    const total = Number(item.totalAmount ?? (taxableValue + gstTotal));
-    const isOptional = Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
+    const total = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstTotal));
+    const isOptional = !isComplimentary && Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
     return {
       service: serviceName,
       description: item.description || "",
@@ -270,6 +271,7 @@ export function createQuotationPdfDocument(quotation) {
       igstAmount: igstAmt,
       total,
       isOptional,
+      isComplimentary,
     };
   });
 
@@ -439,8 +441,8 @@ export function createQuotationPdfDocument(quotation) {
     ? orderedItems.map((item, index) => {
         const freqLabel = getFrequencyLabel(item.frequency, item.payable);
         const isRecurring = freqLabel !== 'One Time';
-        const typeBadgeText = item.isOptional ? "[Optional Suggestion]" : "[Mandatory]";
-        const typeBadgeColor = item.isOptional ? "#D97706" : "#0F7CEB";
+        const typeBadgeText = item.isComplimentary ? "[Complimentary - Free]" : item.isOptional ? "[Optional Suggestion]" : "[Mandatory]";
+        const typeBadgeColor = item.isComplimentary ? "#059669" : item.isOptional ? "#D97706" : "#0F7CEB";
 
         return [
           { text: String(index + 1), alignment: "center", margin: [0, 8, 0, 8] },
@@ -844,27 +846,54 @@ export function createQuotationPdfDocument(quotation) {
                         stack: [
                           { text: "TERMS & CONDITIONS", style: "sectionTitle" },
                           {
-                            text: "1. This quotation is valid for 15 days from the date of issue.",
+                            text: "1. Payment Milestones:",
+                            bold: true,
                             margin: [0, 4, 0, 0],
                             lineHeight: 1.15,
                           },
                           {
-                            text: "2. Prices are subject to change after the validity period.",
+                            text: "   • Initial Payment: 70%",
+                            margin: [6, 2, 0, 0],
+                            bold: true,
+                            color: COLORS.navy,
+                            lineHeight: 1.15,
+                          },
+                          {
+                            text: "   • Client Checking Handover: 15%",
+                            margin: [6, 2, 0, 0],
+                            bold: true,
+                            color: COLORS.navy,
+                            lineHeight: 1.15,
+                          },
+                          {
+                            text: "   • Final Handover: 15%",
+                            margin: [6, 2, 0, 0],
+                            bold: true,
+                            color: COLORS.navy,
+                            lineHeight: 1.15,
+                          },
+                          {
+                            text: "2. This quotation is valid for 15 days from the date of issue.",
+                            margin: [0, 4, 0, 0],
+                            lineHeight: 1.15,
+                          },
+                          {
+                            text: "3. Prices are subject to change after the validity period.",
                             margin: [0, 3, 0, 0],
                             lineHeight: 1.15,
                           },
                           {
-                            text: "3. GST @18% is applicable on all services as per government norms.",
+                            text: "4. GST @18% is applicable on all services as per government norms.",
                             margin: [0, 3, 0, 0],
                             lineHeight: 1.15,
                           },
                           {
-                            text: "4. Please mention the quotation number for all communications.",
+                            text: "5. Please mention the quotation number for all communications.",
                             margin: [0, 3, 0, 0],
                             lineHeight: 1.15,
                           },
                           {
-                            text: "5. This is a computer-generated quotation.",
+                            text: "6. This is an official computer-generated quotation.",
                             margin: [0, 4, 0, 0],
                             color: COLORS.muted,
                             bold: true,

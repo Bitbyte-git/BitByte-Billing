@@ -109,11 +109,23 @@ export async function createQuotation(req, res, next) {
 
     // Compute costing if costingItems provided
     let costingItems = (req.body.costingItems || []).map(item => {
-      const basePrice = Number(item.basePrice || 0);
+      const isComplimentary = Boolean(item.isComplimentary);
+      const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
       const quantity = Number(item.quantity || 1);
-      const discountAmount = Number(item.discountAmount || 0);
-      const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
-      return { ...item, basePrice, quantity, discountAmount, taxableValue };
+      const discountAmount = isComplimentary ? 0 : Number(item.discountAmount || 0);
+      const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+      const gstAmount = isComplimentary ? 0 : Number(item.gstAmount || 0);
+      const totalAmount = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstAmount));
+      return {
+        ...item,
+        isComplimentary,
+        basePrice,
+        quantity,
+        discountAmount,
+        taxableValue,
+        gstAmount,
+        totalAmount
+      };
     });
     let subtotal = Number(req.body.subtotal || 0);
     let gstAmount = Number(req.body.gstAmount || 0);
@@ -285,14 +297,15 @@ export async function adminEditQuotation(req, res, next) {
     // Update costing items if provided
     if (Array.isArray(req.body.costingItems) && req.body.costingItems.length > 0) {
       const items = req.body.costingItems.map((item) => {
-        const basePrice = Number(item.basePrice || 0);
+        const isComplimentary = Boolean(item.isComplimentary);
+        const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
-        const discountPercentage = Number(item.discountPercentage || 0);
-        const discountAmount = Number(item.discountAmount ?? ((basePrice * quantity) * discountPercentage / 100));
-        const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
-        const gstPercentage = Number(item.gstPercentage || 18);
-        const gstAmount = Number(item.gstAmount ?? (taxableValue * gstPercentage / 100));
-        const totalAmount = Number(item.totalAmount ?? (taxableValue + gstAmount));
+        const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
+        const discountAmount = isComplimentary ? 0 : Number(item.discountAmount ?? ((basePrice * quantity) * discountPercentage / 100));
+        const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const gstPercentage = isComplimentary ? 0 : Number(item.gstPercentage || 18);
+        const gstAmount = isComplimentary ? 0 : Number(item.gstAmount ?? (taxableValue * gstPercentage / 100));
+        const totalAmount = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstAmount));
         return {
           serviceId: item.serviceId || undefined,
           mainService: item.mainService || 'General',
@@ -304,6 +317,7 @@ export async function adminEditQuotation(req, res, next) {
           frequency: item.frequency || 'One Time',
           payable: item.payable || 'One Time',
           isOptional: Boolean(item.isOptional),
+          isComplimentary,
           basePrice,
           quantity,
           discountPercentage,

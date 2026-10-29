@@ -55,5 +55,9 @@ export const priceMap = {
   'Automated Reporting': 18000,
   'Predictive Analytics': 35000,
   'Branch & Team Comparison': 22000,
-  'Executive KPI Monitoring': 20000
+  'Executive KPI Monitoring': 20000,
+  'Entire WhatsApp Automation': 9990,
+  'WhatsApp Automation Customization': 9990,
+  'WhatsApp Automation - Annual Maintenance Charges (AMC)': 7990,
+  'ERP, CRM, PRM, HRMS Web / Mobile Application': 39990
 };

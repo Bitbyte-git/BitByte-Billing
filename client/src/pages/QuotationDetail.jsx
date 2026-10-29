@@ -220,7 +220,7 @@ export default function QuotationDetail({ role, mode }) {
                             {!(quotation.mainService || []).includes(item.mainService) && <span className="ml-2 rounded-full bg-purple/10 px-2 py-0.5 text-xs font-bold text-purple">Added by accountant</span>}
                           </td>
                           <td className="p-3">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <span>{item.subService || item.subServiceName || '-'}</span>
                               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black border ${
                                 (item.frequency === 'Monthly' || item.payable === 'Monthly' || item.frequency === 'Weekly' || (item.description || '').includes('Monthly'))
@@ -229,6 +229,11 @@ export default function QuotationDetail({ role, mode }) {
                               }`}>
                                 {(item.frequency === 'Monthly' || item.payable === 'Monthly' || (item.description || '').includes('Monthly')) ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
                               </span>
+                              {(item.isComplimentary || (item.totalAmount === 0 && (item.description || '').toLowerCase().includes('complimentary'))) && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800 border border-emerald-300">
+                                  🎁 Complimentary
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="p-3">{item.sacCode || getSacCode(item.subService || item.subServiceName)}</td>
@@ -275,6 +280,34 @@ export default function QuotationDetail({ role, mode }) {
         </section>
         <aside className="space-y-6">
           <AmountSummaryCard subtotal={subtotal} gst={gst} paid={quotation.status === 'Paid' ? quotation.amount : 0} />
+          {/* Payment Milestones (Terms & Conditions) Card */}
+          <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
+            <h2 className="text-lg font-black text-slate-950">Payment Milestones</h2>
+            <p className="mt-1 text-xs text-slate-500">Milestone schedule as per Terms & Conditions</p>
+            <div className="mt-4 space-y-2.5">
+              <div className="flex items-center justify-between rounded-xl bg-purple/5 border border-purple/20 p-3">
+                <div>
+                  <p className="text-xs font-bold uppercase text-purple">Stage 1 · 70%</p>
+                  <p className="text-sm font-black text-slate-900">Initial Payment</p>
+                </div>
+                <p className="text-base font-black text-purple">{currency(Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.70))}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Stage 2 · 15%</p>
+                  <p className="text-sm font-black text-slate-900">Client Checking Handover</p>
+                </div>
+                <p className="text-base font-black text-slate-800">{currency(Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.15))}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Stage 3 · 15%</p>
+                  <p className="text-sm font-black text-slate-900">Final Handover</p>
+                </div>
+                <p className="text-base font-black text-slate-800">{currency(Math.max(0, (quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) - Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.70) - Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.15)))}</p>
+              </div>
+            </div>
+          </div>
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
             <h2 className="mb-4 text-lg font-black">Status Timeline</h2>
             <QuotationTimeline status={quotation.status} />

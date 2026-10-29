@@ -46,12 +46,15 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   const [customServiceName, setCustomServiceName] = useState('');
   const [customBasePrice, setCustomBasePrice] = useState(1990);
   const [isOptionalItem, setIsOptionalItem] = useState(false);
+  const [isComplimentaryItem, setIsComplimentaryItem] = useState(false);
   const [addedMsg, setAddedMsg] = useState('');
 
   // Special configurators
   const [moduleCount, setModuleCount] = useState(2);
   const [imagesPerModule, setImagesPerModule] = useState(15);
   const [changesCount, setChangesCount] = useState(15);
+  const [whatsappCategoryCount, setWhatsappCategoryCount] = useState(15);
+  const [erpModuleCount, setErpModuleCount] = useState(6);
 
   // Price override — edit default cost for any standard service
   const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
@@ -84,11 +87,15 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   // Special service flags
   const isModuleService = !isCustomService && (activeServiceObj?.id === 24 || activeServiceObj?.id === 22);
   const isChangesService = !isCustomService && activeServiceObj?.id === 23;
+  const isWhatsAppCustomization = !isCustomService && activeServiceObj?.id === 53;
+  const isErpCrmService = !isCustomService && activeServiceObj?.id === 55;
 
   // Reset special params when service changes
   useEffect(() => {
     if (isModuleService) { setModuleCount(2); setImagesPerModule(15); }
     else if (isChangesService) { setChangesCount(15); }
+    else if (isWhatsAppCustomization) { setWhatsappCategoryCount(15); }
+    else if (isErpCrmService) { setErpModuleCount(6); }
     // Always reset price override when switching services or tiers
     setPriceOverrideEnabled(false);
     if (activeServiceObj && !isCustomService) {
@@ -97,10 +104,19 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   }, [activeServiceObj?.id, selectedTier]);
 
   const currentTierPrice = useMemo(() => {
+    if (isComplimentaryItem) return 0;
     if (!activeServiceObj) return 0;
+    if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      return 9990 + extra * 2990;
+    }
+    if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      return 39990 + extra * 6990;
+    }
     if (isManualEntry) return Number(customBasePrice || 0);
     return Number(activeServiceObj.prices?.[selectedTier] || 0);
-  }, [activeServiceObj, selectedTier, customBasePrice, isManualEntry]);
+  }, [activeServiceObj, selectedTier, customBasePrice, isManualEntry, isComplimentaryItem, isWhatsAppCustomization, whatsappCategoryCount, isErpCrmService, erpModuleCount]);
 
   const currentTierNote = useMemo(() => {
     if (!activeServiceObj) return '';
@@ -135,7 +151,17 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       if (isNaN(mc) || mc < 2 || mc > 10) { setError('Module count must be between 2 and 10.'); return; }
     }
 
-    const basePrice = isManualEntry ? Number(customBasePrice) : currentTierPrice;
+    const isComplimentary = Boolean(isComplimentaryItem);
+    const basePrice = isComplimentary
+      ? 0
+      : isWhatsAppCustomization
+      ? (9990 + Math.max(0, Number(whatsappCategoryCount) - 15) * 2990)
+      : isErpCrmService
+      ? (39990 + Math.max(0, Number(erpModuleCount) - 6) * 6990)
+      : isManualEntry
+      ? Number(customBasePrice)
+      : currentTierPrice;
+
     const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
     const moduleLabel = selectedModule;
     const qty = isModuleService
@@ -143,18 +169,26 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       : isChangesService
         ? Math.max(1, Math.min(15, Number(changesCount || 15)))
         : Math.max(1, Number(itemQty || 1));
-    const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
-    const lineBase = basePrice * qty;
-    const discAmount = (lineBase * discPct) / 100;
-    const taxableValue = lineBase - discAmount;
+    const discPct = isComplimentary ? 0 : Math.min(20, Math.max(0, Number(itemDiscount || 0)));
+    const lineBase = isComplimentary ? 0 : basePrice * qty;
+    const discAmount = isComplimentary ? 0 : (lineBase * discPct) / 100;
+    const taxableValue = isComplimentary ? 0 : lineBase - discAmount;
     const gstPct = 18;
-    const gstAmount = (taxableValue * gstPct) / 100;
-    const totalAmount = taxableValue + gstAmount;
+    const gstAmount = isComplimentary ? 0 : (taxableValue * gstPct) / 100;
+    const totalAmount = isComplimentary ? 0 : taxableValue + gstAmount;
     const tierObj = losTiers.find((t) => t.key === selectedTier);
     const tierLabel = tierObj ? tierObj.label : 'Starter';
 
     let itemDescription;
-    if (isModuleService) {
+    if (isComplimentary) {
+      itemDescription = `${serviceName} — Complimentary Service (Free of Charge)`;
+    } else if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      itemDescription = `${serviceName} — ${whatsappCategoryCount} Categories (${extra > 0 ? `15 Base + ${extra} Additional @ ₹2,990/cat` : 'up to 15 categories included'}). ${currentTierNote}`;
+    } else if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      itemDescription = `${serviceName} — ${erpModuleCount} Modules (${extra > 0 ? `6 Base + ${extra} Additional @ ₹6,990/mod` : 'up to 6 modules included'}). ${currentTierNote}`;
+    } else if (isModuleService) {
       const mc = Number(moduleCount);
       const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
       itemDescription = `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
@@ -174,15 +208,18 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       subService: serviceName,
       subServiceName: serviceName,
       description: itemDescription,
-      tier: tierLabel,
+      tier: isComplimentary ? 'Complimentary' : tierLabel,
       tierKey: selectedTier,
       sacCode: isCustomService ? '998314' : (activeServiceObj?.sacCode || '998314'),
       unit: isCustomService ? 'Per Service' : (activeServiceObj?.unit || 'Per Service'),
       frequency: isCustomService ? 'One Time' : (activeServiceObj?.frequency || 'One Time'),
       payable: isCustomService ? 'One Time' : (activeServiceObj?.payable || 'One Time'),
-      isOptional: Boolean(isOptionalItem),
+      isOptional: isComplimentary ? false : Boolean(isOptionalItem),
+      isComplimentary: isComplimentary,
       ...(isModuleService ? { moduleCount: Number(moduleCount), imagesPerModule: Math.max(1, Math.min(15, Number(imagesPerModule || 15))) } : {}),
       ...(isChangesService ? { changesCount: Math.max(1, Math.min(15, Number(changesCount || 15))) } : {}),
+      ...(isWhatsAppCustomization ? { whatsappCategoryCount: Number(whatsappCategoryCount) } : {}),
+      ...(isErpCrmService ? { erpModuleCount: Number(erpModuleCount) } : {}),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -191,11 +228,12 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       gstPercentage: gstPct,
       gstAmount,
       totalAmount,
-      priceType: 'Manual'
+      priceType: isComplimentary ? 'Complimentary' : 'Manual'
     };
 
     setCostingItems((prev) => [...prev, newItem]);
     setIsOptionalItem(false);
+    setIsComplimentaryItem(false);
     setError('');
     setAddedMsg(`✓ "${serviceName}" added`);
     setTimeout(() => setAddedMsg(''), 2500);
@@ -553,6 +591,42 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                   </div>
                 )}
 
+                {/* WhatsApp Automation configurator inline for modal */}
+                {isWhatsAppCustomization && !isComplimentaryItem && (
+                  <div className="w-full mt-1 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase text-emerald-700 mb-2">📱 WhatsApp Customization — base 15 categories (₹9,990) · +₹2,990/extra cat</p>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Categories ({whatsappCategoryCount})</label>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setWhatsappCategoryCount((c) => Math.max(1, Number(c) - 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-500 hover:text-white transition">−</button>
+                        <input type="range" min={1} max={40} step={1} value={whatsappCategoryCount} onChange={(e) => setWhatsappCategoryCount(Number(e.target.value))} className="flex-1 accent-emerald-500" />
+                        <button type="button" onClick={() => setWhatsappCategoryCount((c) => Math.min(50, Number(c) + 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 font-black text-emerald-700 hover:bg-emerald-500 hover:text-white transition">+</button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        {whatsappCategoryCount <= 15 ? 'Included in base price' : `15 Base + ${whatsappCategoryCount - 15} Extra (+${currency((whatsappCategoryCount - 15) * 2990)})`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ERP / CRM App Suite configurator inline for modal */}
+                {isErpCrmService && !isComplimentaryItem && (
+                  <div className="w-full mt-1 rounded-xl border-2 border-indigo-300 bg-indigo-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase text-indigo-700 mb-2">🏢 ERP/CRM Suite — base 6 modules (₹39,990) · +₹6,990/extra mod</p>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Modules ({erpModuleCount})</label>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setErpModuleCount((c) => Math.max(1, Number(c) - 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 font-black text-indigo-700 hover:bg-indigo-500 hover:text-white transition">−</button>
+                        <input type="range" min={1} max={20} step={1} value={erpModuleCount} onChange={(e) => setErpModuleCount(Number(e.target.value))} className="flex-1 accent-indigo-500" />
+                        <button type="button" onClick={() => setErpModuleCount((c) => Math.min(25, Number(c) + 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 font-black text-indigo-700 hover:bg-indigo-500 hover:text-white transition">+</button>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        {erpModuleCount <= 6 ? 'Included in base price' : `6 Base + ${erpModuleCount - 6} Extra (+${currency((erpModuleCount - 6) * 6990)})`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Qty</label>
                   <input
@@ -573,17 +647,33 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                     max={20}
                     value={itemDiscount}
                     onChange={(e) => setItemDiscount(e.target.value)}
-                    className="w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
+                    disabled={isComplimentaryItem}
+                    className={`w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold ${isComplimentaryItem ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-200 text-amber-900 transition">
                   <input
                     type="checkbox"
                     checked={isOptionalItem}
-                    onChange={(e) => setIsOptionalItem(e.target.checked)}
+                    onChange={(e) => {
+                      setIsOptionalItem(e.target.checked);
+                      if (e.target.checked) setIsComplimentaryItem(false);
+                    }}
                     className="h-4 w-4"
                   />
                   <span className="text-xs font-bold whitespace-nowrap">💡 Optional</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-xl border border-emerald-300 text-emerald-900 transition">
+                  <input
+                    type="checkbox"
+                    checked={isComplimentaryItem}
+                    onChange={(e) => {
+                      setIsComplimentaryItem(e.target.checked);
+                      if (e.target.checked) setIsOptionalItem(false);
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-xs font-bold whitespace-nowrap">🎁 Complimentary (₹0)</span>
                 </label>
                 <div className="ml-auto flex flex-col items-end gap-1">
                   {addedMsg && (
@@ -624,6 +714,9 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                             <span className="text-[10px] font-semibold text-slate-400">{item.mainService}</span>
                             {item.isOptional && (
                               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">💡 Optional</span>
+                            )}
+                            {item.isComplimentary && (
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">🎁 Complimentary (₹0)</span>
                             )}
                           </div>
                         </div>

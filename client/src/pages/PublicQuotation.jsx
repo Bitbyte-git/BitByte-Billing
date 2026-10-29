@@ -104,7 +104,14 @@ export default function PublicQuotation() {
                         <tr key={`${item.service}-${index}`}>
                           <td className="border-b border-slate-100 px-4 py-3 font-bold">{index + 1}</td>
                           <td className="border-b border-slate-100 px-4 py-3">
-                            <p className="font-black text-slate-950">{item.service}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-black text-slate-950">{item.service}</p>
+                              {(item.isComplimentary || (item.total === 0 && (item.description || '').toLowerCase().includes('complimentary'))) && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800 border border-emerald-300">
+                                  🎁 Complimentary
+                                </span>
+                              )}
+                            </div>
                             {item.description && <p className="mt-1 text-xs font-semibold text-slate-500">{item.description}</p>}
                           </td>
                           <td className="border-b border-slate-100 px-4 py-3 font-bold">{item.sacCode}</td>
@@ -122,11 +129,35 @@ export default function PublicQuotation() {
               <div className="mt-6 grid gap-6 md:grid-cols-2">
                 <div className="border border-slate-200 bg-white p-5">
                   <h2 className="text-base font-black uppercase tracking-[0.14em] text-slate-950">Terms & Conditions</h2>
-                  <ul className="mt-3 space-y-2 text-xs font-semibold text-slate-600">
+                  
+                  {/* Payment Milestone Box */}
+                  <div className="mt-3 mb-4 rounded-xl border border-purple/20 bg-purple/5 p-3.5">
+                    <p className="text-xs font-black uppercase tracking-wider text-purple">💳 Payment Milestones</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className="rounded-lg bg-white p-2 border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Stage 1</p>
+                        <p className="font-black text-slate-900 mt-0.5">70%</p>
+                        <p className="text-[10px] font-semibold text-slate-600">Initial Payment</p>
+                      </div>
+                      <div className="rounded-lg bg-white p-2 border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Stage 2</p>
+                        <p className="font-black text-slate-900 mt-0.5">15%</p>
+                        <p className="text-[10px] font-semibold text-slate-600">Client Checking</p>
+                      </div>
+                      <div className="rounded-lg bg-white p-2 border border-slate-200">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase">Stage 3</p>
+                        <p className="font-black text-slate-900 mt-0.5">15%</p>
+                        <p className="text-[10px] font-semibold text-slate-600">Final Handover</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2 text-xs font-semibold text-slate-600">
+                    <li>• Initial Payment: 70% advance upon project sign-off.</li>
+                    <li>• Client Checking Handover: 15% on review milestone delivery.</li>
+                    <li>• Final Handover: 15% upon completed final deployment and sign-off.</li>
                     <li>• This quotation is valid for 15 days from the date of issue.</li>
-                    <li>• Prices are subject to change after the validity period.</li>
                     <li>• GST @18% is applicable on all services as per government norms.</li>
-                    <li>• Please mention the quotation number for all communications.</li>
                     <li className="text-slate-400">• This is an officially verified computer-generated quotation.</li>
                   </ul>
                 </div>

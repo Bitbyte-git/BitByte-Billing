@@ -20,6 +20,7 @@ const costingItemSchema = new mongoose.Schema({
   frequency: { type: String, default: 'One Time' },
   payable: { type: String, default: 'One Time' },
   isOptional: { type: Boolean, default: false },
+  isComplimentary: { type: Boolean, default: false },
   basePrice: { type: Number, default: 0 },
   quantity: { type: Number, default: 1 },
   discountPercentage: { type: Number, default: 0, min: 0, max: 20 },

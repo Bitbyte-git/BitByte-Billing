@@ -70,11 +70,14 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [itemQty, setItemQty] = useState(1);
   const [itemDiscount, setItemDiscount] = useState(0);
   const [isOptionalItem, setIsOptionalItem] = useState(false);
+  const [isComplimentaryItem, setIsComplimentaryItem] = useState(false);
 
-  // Special configurators for service 23 (changes) and 24 (modules+images)
+  // Special configurators
   const [moduleCount, setModuleCount] = useState(2);      // 2-10 modules (service 24)
   const [imagesPerModule, setImagesPerModule] = useState(15); // 1-15 images/module (service 24)
   const [changesCount, setChangesCount] = useState(15);   // 1-15 changes (service 23)
+  const [whatsappCategoryCount, setWhatsappCategoryCount] = useState(15); // min 15 categories (service 53)
+  const [erpModuleCount, setErpModuleCount] = useState(6); // min 6 modules (service 55)
 
   // Price override — lets user edit the default tier price for ANY service
   const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
@@ -237,6 +240,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const isModuleService = !isCustomService && (activeServiceObj?.id === 24 || activeServiceObj?.id === 22);
   // Service 23: changes service (count up to 15)
   const isChangesService = !isCustomService && activeServiceObj?.id === 23;
+  // Service 53: WhatsApp Automation Customization (Base ₹9,990 up to 15 categories, +₹2,990 per extra category)
+  const isWhatsAppCustomization = !isCustomService && activeServiceObj?.id === 53;
+  // Service 55: ERP, CRM, PRM, HRMS (Base ₹39,990 up to 6 modules, +₹6,990 per extra module)
+  const isErpCrmService = !isCustomService && activeServiceObj?.id === 55;
 
   // Reset special-service params when active service changes
   useEffect(() => {
@@ -245,6 +252,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       setImagesPerModule(15);
     } else if (isChangesService) {
       setChangesCount(15);
+    } else if (isWhatsAppCustomization) {
+      setWhatsappCategoryCount(15);
+    } else if (isErpCrmService) {
+      setErpModuleCount(6);
     }
   }, [activeServiceObj?.id]);
 
@@ -266,12 +277,21 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
   // Calculate pricing for current service dropdown preview
   const currentTierPrice = useMemo(() => {
+    if (isComplimentaryItem) return 0;
     if (!activeServiceObj) return 0;
+    if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      return 9990 + extra * 2990;
+    }
+    if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      return 39990 + extra * 6990;
+    }
     if (selectedTier === 'customised' || activeServiceObj.frequency === 'Yearly' || activeServiceObj.service?.toLowerCase().includes('amc')) {
       return Number(customBasePrice || activeServiceObj.prices?.[selectedTier] || activeServiceObj.prices?.customised || 10000);
     }
     return Number(activeServiceObj.prices?.[selectedTier] || 0);
-  }, [activeServiceObj, selectedTier, customBasePrice]);
+  }, [activeServiceObj, selectedTier, customBasePrice, isComplimentaryItem, isWhatsAppCustomization, whatsappCategoryCount, isErpCrmService, erpModuleCount]);
 
   const currentTierNote = useMemo(() => {
     if (!activeServiceObj) return '';
@@ -330,7 +350,17 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       }
     }
 
-    const basePrice = isManualEntry ? Number(customBasePrice) : currentTierPrice;
+    const isComplimentary = Boolean(isComplimentaryItem);
+    const basePrice = isComplimentary
+      ? 0
+      : isWhatsAppCustomization
+      ? (9990 + Math.max(0, Number(whatsappCategoryCount) - 15) * 2990)
+      : isErpCrmService
+      ? (39990 + Math.max(0, Number(erpModuleCount) - 6) * 6990)
+      : isManualEntry
+      ? Number(customBasePrice)
+      : currentTierPrice;
+
     const serviceName = isCustomService ? customServiceName.trim() : activeServiceObj.service;
     const moduleLabel = selectedModule;
 
@@ -341,20 +371,28 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
         ? Math.max(1, Math.min(15, Number(changesCount || 15)))
         : Math.max(1, Number(itemQty || 1));
 
-    const discPct = Math.min(20, Math.max(0, Number(itemDiscount || 0)));
-    const lineBaseTotal = basePrice * qty;
-    const discAmount = (lineBaseTotal * discPct) / 100;
-    const taxableValue = lineBaseTotal - discAmount;
+    const discPct = isComplimentary ? 0 : Math.min(20, Math.max(0, Number(itemDiscount || 0)));
+    const lineBaseTotal = isComplimentary ? 0 : basePrice * qty;
+    const discAmount = isComplimentary ? 0 : (lineBaseTotal * discPct) / 100;
+    const taxableValue = isComplimentary ? 0 : lineBaseTotal - discAmount;
     const gstPct = 18;
-    const gstAmount = (taxableValue * gstPct) / 100;
-    const totalAmount = taxableValue + gstAmount;
+    const gstAmount = isComplimentary ? 0 : (taxableValue * gstPct) / 100;
+    const totalAmount = isComplimentary ? 0 : taxableValue + gstAmount;
 
     const tierObj = losTiers.find((t) => t.key === selectedTier);
     const tierLabel = tierObj ? tierObj.label : 'Starter';
 
     // Build an enriched description for special services
     let itemDescription;
-    if (isModuleService) {
+    if (isComplimentary) {
+      itemDescription = `${serviceName} — Complimentary Service (Free of Charge)`;
+    } else if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      itemDescription = `${serviceName} — ${whatsappCategoryCount} Categories (${extra > 0 ? `15 Base + ${extra} Additional @ ₹2,990/cat` : 'up to 15 categories included'}). ${currentTierNote}`;
+    } else if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      itemDescription = `${serviceName} — ${erpModuleCount} Modules (${extra > 0 ? `6 Base + ${extra} Additional @ ₹6,990/mod` : 'up to 6 modules included'}). ${currentTierNote}`;
+    } else if (isModuleService) {
       const mc = Number(moduleCount);
       const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
       itemDescription = `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
@@ -374,16 +412,19 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       subService: serviceName,
       subServiceName: serviceName,
       description: itemDescription,
-      tier: tierLabel,
+      tier: isComplimentary ? 'Complimentary' : tierLabel,
       tierKey: selectedTier,
       sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
       unit: isCustomService ? 'Per Service' : (activeServiceObj.unit || 'Per Service'),
       frequency: isCustomService ? 'One Time' : (activeServiceObj.frequency || 'One Time'),
       payable: isCustomService ? 'One Time' : (activeServiceObj.payable || 'One Time'),
-      isOptional: Boolean(isOptionalItem),
+      isOptional: isComplimentary ? false : Boolean(isOptionalItem),
+      isComplimentary: isComplimentary,
       // Store extra config for display
       ...(isModuleService ? { moduleCount: Number(moduleCount), imagesPerModule: Math.max(1, Math.min(15, Number(imagesPerModule || 15))) } : {}),
       ...(isChangesService ? { changesCount: Math.max(1, Math.min(15, Number(changesCount || 15))) } : {}),
+      ...(isWhatsAppCustomization ? { whatsappCategoryCount: Number(whatsappCategoryCount) } : {}),
+      ...(isErpCrmService ? { erpModuleCount: Number(erpModuleCount) } : {}),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -396,6 +437,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
 
     setCostingItems((prev) => [...prev, newItem]);
     setIsOptionalItem(false);
+    setIsComplimentaryItem(false);
     setMessage({ type: '', text: '' });
     setToast({ show: true, message: `"${serviceName}" added to quotation queue.` });
 
@@ -1086,10 +1128,100 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 </div>
               )}
 
+              {/* ── SPECIAL SERVICE CONFIGURATOR (service 53 — WhatsApp Automation Customization) ── */}
+              {isWhatsAppCustomization && !isComplimentaryItem && (
+                <div className="mt-4 w-full rounded-2xl border-2 border-emerald-400/70 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span className="rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-black text-white">📱 WhatsApp Automation Customization</span>
+                    <span className="text-[11px] font-bold text-emerald-800">Base ₹9,990 (up to 15 categories) · +₹2,990 / extra category</span>
+                  </div>
+                  <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                    <label className="block text-xs font-black uppercase tracking-wider text-emerald-800 mb-2">📋 Number of Categories</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setWhatsappCategoryCount((c) => Math.max(1, Number(c) - 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-emerald-300 bg-emerald-50 font-black text-emerald-700 text-lg hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all"
+                      >−</button>
+                      <div className="flex-1 text-center">
+                        <span className="text-3xl font-black text-slate-950">{whatsappCategoryCount}</span>
+                        <p className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                          {whatsappCategoryCount <= 15
+                            ? 'Included in base price (up to 15 categories)'
+                            : `15 Base + ${whatsappCategoryCount - 15} Extra (+${currency((whatsappCategoryCount - 15) * 2990)})`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWhatsappCategoryCount((c) => Math.min(50, Number(c) + 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-emerald-300 bg-emerald-50 font-black text-emerald-700 text-lg hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all"
+                      >+</button>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={40}
+                      step={1}
+                      value={whatsappCategoryCount}
+                      onChange={(e) => setWhatsappCategoryCount(Number(e.target.value))}
+                      className="mt-3 w-full accent-emerald-600"
+                    />
+                    <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
+                      <span>1 min</span><span>15 base included</span><span>40 max</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SPECIAL SERVICE CONFIGURATOR (service 55 — ERP, CRM, PRM, HRMS) ── */}
+              {isErpCrmService && !isComplimentaryItem && (
+                <div className="mt-4 w-full rounded-2xl border-2 border-indigo-400/70 bg-gradient-to-br from-indigo-50 to-blue-50 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span className="rounded-full bg-indigo-600 px-3 py-0.5 text-xs font-black text-white">🏢 ERP, CRM, PRM, HRMS App Suite</span>
+                    <span className="text-[11px] font-bold text-indigo-800">Base ₹39,990 (up to 6 modules) · +₹6,990 / extra module</span>
+                  </div>
+                  <div className="rounded-xl border border-indigo-200 bg-white p-4">
+                    <label className="block text-xs font-black uppercase tracking-wider text-indigo-800 mb-2">📦 Number of App Modules</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setErpModuleCount((c) => Math.max(1, Number(c) - 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-indigo-300 bg-indigo-50 font-black text-indigo-700 text-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all"
+                      >−</button>
+                      <div className="flex-1 text-center">
+                        <span className="text-3xl font-black text-slate-950">{erpModuleCount}</span>
+                        <p className="text-[11px] font-bold text-indigo-700 mt-0.5">
+                          {erpModuleCount <= 6
+                            ? 'Included in base price (up to 6 modules)'
+                            : `6 Base + ${erpModuleCount - 6} Extra (+${currency((erpModuleCount - 6) * 6990)})`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setErpModuleCount((c) => Math.min(25, Number(c) + 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-indigo-300 bg-indigo-50 font-black text-indigo-700 text-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all"
+                      >+</button>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      step={1}
+                      value={erpModuleCount}
+                      onChange={(e) => setErpModuleCount(Number(e.target.value))}
+                      className="mt-3 w-full accent-indigo-600"
+                    />
+                    <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
+                      <span>1 min</span><span>6 base included</span><span>20 max</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                 <div className="flex items-center gap-3">
                   {/* Price input — always shown when manual/AMC/customised/custom/override */}
-                  {(isCustomService || priceOverrideEnabled || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')) && (
+                  {!isComplimentaryItem && (isCustomService || priceOverrideEnabled || selectedTier === 'customised' || activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')) && (
                     <div className="flex flex-col items-start">
                       <label className="block text-[10px] font-black uppercase text-slate-400">
                         {activeServiceObj?.frequency === 'Yearly' || activeServiceObj?.service?.toLowerCase().includes('amc')
@@ -1140,7 +1272,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                       max={20}
                       value={itemDiscount}
                       onChange={(e) => setItemDiscount(e.target.value)}
-                      className="w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold"
+                      disabled={isComplimentaryItem}
+                      className={`w-20 rounded-xl border border-line bg-white px-2 py-1.5 text-center text-sm font-bold ${isComplimentaryItem ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
                   </div>
 
@@ -1148,18 +1281,51 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                     <input
                       type="checkbox"
                       checked={isOptionalItem}
-                      onChange={(e) => setIsOptionalItem(e.target.checked)}
+                      onChange={(e) => {
+                        setIsOptionalItem(e.target.checked);
+                        if (e.target.checked) setIsComplimentaryItem(false);
+                      }}
                       className="h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
                     />
                     <span className="text-xs font-bold whitespace-nowrap">💡 Optional Suggestion</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1.5 rounded-xl border border-emerald-300 text-emerald-900 transition-colors self-end mb-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isComplimentaryItem}
+                      onChange={(e) => {
+                        setIsComplimentaryItem(e.target.checked);
+                        if (e.target.checked) {
+                          setIsOptionalItem(false);
+                          setPriceOverrideEnabled(false);
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs font-bold whitespace-nowrap">🎁 Complimentary (₹0)</span>
                   </label>
                 </div>
 
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase text-slate-400 flex items-center justify-end gap-1.5">
-                    {isCustomService ? 'Custom Rate' : isModuleService ? 'Per Module Rate' : selectedTier === 'customised' ? 'Customised Rate' : priceOverrideEnabled ? 'Overridden Rate' : 'Tier Rate'}
-                    {/* Edit price toggle — only shown for standard (non-manual) services */}
-                    {!isCustomService && !isModuleService && selectedTier !== 'customised' && activeServiceObj?.frequency !== 'Yearly' && !activeServiceObj?.service?.toLowerCase().includes('amc') && (
+                    {isComplimentaryItem
+                      ? 'Complimentary'
+                      : isCustomService
+                      ? 'Custom Rate'
+                      : isModuleService
+                      ? 'Per Module Rate'
+                      : isWhatsAppCustomization
+                      ? 'Customization Rate'
+                      : isErpCrmService
+                      ? 'Suite Rate'
+                      : selectedTier === 'customised'
+                      ? 'Customised Rate'
+                      : priceOverrideEnabled
+                      ? 'Overridden Rate'
+                      : 'Tier Rate'}
+                    {/* Edit price toggle — only shown for standard (non-manual) services when not complimentary */}
+                    {!isComplimentaryItem && !isCustomService && !isModuleService && !isWhatsAppCustomization && !isErpCrmService && selectedTier !== 'customised' && activeServiceObj?.frequency !== 'Yearly' && !activeServiceObj?.service?.toLowerCase().includes('amc') && (
                       <button
                         type="button"
                         title={priceOverrideEnabled ? 'Reset to tier price' : 'Override default price'}
@@ -1184,15 +1350,26 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                       </button>
                     )}
                   </p>
-                  <p className="text-xl font-black text-purple">
-                    {isModuleService
+                  <p className={`text-xl font-black ${isComplimentaryItem ? 'text-emerald-600' : 'text-purple'}`}>
+                    {isComplimentaryItem
+                      ? '₹0 (Free)'
+                      : isModuleService
                       ? currency(currentTierPrice * Number(moduleCount))
                       : currency((isCustomService || selectedTier === 'customised' || priceOverrideEnabled) ? Number(customBasePrice || 0) : currentTierPrice)}
                   </p>
-                  {isModuleService && (
+                  {isComplimentaryItem && (
+                    <p className="text-[10px] text-emerald-600 font-bold">100% complimentary service</p>
+                  )}
+                  {!isComplimentaryItem && isModuleService && (
                     <p className="text-[10px] text-slate-500">{moduleCount} × {currency(currentTierPrice)}</p>
                   )}
-                  {priceOverrideEnabled && !isModuleService && (
+                  {!isComplimentaryItem && isWhatsAppCustomization && (
+                    <p className="text-[10px] text-emerald-700 font-bold">{whatsappCategoryCount} categories</p>
+                  )}
+                  {!isComplimentaryItem && isErpCrmService && (
+                    <p className="text-[10px] text-indigo-700 font-bold">{erpModuleCount} modules</p>
+                  )}
+                  {!isComplimentaryItem && priceOverrideEnabled && !isModuleService && (
                     <p className="text-[10px] text-orange-500 font-bold">was {currency(activeServiceObj?.prices?.[selectedTier] || 0)}</p>
                   )}
                 </div>
@@ -1270,6 +1447,21 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                         {item.isOptional && (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
                             💡 Optional Suggestion
+                          </span>
+                        )}
+                        {item.isComplimentary && (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            🎁 Complimentary (₹0)
+                          </span>
+                        )}
+                        {item.whatsappCategoryCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            📱 {item.whatsappCategoryCount} categories
+                          </span>
+                        )}
+                        {item.erpModuleCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            🏢 {item.erpModuleCount} modules
                           </span>
                         )}
                         {item.moduleCount > 0 && (

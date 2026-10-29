@@ -15,6 +15,8 @@ const quotationItemSchema = new mongoose.Schema({
   gstPercentage: { type: Number, default: 18, min: 0 },
   gstAmount: { type: Number, required: true, min: 0 },
   totalAmount: { type: Number, required: true, min: 0 },
+  isOptional: { type: Boolean, default: false },
+  isComplimentary: { type: Boolean, default: false },
   priceType: { type: String, enum: ['Auto', 'Manual'], default: 'Auto' },
   addedByAccountant: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   addedByAccountantName: String,
