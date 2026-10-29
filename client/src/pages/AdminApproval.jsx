@@ -50,14 +50,21 @@ export default function AdminApproval() {
     if (!selected || !modal) return;
     try {
       const endpoint = modal === 'Approve Quotation' ? 'approve' : 'reject';
-      await api.post(`/quotations/${recordId(selected)}/${endpoint}`, {
+      const { data } = await api.post(`/quotations/${recordId(selected)}/${endpoint}`, {
         adminRemarks: remarks,
         discountType: discount.type,
         discountValue: Number(discount.value || 0)
       });
       setModal(null);
       setRemarks('');
-      setMessage({ type: 'success', text: endpoint === 'approve' ? 'Quotation approved.' : 'Quotation rejected.' });
+      if (endpoint === 'approve') {
+        const waMsg = data?.whatsapp?.success
+          ? ` and PDF automatically sent to client WhatsApp (+${data.whatsapp.contact})`
+          : (data?.whatsapp?.error ? ` (Client WhatsApp: ${data.whatsapp.error})` : '');
+        setMessage({ type: 'success', text: `Quotation approved${waMsg}.` });
+      } else {
+        setMessage({ type: 'success', text: 'Quotation rejected.' });
+      }
       await load();
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Unable to update approval.' });

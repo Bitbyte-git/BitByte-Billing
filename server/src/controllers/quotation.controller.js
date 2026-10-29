@@ -12,7 +12,7 @@ import { sendClientWorkflowEmail } from '../utils/clientEmail.js';
 import { changeQuotationStatus, recordAudit, notifyRole } from '../services/workflowService.js';
 import { createInvoiceForQuotation } from '../services/invoiceService.js';
 import { createQuotationPdfDocument } from '../utils/quotationPdf.js';
-import { sendQuotationWhatsApp } from '../utils/whatsapp.js';
+import { sendQuotationWhatsApp, sendQuotationToManagementWhatsApp, MANAGEMENT_CONTACTS } from '../utils/whatsapp.js';
 
 export async function listQuotations(req, res, next) {
   try {
@@ -146,7 +146,8 @@ export async function createQuotation(req, res, next) {
       : costingItems.map(i => i.subService || i.subServiceName || i.serviceName).filter(Boolean);
 
     const projectTitle = req.body.projectTitle || (subServices.length ? subServices[0] : 'Services Quotation');
-    const defaultStatus = isStaff ? 'Approved' : 'Submitted';
+    // Default status: 'Forwarded to Admin' so management reviews before Admin manually approves
+    const defaultStatus = 'Forwarded to Admin';
     const status = req.body.status || defaultStatus;
 
     const quotation = await Quotation.create({
@@ -199,25 +200,22 @@ export async function createQuotation(req, res, next) {
 
     const populated = await Quotation.findById(quotation._id).populate('clientId');
 
-    // Send quotation PDF to client WhatsApp if requested
-    let whatsappResult = null;
+    // Send quotation PDF to Management members (MD, ED, CEO, Bit Byte Office) for review
+    let managementWhatsAppResult = null;
     if (req.body.sendWhatsApp !== false && populated) {
       try {
-        whatsappResult = await sendQuotationWhatsApp({
-          quotation: populated,
-          contactOverride: req.body.clientDetails?.phone || req.body.phone,
-          clientDetails: req.body.clientDetails
-        });
+        managementWhatsAppResult = await sendQuotationToManagementWhatsApp(populated);
+        console.log(`[WhatsApp Management] Sent to management for quotation ${quotation.quotationId}: status=${managementWhatsAppResult?.status}`);
       } catch (waErr) {
-        console.error('[WhatsApp] Auto send on quotation creation error:', waErr.message);
-        whatsappResult = { success: false, error: waErr.message };
+        console.error('[WhatsApp Management] Auto send on quotation creation error:', waErr.message);
+        managementWhatsAppResult = { success: false, error: waErr.message };
       }
     }
 
     const finalQuotation = await Quotation.findById(quotation._id).populate('clientId');
     const responsePayload = finalQuotation ? finalQuotation.toObject() : populated.toObject();
-    if (whatsappResult) {
-      responsePayload.whatsapp = whatsappResult;
+    if (managementWhatsAppResult) {
+      responsePayload.managementWhatsApp = managementWhatsAppResult;
     }
 
     res.status(201).json(responsePayload);
@@ -529,7 +527,27 @@ export async function approve(req, res, next) {
       });
     }
     await sendClientWorkflowEmail({ quotationId: updated._id, stage: 'Quotation Approved' });
-    res.json(updated);
+
+    // Send quotation PDF to client WhatsApp now that Admin has officially approved
+    let clientWhatsAppResult = null;
+    try {
+      const freshPopulated = await Quotation.findById(updated._id).populate('clientId createdBy');
+      clientWhatsAppResult = await sendQuotationWhatsApp({
+        quotation: freshPopulated,
+        contactOverride: freshPopulated?.clientId?.phone
+      });
+      console.log(`[WhatsApp] Dispatched approved quotation ${updated.quotationId} to client: success=${clientWhatsAppResult?.success}`);
+    } catch (waErr) {
+      console.error('[WhatsApp] Client send on approval error:', waErr.message);
+      clientWhatsAppResult = { success: false, error: waErr.message };
+    }
+
+    const finalApproved = await Quotation.findById(updated._id).populate('clientId createdBy');
+    const payload = finalApproved ? finalApproved.toObject() : updated.toObject();
+    if (clientWhatsAppResult) {
+      payload.whatsapp = clientWhatsAppResult;
+    }
+    res.json(payload);
   } catch (err) { next(err); }
 }
 
@@ -711,6 +729,22 @@ export async function sendQuotationWhatsAppController(req, res, next) {
       return res.status(404).json({ message: 'Quotation not found' });
     }
 
+    const target = req.body.target || 'client'; // 'management' or 'client'
+
+    if (target === 'management') {
+      const result = await sendQuotationToManagementWhatsApp(quotation);
+      const updated = await Quotation.findById(quotation._id).populate('clientId createdBy');
+      return res.json({
+        success: result.success,
+        target: 'management',
+        message: result.success
+          ? `Quotation PDF sent to Management WhatsApp (${result.successCount}/${result.totalCount} members delivered)`
+          : (result.error || 'Failed to send WhatsApp message to management'),
+        result,
+        quotation: updated
+      });
+    }
+
     const result = await sendQuotationWhatsApp({
       quotation,
       contactOverride: req.body.phone
@@ -719,8 +753,9 @@ export async function sendQuotationWhatsAppController(req, res, next) {
     const updated = await Quotation.findById(quotation._id).populate('clientId createdBy');
     res.json({
       success: result.success,
+      target: 'client',
       message: result.success
-        ? `Quotation sent via WhatsApp to ${result.contact}`
+        ? `Quotation sent via WhatsApp to client (${result.contact})`
         : (result.error || 'Failed to send WhatsApp message'),
       result,
       quotation: updated

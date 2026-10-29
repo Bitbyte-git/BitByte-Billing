@@ -368,3 +368,144 @@ export async function sendQuotationWhatsApp({ quotation, contactOverride, client
     };
   }
 }
+
+/**
+ * Management members designated for pre-approval of quotations:
+ * MD: +91 8248654541
+ * ED: +91 9789274743
+ * CEO: +91 94443 77000
+ * Bit Byte Office: 9943743136
+ */
+export const MANAGEMENT_CONTACTS = [
+  { role: 'MD', title: 'Managing Director', phone: '918248654541' },
+  { role: 'ED', title: 'Executive Director', phone: '919789274743' },
+  { role: 'CEO', title: 'Chief Executive Officer', phone: '919444377000' },
+  { role: 'Bit Byte Office', title: 'Bit Byte Office', phone: '919943743136' }
+];
+
+/**
+ * Sends quotation PDF to all 4 management members via WhatsApp for review before client dispatch.
+ */
+export async function sendQuotationToManagementWhatsApp(quotation) {
+  if (!quotation) {
+    throw new Error('Quotation is required to send management WhatsApp');
+  }
+
+  // Populate client if not already populated
+  let populated = quotation;
+  if (!populated.clientId?.phone && populated._id && mongoose.connection.readyState === 1) {
+    const fresh = await Quotation.findById(populated._id).populate('clientId createdBy');
+    if (fresh) populated = fresh;
+  }
+
+  // Ensure public PDF URL
+  let fileUrl = populated.pdfUrl;
+  try {
+    fileUrl = await ensureQuotationPdfUrl(populated);
+  } catch (pdfErr) {
+    console.error(`[WhatsApp Management] Could not prepare PDF URL for quotation:`, pdfErr.message);
+  }
+
+  const quotationId = String(populated.quotationId || populated._id).replace(/,/g, '').trim();
+  const clientObj = populated.clientId || populated.clientDetails || {};
+  const rawName = clientObj.fullName || clientObj.name || clientObj.companyName || 'Valued Client';
+  const clientName = String(rawName).replace(/,/g, ' ').trim();
+
+  const licenseNumber = (process.env.TENDIGIT_LICENSE_NUMBER || process.env.WHATSAPP_LICENSE_NUMBER || '').trim();
+  const apiKey = (process.env.TENDIGIT_API_KEY || process.env.WHATSAPP_API_KEY || '').trim();
+  const template = (process.env.TENDIGIT_TEMPLATE_NAME || 'Sample_bill_pdf').trim();
+
+  if (!fileUrl) {
+    const errMsg = 'Failed to generate public PDF URL for quotation attachment.';
+    await safeUpdateQuotation(populated._id, {
+      managementWhatsAppStatus: 'Failed',
+      managementWhatsAppError: errMsg
+    });
+    return { success: false, error: errMsg, results: [] };
+  }
+
+  if (!licenseNumber || !apiKey || licenseNumber === 'MyLicence' || apiKey === 'MyAPI') {
+    const errMsg = 'Tendigit credentials are not configured in server/.env.';
+    console.warn(`[WhatsApp Management] ${errMsg} PDF URL generated: ${fileUrl}`);
+    await safeUpdateQuotation(populated._id, {
+      managementWhatsAppStatus: 'Failed',
+      managementWhatsAppError: errMsg,
+      pdfUrl: fileUrl
+    });
+    return { success: false, error: errMsg, results: [] };
+  }
+
+  const results = [];
+  for (const member of MANAGEMENT_CONTACTS) {
+    const contact = formatWhatsAppContact(member.phone);
+    const param = clientName;
+
+    const endpoint = new URL('https://login.tendigit.in/api/sendtemplate.php');
+    endpoint.searchParams.set('LicenseNumber', licenseNumber);
+    endpoint.searchParams.set('APIKey', apiKey);
+    endpoint.searchParams.set('Contact', contact);
+    endpoint.searchParams.set('Template', template);
+    endpoint.searchParams.set('Param', param);
+    endpoint.searchParams.set('Fileurl', fileUrl);
+
+    console.log(`[WhatsApp Management] Sending quotation ${quotationId} to ${member.role} (${contact})...`);
+
+    try {
+      let response = await fetch(endpoint.toString(), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json, text/plain, */*' }
+      });
+      let responseText = await response.text();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { raw: responseText };
+      }
+
+      let isSuccess = response.ok && (
+        responseData?.ApiResponse === 'Success' ||
+        responseData?.status === 'success' ||
+        (typeof responseText === 'string' && responseText.toLowerCase().includes('success'))
+      );
+
+      results.push({
+        role: member.role,
+        title: member.title,
+        phone: contact,
+        success: isSuccess,
+        response: responseData,
+        error: isSuccess ? null : (responseData?.ErrorMessage?.error?.message || responseData?.ApiMessage || responseData?.message || responseText)
+      });
+    } catch (memberErr) {
+      console.error(`[WhatsApp Management] Failed to send to ${member.role} (${contact}):`, memberErr.message);
+      results.push({
+        role: member.role,
+        title: member.title,
+        phone: contact,
+        success: false,
+        error: memberErr.message
+      });
+    }
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+  const status = successCount === MANAGEMENT_CONTACTS.length ? 'Sent' : successCount > 0 ? 'Partial' : 'Failed';
+
+  await safeUpdateQuotation(populated._id, {
+    pdfUrl: fileUrl,
+    managementWhatsAppStatus: status,
+    managementWhatsAppSentAt: new Date(),
+    managementWhatsAppRecipients: MANAGEMENT_CONTACTS.map((m) => `${m.role} (${m.phone})`),
+    managementWhatsAppResults: results,
+    ...(status === 'Failed' ? { managementWhatsAppError: 'Failed to deliver to management members' } : { managementWhatsAppError: null })
+  });
+
+  return {
+    success: successCount > 0,
+    status,
+    successCount,
+    totalCount: MANAGEMENT_CONTACTS.length,
+    results
+  };
+}

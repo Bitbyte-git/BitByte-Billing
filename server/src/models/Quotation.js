@@ -66,6 +66,15 @@ const quotationSchema = new mongoose.Schema({
   adminEditCount: { type: Number, default: 0, min: 0, max: 2 },
   lastAdminEditAt: Date,
   pdfUrl: String,
+  managementWhatsAppStatus: {
+    type: String,
+    enum: ['Not Sent', 'Sent', 'Partial', 'Failed'],
+    default: 'Not Sent'
+  },
+  managementWhatsAppSentAt: Date,
+  managementWhatsAppRecipients: [String],
+  managementWhatsAppResults: [mongoose.Schema.Types.Mixed],
+  managementWhatsAppError: String,
   whatsappStatus: {
     type: String,
     enum: ['Not Sent', 'Sent', 'Failed'],

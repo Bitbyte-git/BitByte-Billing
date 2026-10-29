@@ -48,16 +48,18 @@ export default function QuotationDetail({ role, mode }) {
     }
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = async (target = 'client') => {
     if (!quotation) return;
     setSendingWhatsApp(true);
     setMessage({ type: '', text: '' });
     try {
-      const { data } = await api.post(`/quotations/${recordId(quotation)}/send-whatsapp`);
+      const { data } = await api.post(`/quotations/${recordId(quotation)}/send-whatsapp`, { target });
       if (data.success) {
         setMessage({
           type: 'success',
-          text: `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || quotation.clientId?.phone})!`
+          text: target === 'management'
+            ? `Quotation PDF dispatched to Management WhatsApp (${data.result?.successCount || 4}/${data.result?.totalCount || 4} members delivered)!`
+            : `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || quotation.clientId?.phone})!`
         });
       } else {
         const errDetail = typeof data.result?.error === 'string'
@@ -70,6 +72,34 @@ export default function QuotationDetail({ role, mode }) {
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Failed to send WhatsApp message.' });
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!quotation) return;
+    if (!window.confirm('Approve this quotation and automatically send the PDF to the client via WhatsApp?')) return;
+    setSendingWhatsApp(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const { data } = await api.post(`/quotations/${recordId(quotation)}/approve`, {
+        adminRemarks: 'Approved by Admin following management review'
+      });
+      setQuotation(data);
+      if (data.whatsapp?.success) {
+        setMessage({
+          type: 'success',
+          text: `Quotation approved and automatically sent to client WhatsApp (+${data.whatsapp.contact})!`
+        });
+      } else {
+        setMessage({
+          type: 'success',
+          text: `Quotation approved successfully! (Client WhatsApp delivery: ${data.whatsapp?.error || 'Pending delivery'})`
+        });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.message || err.message || 'Approval failed.' });
     } finally {
       setSendingWhatsApp(false);
     }
@@ -125,16 +155,42 @@ export default function QuotationDetail({ role, mode }) {
                   <span>Invoice PDF</span>
                 </button>
               )}
+              {/* Management WhatsApp Dispatch */}
               <button
                 type="button"
-                onClick={handleSendWhatsApp}
+                onClick={() => handleSendWhatsApp('management')}
                 disabled={sendingWhatsApp}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
-                title="Send or resend quotation PDF directly to client's WhatsApp"
+                className="flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/10 px-3.5 py-2 text-xs font-bold text-purple hover:bg-purple hover:text-white disabled:opacity-50 transition-all shadow-sm"
+                title="Send quotation PDF to Management (MD, ED, CEO, Bit Byte Office)"
               >
                 <MessageCircle size={15} />
-                <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend WhatsApp' : 'Send WhatsApp')}</span>
+                <span>{sendingWhatsApp ? 'Sending...' : '📱 Send to Management'}</span>
               </button>
+
+              {/* Client WhatsApp Dispatch (or Manual Admin Approval) */}
+              {quotation.status === 'Approved' || ['Invoice Generated', 'Paid'].includes(quotation.status) ? (
+                <button
+                  type="button"
+                  onClick={() => handleSendWhatsApp('client')}
+                  disabled={sendingWhatsApp}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                  title="Resend quotation PDF directly to client's WhatsApp"
+                >
+                  <MessageCircle size={15} />
+                  <span>{sendingWhatsApp ? 'Sending...' : (quotation.whatsappStatus === 'Sent' ? 'Resend to Client' : 'Send to Client WhatsApp')}</span>
+                </button>
+              ) : role === 'Admin' ? (
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={sendingWhatsApp}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                  title="Approve quotation and automatically dispatch to client's WhatsApp"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{sendingWhatsApp ? 'Approving...' : '✅ Approve & Send to Client'}</span>
+                </button>
+              ) : null}
             </>
           )}
           {role === 'Admin' && (() => {
@@ -159,6 +215,35 @@ export default function QuotationDetail({ role, mode }) {
           <StatusBadge status={quotation.status} />
         </div>
       </div>
+      {/* Management Review Notice Banner if pending approval */}
+      {quotation.status !== 'Approved' && !['Invoice Generated', 'Paid'].includes(quotation.status) && (
+        <div className="mb-6 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-700 mt-0.5">
+              <MessageCircle size={20} />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-amber-800">Management Approval Flow</p>
+              <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                Quotation is dispatched to Management members: <strong>MD (+91 8248654541)</strong> · <strong>ED (+91 9789274743)</strong> · <strong>CEO (+91 94443 77000)</strong> · <strong>Bit Byte Office (9943743136)</strong>.
+              </p>
+              <p className="text-[11px] font-bold text-amber-800 mt-0.5">
+                After management review, Admin can enter manual approval above to automatically dispatch the quotation to the client's WhatsApp.
+              </p>
+            </div>
+          </div>
+          {role === 'Admin' && (
+            <button
+              onClick={handleApprove}
+              disabled={sendingWhatsApp}
+              className="shrink-0 flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white shadow hover:bg-emerald-700 transition"
+            >
+              <CheckCircle2 size={15} /> Approve & Send to Client
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <section className="space-y-6">
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
@@ -170,7 +255,8 @@ export default function QuotationDetail({ role, mode }) {
                 ['Email', quotation.clientId?.email || '-'],
                 ['Phone', quotation.clientId?.phone || '-'],
                 ['Priority', quotation.priorityLevel],
-                ['WhatsApp Status', quotation.whatsappStatus ? (quotation.whatsappStatus === 'Sent' ? '✅ Sent' : `❌ ${quotation.whatsappStatus}`) : '⏳ Not Sent'],
+                ['Management WhatsApp', quotation.managementWhatsAppStatus === 'Sent' ? '✅ Sent (MD, ED, CEO, Office)' : quotation.managementWhatsAppStatus === 'Partial' ? '⚠️ Partial Delivery' : quotation.managementWhatsAppStatus === 'Failed' ? '❌ Failed' : '⏳ Pending Management Send'],
+                ['Client WhatsApp', quotation.whatsappStatus === 'Sent' ? `✅ Sent (+${quotation.whatsappRecipient || quotation.clientId?.phone})` : quotation.whatsappStatus === 'Failed' ? '❌ Failed' : (quotation.status === 'Approved' ? '⏳ Ready to Send' : '⏳ Awaiting Admin Approval')],
                 ['Submitted', formatDate(quotation.submittedAt || quotation.createdAt)]
               ].map(([label, value]) => <div key={label} className="rounded-xl bg-surface p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>)}
             </div>
