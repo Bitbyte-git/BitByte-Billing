@@ -170,10 +170,16 @@ button, input, textarea, select {
   border-top-left-radius: 12px;
 }
 
+.mobile-table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 900px) {
   .mobile-table {
-    display: block;
-    overflow-x: auto;
     white-space: nowrap;
   }
 }
+

@@ -524,43 +524,114 @@ export default function TablePage({ type, role }) {
     quotations: {
       title: role === 'Client' ? 'My Quotations' : role === 'Accountant' ? 'Quotations List' : 'All Quotations',
       columns: [
-        { key: 'quotationId', label: 'QT ID' },
-        { key: 'client', label: 'Client', render: (row) => getClientName(row) },
-        { key: 'projectTitle', label: 'Project' },
-        { key: 'servicesSelected', label: 'Services', render: (row) => serviceNames(row) },
-        { key: 'totalAmount', label: 'Amount', render: (row) => currency(row.totalAmount) },
-        { key: 'status', label: 'Status', badge: true },
-        { key: 'submittedAt', label: 'Submitted On', render: (row) => formatDate(row.submittedAt || row.createdAt) }
+        {
+          key: 'quotationId',
+          label: 'QT ID',
+          nowrap: true,
+          render: (row) => (
+            <span className="inline-block font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200/80 px-2 py-1 rounded-md tracking-tight whitespace-nowrap shadow-2xs">
+              {row.quotationId}
+            </span>
+          )
+        },
+        {
+          key: 'client',
+          label: 'Client',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-slate-900 whitespace-nowrap">
+              {getClientName(row)}
+            </span>
+          )
+        },
+        {
+          key: 'projectTitle',
+          label: 'Project',
+          render: (row) => (
+            <div className="max-w-[190px]" title={row.projectTitle}>
+              <p className="font-semibold text-slate-800 text-xs truncate">{row.projectTitle}</p>
+            </div>
+          )
+        },
+        {
+          key: 'servicesSelected',
+          label: 'Services',
+          render: (row) => {
+            const allServices = serviceNames(row);
+            const list = allServices.split(', ').filter(Boolean);
+            if (!list.length) return <span className="text-slate-400 text-xs">-</span>;
+            return (
+              <div className="max-w-[240px] flex items-center gap-1.5" title={allServices}>
+                <span className="font-medium text-xs text-slate-700 truncate max-w-[150px]">
+                  {list[0]}
+                </span>
+                {list.length > 1 && (
+                  <span className="inline-flex items-center rounded-full bg-purple/10 px-2 py-0.5 text-[10px] font-bold text-purple whitespace-nowrap">
+                    +{list.length - 1} more
+                  </span>
+                )}
+              </div>
+            );
+          }
+        },
+        {
+          key: 'totalAmount',
+          label: 'Amount',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-slate-900 whitespace-nowrap">
+              {currency(row.totalAmount)}
+            </span>
+          )
+        },
+        {
+          key: 'status',
+          label: 'Status',
+          nowrap: true,
+          badge: true
+        },
+        {
+          key: 'submittedAt',
+          label: 'Submitted On',
+          nowrap: true,
+          render: (row) => (
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+              {formatDate(row.submittedAt || row.createdAt)}
+            </span>
+          )
+        }
       ],
       actions: (row) => {
         if (role === 'Client') {
           return (
-            <Link
-              to={`/client/quotations/${recordId(row)}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 transition"
-            >
-              <Eye size={14} /> View
-            </Link>
+            <div className="flex items-center justify-end">
+              <Link
+                to={`/client/quotations/${recordId(row)}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 transition shadow-2xs"
+              >
+                <Eye size={13} /> View
+              </Link>
+            </div>
           );
         }
 
         const hasInvoice = Boolean(row.invoice || ['Invoice Generated', 'Paid'].includes(row.status));
         return (
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
             <Link
               to={`/${role.toLowerCase()}/quotations/${recordId(row)}`}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-2xs"
               title="View quotation details"
             >
-              <Eye size={14} /> View
+              <Eye size={13} className="text-slate-500" /> View
             </Link>
             <button
               type="button"
               onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation')}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-sm"
-              title="Download Quotation PDF at anytime"
+              className="inline-flex items-center gap-1 rounded-lg border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"
+              title="Download Quotation PDF"
             >
-              <Download size={14} /> Quotation PDF
+              <Download size={13} /> Quotation
             </button>
             {hasInvoice ? (
               <button
@@ -572,19 +643,19 @@ export default function TablePage({ type, role }) {
                     downloadInvoiceForQuotation(recordId(row), row.quotationId);
                   }
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-600 hover:text-white transition shadow-sm"
-                title="Download Invoice PDF at anytime"
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-600 hover:text-white transition shadow-2xs"
+                title="Download Invoice PDF"
               >
-                <ReceiptText size={14} /> Invoice PDF
+                <ReceiptText size={13} /> Invoice
               </button>
             ) : (
               <button
                 type="button"
                 disabled
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed opacity-60"
-                title="Invoice has not been generated for this quotation yet"
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-400 cursor-not-allowed opacity-50"
+                title="Invoice not generated yet"
               >
-                <ReceiptText size={14} /> Invoice PDF
+                <ReceiptText size={13} /> Invoice
               </button>
             )}
           </div>
@@ -594,45 +665,126 @@ export default function TablePage({ type, role }) {
     invoices: {
       title: 'Invoices',
       columns: [
-        { key: 'invoiceId', label: 'Invoice number' },
-        { key: 'quotationId', label: 'Quotation ID', render: (row) => getQuotationNumber(row) },
-        ...(role !== 'Client' ? [{ key: 'clientId', label: 'Client', render: (row) => getClientName(row) }] : []),
-        { key: 'invoiceDate', label: 'Date', render: (row) => formatDate(row.invoiceDate) },
-        { key: 'totalAmount', label: 'Invoice Total', render: (row) => currency(row.totalAmount) },
-        { key: 'amountPaid', label: 'Paid', render: (row) => currency(row.amountPaid || 0) },
-        { key: 'balanceDue', label: 'Balance Pending', render: (row) => currency(row.balanceDue ?? Math.max(Number(row.totalAmount || 0) - Number(row.amountPaid || 0), 0)) },
-        { key: 'paymentStatus', label: 'Status', badge: true },
-        { key: 'emailDeliveryStatus', label: 'Email', render: (row) => row.emailDeliveryStatus === 'Sent' ? 'Invoice Sent Successfully' : row.emailDeliveryStatus || 'Pending' }
+        {
+          key: 'invoiceId',
+          label: 'Invoice #',
+          nowrap: true,
+          render: (row) => (
+            <span className="inline-block font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200/80 px-2 py-1 rounded-md tracking-tight whitespace-nowrap shadow-2xs">
+              {row.invoiceId}
+            </span>
+          )
+        },
+        {
+          key: 'quotationId',
+          label: 'QT ID',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-mono text-xs text-slate-600 whitespace-nowrap font-semibold">
+              {getQuotationNumber(row)}
+            </span>
+          )
+        },
+        ...(role !== 'Client' ? [{
+          key: 'clientId',
+          label: 'Client',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-slate-900 whitespace-nowrap">
+              {getClientName(row)}
+            </span>
+          )
+        }] : []),
+        {
+          key: 'invoiceDate',
+          label: 'Date',
+          nowrap: true,
+          render: (row) => (
+            <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+              {formatDate(row.invoiceDate)}
+            </span>
+          )
+        },
+        {
+          key: 'totalAmount',
+          label: 'Total',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-slate-900 whitespace-nowrap">
+              {currency(row.totalAmount)}
+            </span>
+          )
+        },
+        {
+          key: 'amountPaid',
+          label: 'Paid',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-emerald-600 whitespace-nowrap">
+              {currency(row.amountPaid || 0)}
+            </span>
+          )
+        },
+        {
+          key: 'balanceDue',
+          label: 'Balance',
+          nowrap: true,
+          render: (row) => (
+            <span className="font-bold text-red-600 whitespace-nowrap">
+              {currency(row.balanceDue ?? Math.max(Number(row.totalAmount || 0) - Number(row.amountPaid || 0), 0))}
+            </span>
+          )
+        },
+        {
+          key: 'paymentStatus',
+          label: 'Status',
+          nowrap: true,
+          badge: true
+        },
+        {
+          key: 'emailDeliveryStatus',
+          label: 'Email',
+          nowrap: true,
+          render: (row) => (
+            <span className={`text-xs font-bold whitespace-nowrap ${row.emailDeliveryStatus === 'Sent' ? 'text-emerald-600' : 'text-slate-500'}`}>
+              {row.emailDeliveryStatus === 'Sent' ? 'Sent' : row.emailDeliveryStatus || 'Pending'}
+            </span>
+          )
+        }
       ],
       actions: (row) => {
         if (role === 'Client') {
           return (
-            <Link to={`/public/client-invoice/${recordId(row)}`} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
-              <Eye size={14} /> View / Pay
-            </Link>
+            <div className="flex items-center justify-end">
+              <Link to={`/public/client-invoice/${recordId(row)}`} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-950 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 transition shadow-2xs">
+                <Eye size={13} /> View / Pay
+              </Link>
+            </div>
           );
         }
 
         const linkedQuotationId = row.quotationId ? recordId(row.quotationId) : null;
         const quotationNum = getQuotationNumber(row);
         return (
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
             <button
               type="button"
               onClick={() => downloadPdf(recordId(row), row.invoiceId)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 transition shadow-sm"
-              title="Download Invoice PDF at anytime"
+              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"
+              title="Download Invoice PDF"
             >
-              <Download size={14} /> Invoice PDF
+              <Download size={13} />
+              <span>Invoice</span>
             </button>
             {linkedQuotationId && (
               <button
                 type="button"
                 onClick={() => downloadQuotationPdf(linkedQuotationId, quotationNum || 'Quotation')}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-sm"
-                title="Download linked Quotation PDF at anytime"
+                className="inline-flex items-center gap-1 rounded-lg border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"
+                title="Download linked Quotation PDF"
               >
-                <FileText size={14} /> Quotation PDF
+                <FileText size={13} />
+                <span>Quotation</span>
               </button>
             )}
           </div>
@@ -670,12 +822,14 @@ export default function TablePage({ type, role }) {
         { key: 'accountStatus', label: 'Status', badge: true }
       ],
       actions: (row) => (
-        <button
-          onClick={() => openEditClient(row)}
-          className="flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 shadow-sm transition"
-        >
-          <Edit3 size={14} /> Edit Details
-        </button>
+        <div className="flex items-center justify-end">
+          <button
+            onClick={() => openEditClient(row)}
+            className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple/5 shadow-2xs transition"
+          >
+            <Edit3 size={13} /> Edit Details
+          </button>
+        </div>
       )
     },
     services: {
@@ -687,12 +841,12 @@ export default function TablePage({ type, role }) {
         { key: 'status', label: 'Status', badge: true }
       ],
       actions: (row) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEditService(row)} className="rounded-lg p-2 text-purple hover:bg-purple/5">
-            <Edit3 size={16} />
+        <div className="flex items-center justify-end gap-1.5">
+          <button onClick={() => openEditService(row)} className="rounded-lg border border-slate-200 bg-white p-1.5 text-purple hover:bg-purple/5 shadow-2xs">
+            <Edit3 size={15} />
           </button>
-          <button onClick={() => deleteService(recordId(row))} className="rounded-lg p-2 text-red-500 hover:bg-red-50">
-            <Trash2 size={16} />
+          <button onClick={() => deleteService(recordId(row))} className="rounded-lg border border-slate-200 bg-white p-1.5 text-red-500 hover:bg-red-50 shadow-2xs">
+            <Trash2 size={15} />
           </button>
         </div>
       )
@@ -707,9 +861,9 @@ export default function TablePage({ type, role }) {
       actions: (row) => {
         if (row.role === 'Accountant') {
           return (
-            <div className="flex gap-2">
-              <button onClick={() => setPinModal({ open: true, userId: recordId(row), pin: '', password: '', error: '' })} className="flex items-center gap-1 rounded-lg border border-purple px-2 py-1 text-xs font-bold text-purple hover:bg-purple/10"><Key size={14} /> Credentials</button>
-              <button onClick={() => deleteUser(recordId(row))} className="flex items-center gap-1 rounded-lg border border-red-500 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"><Trash2 size={14} /> Delete</button>
+            <div className="flex items-center justify-end gap-1.5">
+              <button onClick={() => setPinModal({ open: true, userId: recordId(row), pin: '', password: '', error: '' })} className="flex items-center gap-1 rounded-lg border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"><Key size={13} /> Credentials</button>
+              <button onClick={() => deleteUser(recordId(row))} className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 transition shadow-2xs"><Trash2 size={13} /> Delete</button>
             </div>
           );
         }
