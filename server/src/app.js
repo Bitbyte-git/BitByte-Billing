@@ -38,6 +38,10 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/uploads", uploadRoutes);
 
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+});
+
 app.use(errorHandler);
 
 export default app;

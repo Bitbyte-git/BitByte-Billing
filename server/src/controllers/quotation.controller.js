@@ -812,7 +812,14 @@ export async function publicQuotationPdf(req, res, next) {
 
 export async function sendQuotationWhatsAppController(req, res, next) {
   try {
-    const quotation = await Quotation.findById(req.params.id).populate('clientId createdBy');
+    const rawId = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawId);
+    const quotation = await Quotation.findOne({
+      $or: [
+        ...(isObjectId ? [{ _id: rawId }] : []),
+        { quotationId: rawId }
+      ]
+    }).populate('clientId createdBy');
     if (!quotation) {
       return res.status(404).json({ message: 'Quotation not found' });
     }
