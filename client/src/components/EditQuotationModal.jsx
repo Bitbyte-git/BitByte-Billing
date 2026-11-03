@@ -44,6 +44,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   const [itemQty, setItemQty] = useState(1);
   const [itemDiscount, setItemDiscount] = useState(0);
   const [customServiceName, setCustomServiceName] = useState('');
+  const [customServiceDescription, setCustomServiceDescription] = useState('');
   const [customBasePrice, setCustomBasePrice] = useState(1990);
   const [isOptionalItem, setIsOptionalItem] = useState(false);
   const [isComplimentaryItem, setIsComplimentaryItem] = useState(false);
@@ -200,7 +201,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
       itemDescription = `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
     } else if (isCustomService) {
-      itemDescription = `${serviceName} (Custom - ${tierLabel})`;
+      itemDescription = customServiceDescription.trim();
     } else {
       itemDescription = `${serviceName} (${tierLabel}) - ${currentTierNote}`;
     }
@@ -236,6 +237,10 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     };
 
     setCostingItems((prev) => [...prev, newItem]);
+    if (isCustomService) {
+      setCustomServiceName('');
+      setCustomServiceDescription('');
+    }
     setIsOptionalItem(false);
     setIsComplimentaryItem(false);
     setError('');
@@ -447,6 +452,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                         onClick={() => {
                           setSelectedServiceId(availableServicesInModule[0] ? String(availableServicesInModule[0].id) : '');
                           setCustomServiceName('');
+                          setCustomServiceDescription('');
                         }}
                         className="absolute right-1 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-200"
                       >Back</button>
@@ -477,6 +483,23 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                   </select>
                 </div>
               </div>
+
+              {/* Custom Service Description (optional) */}
+              {isCustomService && (
+                <div className="mt-3">
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
+                    <span>Custom Service Description</span>
+                    <span className="text-[10px] text-slate-400 lowercase font-medium">(optional - leave blank if not needed)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customServiceDescription}
+                    onChange={(e) => setCustomServiceDescription(e.target.value)}
+                    placeholder="Enter description, scope, or deliverables for this custom service (optional)..."
+                    className="w-full rounded-xl border border-line bg-white p-2.5 text-xs font-medium text-slate-800 outline-purple placeholder:text-slate-400 focus:border-purple"
+                  />
+                </div>
+              )}
 
               {/* Price / Qty / Discount row */}
               <div className="mt-3 flex flex-wrap items-end gap-3">

@@ -85,6 +85,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   // Custom service fields (when serviceId === 'CUSTOM_SERVICE')
   const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
   const [customServiceName, setCustomServiceName] = useState('');
+  const [customServiceDescription, setCustomServiceDescription] = useState('');
   const [customBasePrice, setCustomBasePrice] = useState(1990);
   const [overallDiscount, setOverallDiscount] = useState({ type: 'None', value: '' });
 
@@ -224,6 +225,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     if (availableServicesInModule.length > 0) {
       setSelectedServiceId(String(availableServicesInModule[0].id));
       setCustomServiceName('');
+      setCustomServiceDescription('');
       setCustomBasePrice(1990);
     } else {
       setSelectedServiceId('');
@@ -401,7 +403,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
       itemDescription = `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
     } else if (isCustomService) {
-      itemDescription = `${serviceName} (Custom - ${tierLabel})`;
+      itemDescription = customServiceDescription.trim();
     } else {
       itemDescription = `${serviceName} (${tierLabel}) - ${currentTierNote}`;
     }
@@ -437,6 +439,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     };
 
     setCostingItems((prev) => [...prev, newItem]);
+    if (isCustomService) {
+      setCustomServiceName('');
+      setCustomServiceDescription('');
+    }
     setIsOptionalItem(false);
     setIsComplimentaryItem(false);
     setMessage({ type: '', text: '' });
@@ -985,6 +991,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                   onClick={() => {
                     setSelectedServiceId(availableServicesInModule[0] ? String(availableServicesInModule[0].id) : '');
                     setCustomServiceName('');
+                    setCustomServiceDescription('');
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200"
                   title="Switch back to standard service dropdown"
@@ -1033,6 +1040,23 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           </div>
         </div>
 
+        {/* Custom Service Description input (optional) */}
+        {isCustomService && (
+          <div className="mt-4 border-t border-line pt-4">
+            <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+              <span>Custom Service Description</span>
+              <span className="text-[11px] font-semibold text-slate-400 normal-case">(Optional — leave blank if not needed)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={customServiceDescription}
+              onChange={(e) => setCustomServiceDescription(e.target.value)}
+              placeholder="Enter description, scope, or deliverables for this custom service (optional)..."
+              className="w-full rounded-xl border border-line bg-white p-3 text-sm font-medium text-slate-800 outline-purple placeholder:text-slate-400 focus:border-purple focus:ring-1 focus:ring-purple"
+            />
+          </div>
+        )}
+
         {/* Live Service Details & Pricing Preview Box */}
         {(activeServiceObj || isCustomService) && (
           <div className="mt-5 rounded-2xl border border-purple/20 bg-purple/5 p-4">
@@ -1061,7 +1085,11 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                 <h3 className="mt-2 text-base font-black text-slate-950">
                   {isCustomService ? (customServiceName || 'Enter custom service name above') : activeServiceObj.service}
                 </h3>
-                {!isCustomService && (
+                {isCustomService ? (
+                  customServiceDescription.trim() ? (
+                    <p className="mt-1 text-xs font-medium text-slate-600">{customServiceDescription.trim()}</p>
+                  ) : null
+                ) : (
                   <p className="mt-1 text-xs font-medium text-slate-600">{currentTierNote}</p>
                 )}
               </div>
@@ -1548,7 +1576,9 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-xs font-medium text-slate-500">{item.description}</p>
+                      {item.description && (
+                        <p className="mt-1 text-xs font-medium text-slate-500">{item.description}</p>
+                      )}
                     </td>
                     <td className="p-3 text-center font-bold text-slate-700">
                       <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{item.sacCode}</span>
