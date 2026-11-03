@@ -1194,7 +1194,7 @@ export default function TablePage({ type, role }) {
                 <textarea required value={serviceModal.description} onChange={e => setServiceModal(p => ({ ...p, description: e.target.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-2 outline-purple font-medium min-h-20" />
               </label>
               <label className="block text-sm font-bold">Base Price (₹)
-                <input type="number" required min={0} value={serviceModal.basePrice} onChange={e => setServiceModal(p => ({ ...p, basePrice: e.target.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-2 outline-purple font-medium" />
+                <input type="number" required min={0} step="any" value={serviceModal.basePrice} onChange={e => setServiceModal(p => ({ ...p, basePrice: e.target.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-2 outline-purple font-medium" />
               </label>
               <label className="block text-sm font-bold">Status
                 <select value={serviceModal.status} onChange={e => setServiceModal(p => ({ ...p, status: e.target.value }))} className="mt-2 w-full rounded-xl border border-line px-4 py-2 outline-purple bg-white font-medium">

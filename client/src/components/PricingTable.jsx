@@ -125,6 +125,7 @@ function RowCard({ row, index, services, selectedServiceOptions, subServicesByMa
             <input
               type="number"
               min={0}
+              step="any"
               value={row.basePrice}
               onChange={(e) => {
                 onChange(index, 'basePrice', e.target.value);
@@ -153,6 +154,7 @@ function RowCard({ row, index, services, selectedServiceOptions, subServicesByMa
             <input
               type="number"
               min={0}
+              step="any"
               max={20}
               value={row.discountPercentage || 0}
               onChange={(e) => onChange(index, 'discountPercentage', Math.min(Number(e.target.value || 0), 20))}
@@ -167,6 +169,7 @@ function RowCard({ row, index, services, selectedServiceOptions, subServicesByMa
             <input
               type="number"
               min={0}
+              step="any"
               value={row.gstPercentage ?? 18}
               onChange={(e) => onChange(index, 'gstPercentage', e.target.value)}
               className="w-full rounded-xl border border-line px-3 py-2 text-sm outline-purple"

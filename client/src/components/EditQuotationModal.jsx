@@ -495,7 +495,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                     <input
                       type="number"
                       min={0}
-                      step={500}
+                      step="any"
                       value={customBasePrice}
                       onChange={(e) => setCustomBasePrice(e.target.value)}
                       className={`w-32 rounded-xl border-2 px-2.5 py-1.5 text-center text-sm font-black outline-none transition-colors ${
@@ -751,7 +751,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                           <input
                             type="number"
                             min={0}
-                            step={100}
+                            step="any"
                             value={item.basePrice}
                             onChange={(e) => updateItemField(item.tempId, 'basePrice', e.target.value)}
                             className="w-full rounded-lg border border-line px-2 py-1.5 text-sm font-black text-slate-900 outline-purple text-center"

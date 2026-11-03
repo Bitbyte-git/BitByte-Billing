@@ -813,6 +813,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
                           type="number"
                           min={0}
                           value={customBasePrice}
+                          step="any"
                           onChange={(e) => handleCustomPriceChange(e.target.value)}
                           onBlur={handleCustomPriceBlur}
                           className="w-32 rounded-xl border border-purple bg-white px-2.5 py-1.5 text-center text-sm font-bold text-slate-900 outline-purple"

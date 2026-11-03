@@ -1303,7 +1303,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                       <input
                         type="number"
                         min={0}
-                        step={500}
+                        step="any"
                         value={customBasePrice}
                         onChange={(e) => handleCustomPriceChange(e.target.value)}
                         onBlur={handleCustomPriceBlur}
