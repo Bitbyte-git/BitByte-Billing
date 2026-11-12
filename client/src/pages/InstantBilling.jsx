@@ -62,6 +62,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
   const [selectedTier, setSelectedTier] = useState('starter');
   const [itemQty, setItemQty] = useState(1);
   const [itemDiscount, setItemDiscount] = useState(0);
+  const [videoSeconds, setVideoSeconds] = useState(8);
 
   // Custom Service state (when serviceId === 'CUSTOM_SERVICE')
   const isCustomService = selectedServiceId === 'CUSTOM_SERVICE';
@@ -216,6 +217,18 @@ export default function InstantBilling({ role = 'Accountant' }) {
     [selectedServiceId, availableServicesInModule]
   );
 
+  const isAiVideoService = !isCustomService && (activeServiceObj?.id === 7 || activeServiceObj?.id === 8);
+
+  // Sync AI video seconds when service or tier changes
+  useEffect(() => {
+    if (isAiVideoService) {
+      const note = activeServiceObj?.tierNotes?.[selectedTier] || '';
+      const match = note.match(/(\d+)\s*Seconds/i);
+      const fallback = selectedTier === 'basic' || selectedTier === 'premium' ? 16 : (selectedTier === 'standard' || selectedTier === 'enterprise' ? 24 : 8);
+      setVideoSeconds(match ? Number(match[1]) : fallback);
+    }
+  }, [activeServiceObj?.id, selectedTier]);
+
   // Default custom price when custom service or customised tier selected
   useEffect(() => {
     if (isCustomService) {
@@ -239,6 +252,26 @@ export default function InstantBilling({ role = 'Accountant' }) {
     if (!activeServiceObj) return '';
     return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.tierNotes?.enterprise || activeServiceObj.description;
   }, [activeServiceObj, selectedTier]);
+
+  const defaultServiceDescription = useMemo(() => {
+    if (isCustomService) return '';
+    if (!activeServiceObj) return '';
+    const serviceName = activeServiceObj.service;
+    const tierObj = losTiers.find((t) => t.key === selectedTier);
+    const tierLabel = tierObj ? tierObj.label : 'Starter';
+    if (isAiVideoService) {
+      const secs = Math.max(1, Number(videoSeconds || 8));
+      const updatedNote = /\d+\s*Seconds/i.test(currentTierNote)
+        ? currentTierNote.replace(/\d+\s*Seconds/i, `${secs} Seconds`)
+        : `${currentTierNote} (${secs} Seconds)`;
+      return `${serviceName} (${tierLabel}) — ${secs}s Video · ${updatedNote}`;
+    }
+    return `${serviceName} (${tierLabel}) - ${currentTierNote}`;
+  }, [isCustomService, activeServiceObj, selectedTier, isAiVideoService, videoSeconds, currentTierNote]);
+
+  useEffect(() => {
+    setCustomServiceDescription(defaultServiceDescription);
+  }, [defaultServiceDescription]);
 
   // Custom price change handler
   const handleCustomPriceChange = (val) => {
@@ -303,7 +336,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       subServiceName: serviceName,
       description: isCustomService
         ? customServiceDescription.trim()
-        : `${serviceName} (${tierLabel}) - ${currentTierNote}`,
+        : customServiceDescription.trim(),
       tier: tierLabel,
       tierKey: selectedTier,
       sacCode: isCustomService ? '998314' : (activeServiceObj.sacCode || '998314'),
@@ -776,18 +809,18 @@ export default function InstantBilling({ role = 'Accountant' }) {
             </div>
           </div>
 
-          {/* Custom Service Description input (optional) */}
-          {isCustomService && (
+          {/* Service Description input (editable for all services) */}
+          {(activeServiceObj || isCustomService) && (
             <div className="mt-4 border-t border-line pt-4">
               <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
-                <span>Custom Service Description</span>
-                <span className="text-[11px] font-semibold text-slate-400 normal-case">(Optional — leave blank if not needed)</span>
+                <span>Service Description <span className="text-[11px] font-semibold text-purple normal-case">(Editable)</span></span>
+                <span className="text-[11px] font-semibold text-slate-400 normal-case">Optional — leave blank if not needed</span>
               </label>
               <textarea
                 rows={2}
                 value={customServiceDescription}
                 onChange={(e) => setCustomServiceDescription(e.target.value)}
-                placeholder="Enter description, scope, or deliverables for this custom service (optional)..."
+                placeholder="Enter description, scope, or deliverables for this service (optional)..."
                 className="w-full rounded-xl border border-line bg-white p-3 text-sm font-medium text-slate-800 outline-purple placeholder:text-slate-400 focus:border-purple focus:ring-1 focus:ring-purple"
               />
             </div>
@@ -825,6 +858,38 @@ export default function InstantBilling({ role = 'Accountant' }) {
                     <p className="mt-1 text-xs font-medium text-slate-600">{currentTierNote}</p>
                   )}
                 </div>
+
+                {isAiVideoService && (
+                  <div className="mt-3 w-full rounded-xl border-2 border-pink-300 bg-pink-50/70 p-3.5">
+                    <p className="text-[10px] font-black uppercase text-pink-700 mb-2">🎬 AI Video Duration (Customisable Seconds)</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => setVideoSeconds((s) => Math.max(1, Number(s || 8) - 1))} className="flex h-8 w-8 items-center justify-center rounded-lg border border-pink-300 bg-white font-black text-pink-700 hover:bg-pink-500 hover:text-white transition">−</button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={videoSeconds}
+                        onChange={(e) => setVideoSeconds(e.target.value === '' ? '' : Math.max(1, Number(e.target.value)))}
+                        onBlur={() => { if (!videoSeconds || Number(videoSeconds) < 1) setVideoSeconds(8); }}
+                        className="w-20 rounded-lg border border-pink-300 bg-white px-2 py-1 text-center text-sm font-black text-slate-900 outline-none"
+                      />
+                      <span className="text-xs font-bold text-pink-700">sec</span>
+                      <button type="button" onClick={() => setVideoSeconds((s) => Math.min(600, Number(s || 8) + 1))} className="flex h-8 w-8 items-center justify-center rounded-lg border border-pink-300 bg-white font-black text-pink-700 hover:bg-pink-500 hover:text-white transition">+</button>
+                      <div className="flex flex-wrap gap-1 ml-2">
+                        {[8, 12, 16, 20, 24, 30, 45, 60].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setVideoSeconds(preset)}
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-black border transition ${
+                              Number(videoSeconds) === preset ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-700 border-pink-200 hover:bg-pink-100'
+                            }`}
+                          >{preset}s</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-4 border-t border-purple/10 pt-3 md:border-t-0 md:pt-0">
                   <div className="flex items-center gap-3">
@@ -950,7 +1015,13 @@ export default function InstantBilling({ role = 'Accountant' }) {
                             {(item.frequency === 'Monthly' || item.payable === 'Monthly') ? '🔄 Monthly Recurring' : item.frequency === 'Weekly' ? '🔄 Weekly' : '⚡ One Time'}
                           </span>
                         </div>
-                        {item.description && <p className="text-xs font-medium text-slate-500">{item.description}</p>}
+                        <input
+                          type="text"
+                          value={item.description || ''}
+                          onChange={(e) => setCostingItems((prev) => prev.map((row) => row.tempId === item.tempId ? { ...row, description: e.target.value } : row))}
+                          placeholder="Service description (optional)..."
+                          className="mt-1.5 w-full rounded-lg border border-line bg-slate-50/70 px-2.5 py-1 text-xs font-medium text-slate-600 outline-purple focus:border-purple focus:bg-white"
+                        />
                       </td>
                       <td className="p-3 text-center font-bold text-slate-700">
                         <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{item.sacCode}</span>

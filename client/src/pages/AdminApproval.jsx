@@ -23,8 +23,7 @@ export default function AdminApproval() {
         ? Math.min(value, baseSubtotal)
         : 0;
     const finalSubtotal = Math.max(baseSubtotal - discountedAmount, 0);
-    const gstRate = baseSubtotal ? Number(selected?.gstAmount || 0) / baseSubtotal : 0;
-    const gst = finalSubtotal * gstRate;
+    const gst = Math.round(finalSubtotal * 0.18);
     return { baseSubtotal, discountedAmount, finalSubtotal, gst };
   }, [selected, discount]);
 

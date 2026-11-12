@@ -527,6 +527,33 @@ export const losServices = [
     "sacCode": "998361"
   },
   {
+    "id": 56,
+    "module": "Performance Marketing",
+    "service": "Google My Business Profile Creation",
+    "description": "Complete Google Business Profile (GMB) setup, verification assistance, primary & secondary category optimization, business hours, Google Maps location pinning, and initial photo/service upload for local SEO visibility.",
+    "unit": "Per Service",
+    "count": "1",
+    "frequency": "One Time",
+    "payable": "One Time",
+    "prices": {
+      "starter": 2990,
+      "basic": 2990,
+      "standard": 2990,
+      "premium": 2990,
+      "enterprise": 2990,
+      "customised": 2990
+    },
+    "tierNotes": {
+      "starter": "Complete GMB Profile Setup + Verification + Maps Pinning",
+      "basic": "Complete GMB Profile Setup + Verification + Maps Pinning",
+      "standard": "Complete GMB Profile Setup + Verification + Local SEO Optimization",
+      "premium": "Complete GMB Profile Setup + Verification + Local SEO Optimization",
+      "enterprise": "Complete GMB Profile Setup + Verification + Local SEO Optimization",
+      "customised": "Complete GMB Profile Setup + Verification + Local SEO Optimization"
+    },
+    "sacCode": "998361"
+  },
+  {
     "id": 21,
     "module": "Web Apps",
     "service": "Basic Website Design",
@@ -1309,7 +1336,7 @@ export const losServices = [
   },
   {
     "id": 52,
-    "module": "WhatsApp Automation",
+    "module": "WhatsApp Promotion",
     "service": "Entire WhatsApp Automation",
     "description": "Entire WhatsApp Automation complete setup and integration (One Time @ Rs. 9,990)",
     "unit": "Per Setup",
@@ -1336,7 +1363,7 @@ export const losServices = [
   },
   {
     "id": 53,
-    "module": "WhatsApp Automation",
+    "module": "WhatsApp Promotion",
     "service": "WhatsApp Automation Customization",
     "description": "WhatsApp Automation customization up to 15 categories @ Rs. 9,990. More than 15 categories @ Rs. 2,990 per additional category.",
     "unit": "Up to 15 Categories",
@@ -1363,7 +1390,7 @@ export const losServices = [
   },
   {
     "id": 54,
-    "module": "WhatsApp Automation",
+    "module": "WhatsApp Promotion",
     "service": "WhatsApp Automation - Annual Maintenance Charges (AMC)",
     "description": "Annual Maintenance & Support Charges for WhatsApp Automation @ Rs. 7,990/year",
     "unit": "Per Year",

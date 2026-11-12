@@ -50,7 +50,12 @@ export default function QuotationDetail({ role, mode }) {
     return [...mains, ...subs, ...oldServices.map(s => s?.name || s)].filter(Boolean);
   }, [quotation]);
   const subtotal = quotation?.subtotal || 0;
-  const gst = quotation?.gstAmount || 0;
+  const discountAmount = Number(quotation?.finalDiscountAmount || 0);
+  const netSubtotal = Math.max(0, subtotal - discountAmount);
+  const gst = discountAmount > 0
+    ? Math.round(netSubtotal * 0.18)
+    : Number(quotation?.gstAmount ?? Math.round(netSubtotal * 0.18));
+  const effectiveTotal = netSubtotal + gst;
 
   const sendClarification = async () => {
     if (!remark.trim()) return;
@@ -395,11 +400,11 @@ export default function QuotationDetail({ role, mode }) {
         </section>
         <aside className="space-y-6">
           <AmountSummaryCard
-            subtotal={quotation.finalDiscountAmount > 0 ? Math.max(0, (quotation.subtotal || subtotal) - quotation.finalDiscountAmount) : subtotal}
-            gst={quotation.gstAmount ?? gst}
+            subtotal={netSubtotal}
+            gst={gst}
             paid={quotation.status === 'Paid' ? quotation.amount : 0}
-            originalSubtotal={quotation.finalDiscountAmount > 0 ? (quotation.subtotal || subtotal) : null}
-            discount={quotation.finalDiscountAmount || 0}
+            originalSubtotal={discountAmount > 0 ? subtotal : null}
+            discount={discountAmount}
           />
           {/* Payment Milestones (Terms & Conditions) Card */}
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
@@ -411,21 +416,21 @@ export default function QuotationDetail({ role, mode }) {
                   <p className="text-xs font-bold uppercase text-purple">Stage 1 · 70%</p>
                   <p className="text-sm font-black text-slate-900">Initial Payment</p>
                 </div>
-                <p className="text-base font-black text-purple">{currency(Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.70))}</p>
+                <p className="text-base font-black text-purple">{currency(Math.round(effectiveTotal * 0.70))}</p>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3">
                 <div>
                   <p className="text-xs font-bold uppercase text-slate-500">Stage 2 · 15%</p>
                   <p className="text-sm font-black text-slate-900">Client Checking Handover</p>
                 </div>
-                <p className="text-base font-black text-slate-800">{currency(Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.15))}</p>
+                <p className="text-base font-black text-slate-800">{currency(Math.round(effectiveTotal * 0.15))}</p>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-slate-50 border border-slate-200 p-3">
                 <div>
                   <p className="text-xs font-bold uppercase text-slate-500">Stage 3 · 15%</p>
                   <p className="text-sm font-black text-slate-900">Final Handover</p>
                 </div>
-                <p className="text-base font-black text-slate-800">{currency(Math.max(0, (quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) - Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.70) - Math.round((quotation.totalAmount || quotation.finalTotal || (subtotal + gst)) * 0.15)))}</p>
+                <p className="text-base font-black text-slate-800">{currency(Math.max(0, effectiveTotal - Math.round(effectiveTotal * 0.70) - Math.round(effectiveTotal * 0.15)))}</p>
               </div>
             </div>
           </div>

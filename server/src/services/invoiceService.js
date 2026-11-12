@@ -85,13 +85,12 @@ export async function createInvoiceForQuotation(quotationId, user, options = {})
   const rawDiscountValue = Math.max(Number(options.discountValue ?? quotation.finalDiscountValue ?? 0), 0);
   const discountValue = discountType === 'Percentage' ? Math.min(rawDiscountValue, 100) : rawDiscountValue;
   const discountedAmount = discountType === 'Percentage'
-    ? baseSubtotal * discountValue / 100
+    ? Math.round(baseSubtotal * discountValue / 100)
     : discountType === 'Fixed Amount'
       ? Math.min(discountValue, baseSubtotal)
       : 0;
   const finalSubtotal = Math.max(baseSubtotal - discountedAmount, 0);
-  const gstRate = baseSubtotal ? Number(quotation.gstAmount || 0) / baseSubtotal : 0;
-  const finalGst = finalSubtotal * gstRate;
+  const finalGst = Math.round(finalSubtotal * 0.18);
   const finalTotal = finalSubtotal + finalGst;
 
   const invoice = await Invoice.create({

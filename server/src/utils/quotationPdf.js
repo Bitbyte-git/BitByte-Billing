@@ -308,22 +308,22 @@ export function createQuotationPdfDocument(quotation) {
 
   const discountType = quotation.finalDiscountType || 'None';
   const discountValue = Number(quotation.finalDiscountValue || 0);
-  let discountAmount = Number(quotation.finalDiscountAmount || 0);
-
   const baseTaxable = totals.taxable;
-  if (!discountAmount && discountType !== 'None' && discountValue > 0) {
-    if (discountType === 'Percentage') {
-      discountAmount = Math.round(baseTaxable * (Math.min(discountValue, 100) / 100));
-    } else if (discountType === 'Fixed Amount') {
-      discountAmount = Math.min(discountValue, baseTaxable);
-    }
+  let discountAmount = 0;
+  if (discountType === 'Percentage' && discountValue > 0) {
+    discountAmount = Math.round(baseTaxable * (Math.min(discountValue, 100) / 100));
+  } else if (discountType === 'Fixed Amount' && discountValue > 0) {
+    discountAmount = Math.min(discountValue, baseTaxable);
+  } else {
+    discountAmount = Number(quotation.finalDiscountAmount || 0);
   }
 
   const netTaxable = Math.max(0, baseTaxable - discountAmount);
-  const effectiveGst = Number(quotation.gstAmount || Math.round(netTaxable * 0.18));
-  const quotationTotal = Number(
-    quotation.totalAmount ?? quotation.finalTotal ?? (netTaxable + effectiveGst)
-  );
+  const totalPreDiscountGst = totals.cgst + totals.sgst + totals.igst;
+  const effectiveGst = discountAmount > 0
+    ? (baseTaxable > 0 ? Math.round(totalPreDiscountGst * (netTaxable / baseTaxable)) : 0)
+    : Math.round(totalPreDiscountGst);
+  const quotationTotal = netTaxable + effectiveGst;
   const publicUrl = publicQuotationUrl(quotation);
 
   function getFrequencyLabel(frequency, payable) {

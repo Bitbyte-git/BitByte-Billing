@@ -56,6 +56,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   const [changesCount, setChangesCount] = useState(15);
   const [whatsappCategoryCount, setWhatsappCategoryCount] = useState(15);
   const [erpModuleCount, setErpModuleCount] = useState(6);
+  const [videoSeconds, setVideoSeconds] = useState(8);
 
   // Price override — edit default cost for any standard service
   const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
@@ -94,6 +95,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   const isChangesService = !isCustomService && activeServiceObj?.id === 23;
   const isWhatsAppCustomization = !isCustomService && activeServiceObj?.id === 53;
   const isErpCrmService = !isCustomService && activeServiceObj?.id === 55;
+  const isAiVideoService = !isCustomService && (activeServiceObj?.id === 7 || activeServiceObj?.id === 8);
 
   // Reset special params when service changes
   useEffect(() => {
@@ -101,6 +103,12 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     else if (isChangesService) { setChangesCount(15); }
     else if (isWhatsAppCustomization) { setWhatsappCategoryCount(15); }
     else if (isErpCrmService) { setErpModuleCount(6); }
+    else if (isAiVideoService) {
+      const note = activeServiceObj?.tierNotes?.[selectedTier] || '';
+      const match = note.match(/(\d+)\s*Seconds/i);
+      const fallback = selectedTier === 'basic' || selectedTier === 'premium' ? 16 : (selectedTier === 'standard' || selectedTier === 'enterprise' ? 24 : 8);
+      setVideoSeconds(match ? Number(match[1]) : fallback);
+    }
     // Always reset price override when switching services or tiers
     setPriceOverrideEnabled(false);
     if (activeServiceObj && !isCustomService) {
@@ -128,6 +136,51 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.description || '';
   }, [activeServiceObj, selectedTier]);
 
+  const defaultServiceDescription = useMemo(() => {
+    if (isCustomService) return '';
+    if (!activeServiceObj) return '';
+    const serviceName = activeServiceObj.service;
+    const tierObj = losTiers.find((t) => t.key === selectedTier);
+    const tierLabel = tierObj ? tierObj.label : 'Starter';
+    if (isComplimentaryItem) {
+      return `${serviceName} — Complimentary Service (Free of Charge)`;
+    }
+    if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      return `${serviceName} — ${whatsappCategoryCount} Categories (${extra > 0 ? `15 Base + ${extra} Additional @ ₹2,990/cat` : 'up to 15 categories included'}). ${currentTierNote}`;
+    }
+    if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      return `${serviceName} — ${erpModuleCount} Modules (${extra > 0 ? `6 Base + ${extra} Additional @ ₹6,990/mod` : 'up to 6 modules included'}). ${currentTierNote}`;
+    }
+    if (isModuleService) {
+      const mc = Number(moduleCount);
+      const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
+      return `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
+    }
+    if (isChangesService) {
+      const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
+      return `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
+    }
+    if (isAiVideoService) {
+      const secs = Math.max(1, Number(videoSeconds || 8));
+      const updatedNote = /\d+\s*Seconds/i.test(currentTierNote)
+        ? currentTierNote.replace(/\d+\s*Seconds/i, `${secs} Seconds`)
+        : `${currentTierNote} (${secs} Seconds)`;
+      return `${serviceName} (${tierLabel}) — ${secs}s Video · ${updatedNote}`;
+    }
+    return `${serviceName} (${tierLabel}) - ${currentTierNote}`;
+  }, [
+    isCustomService, activeServiceObj, selectedTier, isComplimentaryItem,
+    isWhatsAppCustomization, whatsappCategoryCount, isErpCrmService, erpModuleCount,
+    isModuleService, moduleCount, imagesPerModule, isChangesService, changesCount,
+    isAiVideoService, videoSeconds, currentTierNote
+  ]);
+
+  useEffect(() => {
+    setCustomServiceDescription(defaultServiceDescription);
+  }, [defaultServiceDescription]);
+
   // ── Saving state ────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -140,9 +193,20 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   // ── Totals ─────────────────────────────────────────────────────────
   const totals = useMemo(() => {
     const subtotal = costingItems.reduce((sum, i) => sum + Number(i.taxableValue || 0), 0);
-    const gst = costingItems.reduce((sum, i) => sum + Number(i.gstAmount || 0), 0);
-    return { subtotal, gst, grandTotal: subtotal + gst };
-  }, [costingItems]);
+    const discType = overallDiscount.type || 'None';
+    const discVal = Math.max(0, Number(overallDiscount.value || 0));
+    let discountAmount = 0;
+    if (discType === 'Percentage' && discVal > 0) {
+      discountAmount = Math.round(subtotal * (Math.min(discVal, 100) / 100));
+    } else if (discType === 'Fixed Amount' && discVal > 0) {
+      discountAmount = Math.min(discVal, subtotal);
+    }
+    const netTaxable = Math.max(0, subtotal - discountAmount);
+    const gst = discountAmount > 0
+      ? Math.round(netTaxable * 0.18)
+      : costingItems.reduce((sum, i) => sum + Number(i.gstAmount || 0), 0);
+    return { subtotal, netTaxable, discountAmount, gst, grandTotal: netTaxable + gst };
+  }, [costingItems, overallDiscount]);
 
   // ── Add service ─────────────────────────────────────────────────────
   const addServiceLineItem = () => {
@@ -200,6 +264,12 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     } else if (isChangesService) {
       const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
       itemDescription = `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
+    } else if (isAiVideoService) {
+      const secs = Math.max(1, Number(videoSeconds || 8));
+      const updatedNote = /\d+\s*Seconds/i.test(currentTierNote)
+        ? currentTierNote.replace(/\d+\s*Seconds/i, `${secs} Seconds`)
+        : `${currentTierNote} (${secs} Seconds)`;
+      itemDescription = `${serviceName} (${tierLabel}) — ${secs}s Video · ${updatedNote}`;
     } else if (isCustomService) {
       itemDescription = customServiceDescription.trim();
     } else {
@@ -212,7 +282,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       mainService: moduleLabel,
       subService: serviceName,
       subServiceName: serviceName,
-      description: itemDescription,
+      description: customServiceDescription.trim(),
       tier: isComplimentary ? 'Complimentary' : tierLabel,
       tierKey: selectedTier,
       sacCode: isCustomService ? '998314' : (activeServiceObj?.sacCode || '998314'),
@@ -225,6 +295,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
       ...(isChangesService ? { changesCount: Math.max(1, Math.min(15, Number(changesCount || 15))) } : {}),
       ...(isWhatsAppCustomization ? { whatsappCategoryCount: Number(whatsappCategoryCount) } : {}),
       ...(isErpCrmService ? { erpModuleCount: Number(erpModuleCount) } : {}),
+      ...(isAiVideoService ? { videoSeconds: Math.max(1, Number(videoSeconds || 8)) } : {}),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -289,6 +360,8 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     try {
       const { data } = await api.put(`/quotations/${recordId(quotation)}/admin-edit`, {
         ...fields,
+        finalDiscountType: overallDiscount.type,
+        finalDiscountValue: Number(overallDiscount.value || 0),
         costingItems
       });
       onSaved(data);
@@ -484,12 +557,12 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                 </div>
               </div>
 
-              {/* Custom Service Description (optional) */}
-              {isCustomService && (
+              {/* Service Description (editable for all services) */}
+              {(activeServiceObj || isCustomService) && (
                 <div className="mt-3">
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
-                    <span>Custom Service Description</span>
-                    <span className="text-[10px] text-slate-400 lowercase font-medium">(optional - leave blank if not needed)</span>
+                    <span>Service Description <span className="text-[10px] text-purple lowercase font-semibold">(editable)</span></span>
+                    <span className="text-[10px] text-slate-400 lowercase font-medium">optional - leave blank if not needed</span>
                   </label>
                   <textarea
                     rows={2}
@@ -614,6 +687,39 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                         <button type="button" onClick={() => setChangesCount((c) => Math.min(15, Number(c) + 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-300 bg-amber-50 font-black text-amber-700 hover:bg-amber-500 hover:text-white transition">+</button>
                       </div>
                       <p className="text-[10px] text-slate-400 mt-1">{changesCount} of 15 max changes</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Video Seconds configurator inline for modal */}
+                {isAiVideoService && !isComplimentaryItem && (
+                  <div className="w-full mt-1 rounded-xl border-2 border-pink-300 bg-pink-50/60 p-3">
+                    <p className="text-[10px] font-black uppercase text-pink-700 mb-2">🎬 AI Video Duration (Customisable Seconds)</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => setVideoSeconds((s) => Math.max(1, Number(s || 8) - 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-pink-300 bg-white font-black text-pink-700 hover:bg-pink-500 hover:text-white transition">−</button>
+                      <input
+                        type="number"
+                        min={1}
+                        max={600}
+                        value={videoSeconds}
+                        onChange={(e) => setVideoSeconds(e.target.value === '' ? '' : Math.max(1, Number(e.target.value)))}
+                        onBlur={() => { if (!videoSeconds || Number(videoSeconds) < 1) setVideoSeconds(8); }}
+                        className="w-20 rounded-lg border border-pink-300 bg-white px-2 py-1 text-center text-sm font-black text-slate-900 outline-none"
+                      />
+                      <span className="text-xs font-bold text-pink-700">sec</span>
+                      <button type="button" onClick={() => setVideoSeconds((s) => Math.min(600, Number(s || 8) + 1))} className="flex h-7 w-7 items-center justify-center rounded-lg border border-pink-300 bg-white font-black text-pink-700 hover:bg-pink-500 hover:text-white transition">+</button>
+                      <div className="flex flex-wrap gap-1 ml-2">
+                        {[8, 12, 16, 20, 24, 30, 45, 60].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setVideoSeconds(preset)}
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-black border transition ${
+                              Number(videoSeconds) === preset ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-700 border-pink-200 hover:bg-pink-100'
+                            }`}
+                          >{preset}s</button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -817,13 +923,46 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                     </div>
                   ))}
 
+                  {/* Overall Discount / Offer */}
+                  <div className="rounded-xl border border-purple/20 bg-purple/5 p-3.5 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Overall Offer / Discount</label>
+                      <select
+                        value={overallDiscount.type}
+                        onChange={(e) => setOverallDiscount({ type: e.target.value, value: e.target.value === 'None' ? '' : overallDiscount.value })}
+                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-slate-800 outline-purple"
+                      >
+                        <option value="None">No Overall Discount</option>
+                        <option value="Percentage">Percentage (%)</option>
+                        <option value="Fixed Amount">Fixed Amount (₹)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                        {overallDiscount.type === 'Percentage' ? 'Discount (%)' : overallDiscount.type === 'Fixed Amount' ? 'Discount Amount (₹)' : 'Value'}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        max={overallDiscount.type === 'Percentage' ? 100 : totals.subtotal}
+                        disabled={overallDiscount.type === 'None'}
+                        value={overallDiscount.value}
+                        onChange={(e) => setOverallDiscount((p) => ({ ...p, value: e.target.value }))}
+                        placeholder={overallDiscount.type === 'Percentage' ? 'e.g. 10' : overallDiscount.type === 'Fixed Amount' ? 'e.g. 5000' : 'Select type'}
+                        className="w-full rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-bold text-slate-800 outline-purple disabled:bg-slate-100"
+                      />
+                    </div>
+                  </div>
+
                   {/* Grand totals bar */}
                   <div className="rounded-xl bg-slate-950 p-4 flex flex-wrap items-center justify-between gap-3">
                     <span className="text-sm font-bold text-white">Totals ({costingItems.length} services)</span>
                     <div className="flex items-center gap-6">
                       <div className="text-right">
                         <p className="text-[10px] font-bold text-slate-400">Subtotal</p>
-                        <p className="text-sm font-bold text-white">{currency(totals.subtotal)}</p>
+                        <p className="text-sm font-bold text-white">{currency(totals.netTaxable)}</p>
+                        {totals.discountAmount > 0 && <p className="text-[10px] font-bold text-emerald-400">(-{currency(totals.discountAmount)} off)</p>}
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] font-bold text-slate-400">GST</p>

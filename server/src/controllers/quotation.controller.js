@@ -134,17 +134,22 @@ export async function createQuotation(req, res, next) {
       );
       const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
       const quantity = Number(item.quantity || 1);
-      const discountAmount = isComplimentary ? 0 : Number(item.discountAmount || 0);
-      const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
-      const gstAmount = isComplimentary ? 0 : Number(item.gstAmount || 0);
-      const totalAmount = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstAmount));
+      const lineBase = basePrice * quantity;
+      const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
+      const discountAmount = isComplimentary ? 0 : Number(item.discountAmount ?? (lineBase * discountPercentage / 100));
+      const taxableValue = isComplimentary ? 0 : Math.max(0, lineBase - discountAmount);
+      const gstPercentage = isComplimentary ? 0 : Number(item.gstPercentage || 18);
+      const gstAmount = isComplimentary ? 0 : (taxableValue * gstPercentage / 100);
+      const totalAmount = isComplimentary ? 0 : (taxableValue + gstAmount);
       return {
         ...item,
         isComplimentary,
         basePrice,
         quantity,
+        discountPercentage,
         discountAmount,
         taxableValue,
+        gstPercentage,
         gstAmount,
         totalAmount
       };
@@ -341,12 +346,13 @@ export async function adminEditQuotation(req, res, next) {
         );
         const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
+        const lineBase = basePrice * quantity;
         const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
-        const discountAmount = isComplimentary ? 0 : Number(item.discountAmount ?? ((basePrice * quantity) * discountPercentage / 100));
-        const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const discountAmount = isComplimentary ? 0 : (lineBase * discountPercentage / 100);
+        const taxableValue = isComplimentary ? 0 : Math.max(0, lineBase - discountAmount);
         const gstPercentage = isComplimentary ? 0 : Number(item.gstPercentage || 18);
-        const gstAmount = isComplimentary ? 0 : Number(item.gstAmount ?? (taxableValue * gstPercentage / 100));
-        const totalAmount = isComplimentary ? 0 : Number(item.totalAmount ?? (taxableValue + gstAmount));
+        const gstAmount = isComplimentary ? 0 : (taxableValue * gstPercentage / 100);
+        const totalAmount = isComplimentary ? 0 : (taxableValue + gstAmount);
         return {
           serviceId: toSafeObjectId(item.serviceId),
           mainService: item.mainService || 'General',
@@ -486,9 +492,19 @@ export async function addCosting(req, res, next) {
 
     // Recalculate totals for quotation
     const subtotal = insertedItems.reduce((sum, i) => sum + (i.basePrice * i.quantity) - (i.discountAmount || 0), 0);
-    const totalGst = insertedItems.reduce((sum, i) => sum + i.gstAmount, 0);
-    const totalAmount = subtotal + totalGst;
+    const discountType = quotation.finalDiscountType || 'None';
+    const discountValue = Number(quotation.finalDiscountValue || 0);
+    let finalDiscountAmount = Number(quotation.finalDiscountAmount || 0);
+    if (discountType === 'Percentage' && discountValue > 0) {
+      finalDiscountAmount = Math.round(subtotal * (Math.min(discountValue, 100) / 100));
+    } else if (discountType === 'Fixed Amount' && discountValue > 0) {
+      finalDiscountAmount = Math.min(discountValue, subtotal);
+    }
+    const netTaxable = Math.max(0, subtotal - finalDiscountAmount);
+    const totalGst = finalDiscountAmount > 0 ? Math.round(netTaxable * 0.18) : insertedItems.reduce((sum, i) => sum + i.gstAmount, 0);
+    const totalAmount = netTaxable + totalGst;
     quotation.subtotal = subtotal;
+    quotation.finalDiscountAmount = finalDiscountAmount;
     quotation.gstAmount = totalGst;
     quotation.totalAmount = totalAmount;
     quotation.costingItems = insertedItems.map((item) => ({
@@ -568,10 +584,13 @@ export async function approve(req, res, next) {
     quotation.finalDiscountValue = quotation.finalDiscountType === 'Percentage' ? Math.min(rawDiscountValue, 100) : rawDiscountValue;
     const subtotal = Number(quotation.subtotal || 0);
     quotation.finalDiscountAmount = quotation.finalDiscountType === 'Percentage'
-      ? subtotal * quotation.finalDiscountValue / 100
+      ? Math.round(subtotal * quotation.finalDiscountValue / 100)
       : quotation.finalDiscountType === 'Fixed Amount'
         ? Math.min(quotation.finalDiscountValue, subtotal)
         : 0;
+    const netTaxable = Math.max(0, subtotal - quotation.finalDiscountAmount);
+    quotation.gstAmount = Math.round(netTaxable * 0.18);
+    quotation.totalAmount = netTaxable + quotation.gstAmount;
     await quotation.save();
     const updated = await changeQuotationStatus({ quotation, status: 'Approved', user: req.user });
     try {
@@ -704,8 +723,12 @@ function publicQuotationPayload(quotation) {
   const client = quotation.clientId || {};
   const costingItems = quotation.costingItems || [];
   const subtotal = Number(quotation.subtotal || 0);
-  const gstAmount = Number(quotation.gstAmount || 0);
-  const totalAmount = Number(quotation.totalAmount || 0);
+  const discountAmount = Number(quotation.finalDiscountAmount || 0);
+  const netTaxable = Math.max(0, subtotal - discountAmount);
+  const gstAmount = discountAmount > 0
+    ? Math.round(netTaxable * 0.18)
+    : Number(quotation.gstAmount || Math.round(netTaxable * 0.18));
+  const totalAmount = netTaxable + gstAmount;
 
   return {
     _id: quotation._id,

@@ -78,6 +78,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const [changesCount, setChangesCount] = useState(15);   // 1-15 changes (service 23)
   const [whatsappCategoryCount, setWhatsappCategoryCount] = useState(15); // min 15 categories (service 53)
   const [erpModuleCount, setErpModuleCount] = useState(6); // min 6 modules (service 55)
+  const [videoSeconds, setVideoSeconds] = useState(8); // AI video seconds (services 7 & 8)
 
   // Price override — lets user edit the default tier price for ANY service
   const [priceOverrideEnabled, setPriceOverrideEnabled] = useState(false);
@@ -247,8 +248,10 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   const isWhatsAppCustomization = !isCustomService && activeServiceObj?.id === 53;
   // Service 55: ERP, CRM, PRM, HRMS (Base ₹39,990 up to 6 modules, +₹6,990 per extra module)
   const isErpCrmService = !isCustomService && activeServiceObj?.id === 55;
+  // Services 7 & 8: AI Video generation services in Digital Marketing (customisable seconds)
+  const isAiVideoService = !isCustomService && (activeServiceObj?.id === 7 || activeServiceObj?.id === 8);
 
-  // Reset special-service params when active service changes
+  // Reset special-service params when active service or tier changes
   useEffect(() => {
     if (isModuleService) {
       setModuleCount(2);
@@ -259,8 +262,13 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       setWhatsappCategoryCount(15);
     } else if (isErpCrmService) {
       setErpModuleCount(6);
+    } else if (isAiVideoService) {
+      const note = activeServiceObj?.tierNotes?.[selectedTier] || '';
+      const match = note.match(/(\d+)\s*Seconds/i);
+      const fallback = selectedTier === 'basic' || selectedTier === 'premium' ? 16 : (selectedTier === 'standard' || selectedTier === 'enterprise' ? 24 : 8);
+      setVideoSeconds(match ? Number(match[1]) : fallback);
     }
-  }, [activeServiceObj?.id]);
+  }, [activeServiceObj?.id, selectedTier]);
 
   // Default custom price when custom service, AMC, or customised tier selected
   useEffect(() => {
@@ -300,6 +308,52 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     if (!activeServiceObj) return '';
     return activeServiceObj.tierNotes?.[selectedTier] || activeServiceObj.tierNotes?.enterprise || activeServiceObj.description;
   }, [activeServiceObj, selectedTier]);
+
+  const defaultServiceDescription = useMemo(() => {
+    if (isCustomService) return '';
+    if (!activeServiceObj) return '';
+    const serviceName = activeServiceObj.service;
+    const tierObj = losTiers.find((t) => t.key === selectedTier);
+    const tierLabel = tierObj ? tierObj.label : 'Starter';
+
+    if (isComplimentaryItem) {
+      return `${serviceName} — Complimentary Service (Free of Charge)`;
+    }
+    if (isWhatsAppCustomization) {
+      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
+      return `${serviceName} — ${whatsappCategoryCount} Categories (${extra > 0 ? `15 Base + ${extra} Additional @ ₹2,990/cat` : 'up to 15 categories included'}). ${currentTierNote}`;
+    }
+    if (isErpCrmService) {
+      const extra = Math.max(0, Number(erpModuleCount) - 6);
+      return `${serviceName} — ${erpModuleCount} Modules (${extra > 0 ? `6 Base + ${extra} Additional @ ₹6,990/mod` : 'up to 6 modules included'}). ${currentTierNote}`;
+    }
+    if (isModuleService) {
+      const mc = Number(moduleCount);
+      const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
+      return `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
+    }
+    if (isChangesService) {
+      const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
+      return `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
+    }
+    if (isAiVideoService) {
+      const secs = Math.max(1, Number(videoSeconds || 8));
+      const updatedNote = /\d+\s*Seconds/i.test(currentTierNote)
+        ? currentTierNote.replace(/\d+\s*Seconds/i, `${secs} Seconds`)
+        : `${currentTierNote} (${secs} Seconds)`;
+      return `${serviceName} (${tierLabel}) — ${secs}s Video · ${updatedNote}`;
+    }
+    return `${serviceName} (${tierLabel}) - ${currentTierNote}`;
+  }, [
+    isCustomService, activeServiceObj, selectedTier, isComplimentaryItem,
+    isWhatsAppCustomization, whatsappCategoryCount, isErpCrmService, erpModuleCount,
+    isModuleService, moduleCount, imagesPerModule, isChangesService, changesCount,
+    isAiVideoService, videoSeconds, currentTierNote
+  ]);
+
+  useEffect(() => {
+    setCustomServiceDescription(defaultServiceDescription);
+  }, [defaultServiceDescription]);
 
   // Custom price change handler
   const handleCustomPriceChange = (val) => {
@@ -385,28 +439,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
     const tierObj = losTiers.find((t) => t.key === selectedTier);
     const tierLabel = tierObj ? tierObj.label : 'Starter';
 
-    // Build an enriched description for special services
-    let itemDescription;
-    if (isComplimentary) {
-      itemDescription = `${serviceName} — Complimentary Service (Free of Charge)`;
-    } else if (isWhatsAppCustomization) {
-      const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
-      itemDescription = `${serviceName} — ${whatsappCategoryCount} Categories (${extra > 0 ? `15 Base + ${extra} Additional @ ₹2,990/cat` : 'up to 15 categories included'}). ${currentTierNote}`;
-    } else if (isErpCrmService) {
-      const extra = Math.max(0, Number(erpModuleCount) - 6);
-      itemDescription = `${serviceName} — ${erpModuleCount} Modules (${extra > 0 ? `6 Base + ${extra} Additional @ ₹6,990/mod` : 'up to 6 modules included'}). ${currentTierNote}`;
-    } else if (isModuleService) {
-      const mc = Number(moduleCount);
-      const ipm = Math.max(1, Math.min(15, Number(imagesPerModule || 15)));
-      itemDescription = `${serviceName} (${tierLabel}) — ${mc} Module${mc > 1 ? 's' : ''}, up to ${ipm} image${ipm > 1 ? 's' : ''}/module. ${currentTierNote}`;
-    } else if (isChangesService) {
-      const cc = Math.max(1, Math.min(15, Number(changesCount || 15)));
-      itemDescription = `${serviceName} (${tierLabel}) — ${cc} Change${cc > 1 ? 's' : ''} after initial setup. ${currentTierNote}`;
-    } else if (isCustomService) {
-      itemDescription = customServiceDescription.trim();
-    } else {
-      itemDescription = `${serviceName} (${tierLabel}) - ${currentTierNote}`;
-    }
+    const itemDescription = customServiceDescription.trim();
 
     const newItem = {
       tempId: Date.now() + Math.random(),
@@ -428,6 +461,7 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
       ...(isChangesService ? { changesCount: Math.max(1, Math.min(15, Number(changesCount || 15))) } : {}),
       ...(isWhatsAppCustomization ? { whatsappCategoryCount: Number(whatsappCategoryCount) } : {}),
       ...(isErpCrmService ? { erpModuleCount: Number(erpModuleCount) } : {}),
+      ...(isAiVideoService ? { videoSeconds: Math.max(1, Number(videoSeconds || 8)) } : {}),
       basePrice,
       quantity: qty,
       discountPercentage: discPct,
@@ -455,6 +489,12 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
   // Remove item line
   const removeServiceLineItem = (tempId) => {
     setCostingItems((prev) => prev.filter((item) => item.tempId !== tempId));
+  };
+
+  const updateCostingItemDescription = (tempId, value) => {
+    setCostingItems((prev) =>
+      prev.map((item) => (item.tempId === tempId ? { ...item, description: value } : item))
+    );
   };
 
   // Summary calculations with overall discount
@@ -1040,18 +1080,18 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
           </div>
         </div>
 
-        {/* Custom Service Description input (optional) */}
-        {isCustomService && (
+        {/* Service Description input (editable for all services) */}
+        {(activeServiceObj || isCustomService) && (
           <div className="mt-4 border-t border-line pt-4">
             <label className="block text-xs font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
-              <span>Custom Service Description</span>
-              <span className="text-[11px] font-semibold text-slate-400 normal-case">(Optional — leave blank if not needed)</span>
+              <span>Service Description <span className="text-[11px] font-semibold text-purple normal-case">(Editable)</span></span>
+              <span className="text-[11px] font-semibold text-slate-400 normal-case">Optional — leave blank if not needed</span>
             </label>
             <textarea
               rows={2}
               value={customServiceDescription}
               onChange={(e) => setCustomServiceDescription(e.target.value)}
-              placeholder="Enter description, scope, or deliverables for this custom service (optional)..."
+              placeholder="Enter description, scope, or deliverables for this service (optional)..."
               className="w-full rounded-xl border border-line bg-white p-3 text-sm font-medium text-slate-800 outline-purple placeholder:text-slate-400 focus:border-purple focus:ring-1 focus:ring-purple"
             />
           </div>
@@ -1309,6 +1349,61 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                     />
                     <div className="mt-1 flex justify-between text-[10px] font-bold text-slate-400">
                       <span>1 min</span><span>6 base included</span><span>20 max</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SPECIAL SERVICE CONFIGURATOR (services 7 & 8 — AI Video Seconds) ── */}
+              {isAiVideoService && !isComplimentaryItem && (
+                <div className="mt-4 w-full rounded-2xl border-2 border-pink-400/70 bg-gradient-to-br from-pink-50 to-purple-50 p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span className="rounded-full bg-pink-600 px-3 py-0.5 text-xs font-black text-white">🎬 AI Video Duration (Customisable)</span>
+                    <span className="text-[11px] font-bold text-pink-800">Enter or select video length in seconds</span>
+                  </div>
+                  <div className="rounded-xl border border-pink-200 bg-white p-4">
+                    <label className="block text-xs font-black uppercase tracking-wider text-pink-800 mb-2">⏱️ Video Duration (Seconds)</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setVideoSeconds((s) => Math.max(1, Number(s || 8) - 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-pink-300 bg-pink-50 font-black text-pink-700 text-lg hover:bg-pink-600 hover:text-white hover:border-pink-600 transition-all"
+                      >−</button>
+                      <div className="flex-1 flex flex-col items-center">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={1}
+                            max={600}
+                            value={videoSeconds}
+                            onChange={(e) => setVideoSeconds(e.target.value === '' ? '' : Math.max(1, Number(e.target.value)))}
+                            onBlur={() => { if (!videoSeconds || Number(videoSeconds) < 1) setVideoSeconds(8); }}
+                            className="w-24 rounded-xl border-2 border-pink-300 bg-pink-50/40 px-2 py-1 text-center text-2xl font-black text-slate-950 outline-none focus:border-pink-500"
+                          />
+                          <span className="text-sm font-black text-pink-700">Seconds</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setVideoSeconds((s) => Math.min(600, Number(s || 8) + 1))}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl border-2 border-pink-300 bg-pink-50 font-black text-pink-700 text-lg hover:bg-pink-600 hover:text-white hover:border-pink-600 transition-all"
+                      >+</button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                      {[8, 12, 16, 20, 24, 30, 45, 60].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setVideoSeconds(preset)}
+                          className={`rounded-lg px-2.5 py-1 text-xs font-black transition-all border ${
+                            Number(videoSeconds) === preset
+                              ? 'bg-pink-600 text-white border-pink-600 shadow-sm'
+                              : 'bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100'
+                          }`}
+                        >
+                          {preset}s
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1575,10 +1670,19 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                             ✏️ {item.changesCount} change{item.changesCount > 1 ? 's' : ''}
                           </span>
                         )}
+                        {item.videoSeconds > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black bg-pink-50 text-pink-700 border border-pink-200">
+                            🎬 {item.videoSeconds}s video
+                          </span>
+                        )}
                       </div>
-                      {item.description && (
-                        <p className="mt-1 text-xs font-medium text-slate-500">{item.description}</p>
-                      )}
+                      <input
+                        type="text"
+                        value={item.description || ''}
+                        onChange={(e) => updateCostingItemDescription(item.tempId, e.target.value)}
+                        placeholder="Service description (optional)..."
+                        className="mt-1.5 w-full rounded-lg border border-line bg-slate-50/70 px-2.5 py-1 text-xs font-medium text-slate-600 outline-purple focus:border-purple focus:bg-white"
+                      />
                     </td>
                     <td className="p-3 text-center font-bold text-slate-700">
                       <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{item.sacCode}</span>

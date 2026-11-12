@@ -177,8 +177,8 @@ export default function PublicQuotation() {
                         <SummaryRow label="Net Taxable Subtotal" value={Math.max(0, (record.subtotal || 0) - record.finalDiscountAmount)} strong />
                       </>
                     )}
-                    <SummaryRow label="GST Total (18%)" value={record.gstAmount} />
-                    <SummaryRow label="Quotation Total" value={record.totalAmount} strong tone="purple" />
+                    <SummaryRow label="GST Total (18%)" value={Number(record.finalDiscountAmount || 0) > 0 ? Math.round(Math.max(0, (record.subtotal || 0) - record.finalDiscountAmount) * 0.18) : record.gstAmount} />
+                    <SummaryRow label="Quotation Total" value={Number(record.finalDiscountAmount || 0) > 0 ? (Math.max(0, (record.subtotal || 0) - record.finalDiscountAmount) + Math.round(Math.max(0, (record.subtotal || 0) - record.finalDiscountAmount) * 0.18)) : record.totalAmount} strong tone="purple" />
                   </div>
                 </div>
               </div>
