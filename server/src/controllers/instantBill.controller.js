@@ -28,29 +28,41 @@ export async function createBill(req, res, next) {
     // Resolve client
     let clientId = req.body.clientId;
     if (!clientId && req.body.clientDetails) {
-      const { salutation, fullName, email, phone, companyName, address, gstin } = req.body.clientDetails;
+      const { salutation, fullName, email, countryCode, phone, companyName, address, gstin } = req.body.clientDetails;
       if (fullName || companyName || email || phone) {
         const rawDigits = String(phone || '').replace(/\D/g, '');
-        const cleanedPhone = rawDigits.length >= 10 ? rawDigits.slice(-10) : '';
-        const validPhone = cleanedPhone || String(Math.floor(1000000000 + Math.random() * 9000000000));
+        const validPhone = rawDigits || String(Math.floor(1000000000 + Math.random() * 9000000000));
+        const validCountryCode = (countryCode && String(countryCode).trim())
+          ? (String(countryCode).trim().startsWith('+') ? String(countryCode).trim() : `+${String(countryCode).trim()}`)
+          : '+91';
         const validEmail = (email && email.includes('@')) ? email.trim().toLowerCase() : `client-${Date.now()}@bitbytetech.org`;
         const validName = (fullName || companyName || 'Client').trim();
         const validCompany = (companyName || '').trim();
-        const validGstin = (gstin && gstin.length === 15) ? gstin.trim().toUpperCase() : '';
+        const validGstin = (gstin && gstin.trim().length === 15) ? gstin.trim().toUpperCase() : '';
         const validSalutation = (salutation || 'Mr').trim();
 
         let existing = await Client.findOne({
           $or: [
             { email: validEmail },
-            ...(cleanedPhone ? [{ phone: cleanedPhone }] : [])
+            ...(rawDigits ? [{ phone: rawDigits }] : [])
           ]
         });
 
         if (existing) {
+          let needsSave = false;
           if (salutation && existing.salutation !== validSalutation) {
             existing.salutation = validSalutation;
-            await existing.save();
+            needsSave = true;
           }
+          if (countryCode && existing.countryCode !== validCountryCode) {
+            existing.countryCode = validCountryCode;
+            needsSave = true;
+          }
+          if (validGstin && (!existing.gstin || existing.gstin !== validGstin)) {
+            existing.gstin = validGstin;
+            needsSave = true;
+          }
+          if (needsSave) await existing.save();
           clientId = existing._id;
         } else {
           const newClient = await Client.create({
@@ -59,6 +71,7 @@ export async function createBill(req, res, next) {
             fullName: validName,
             companyName: validCompany,
             email: validEmail,
+            countryCode: validCountryCode,
             phone: validPhone,
             address: address || '',
             gstin: validGstin,

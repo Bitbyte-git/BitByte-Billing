@@ -47,6 +47,7 @@ const quotationSchema = new mongoose.Schema({
   quotationId: { type: String, required: true, unique: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+  clientDetails: { type: mongoose.Schema.Types.Mixed },
   servicesSelected: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Service' }],
   mainService: [String],
   subServices: [String],

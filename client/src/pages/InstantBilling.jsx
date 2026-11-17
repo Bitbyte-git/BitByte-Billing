@@ -19,6 +19,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import ToastNotification from '../components/ToastNotification.jsx';
 import losServices, { losTiers } from '../data/losServices.js';
 import { currency, formatDate, recordId } from '../utils/format.js';
+import { COUNTRY_CODES, formatPhoneNumber } from '../utils/countryCodes.js';
 
 export default function InstantBilling({ role = 'Accountant' }) {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
     salutation: 'Mr',
     fullName: '',
     email: '',
+    countryCode: '+91',
     phone: '',
     companyName: '',
     address: '',
@@ -41,6 +43,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
     fullName: '',
     companyName: '',
     email: '',
+    countryCode: '+91',
     phone: '',
     address: '',
     gstin: '',
@@ -138,6 +141,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
           salutation: match.salutation || 'Mr',
           fullName: match.fullName || '',
           email: match.email || '',
+          countryCode: match.countryCode || '+91',
           phone: match.phone || '',
           companyName: match.companyName || '',
           address: match.address || '',
@@ -150,6 +154,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
         salutation: 'Mr',
         fullName: '',
         email: '',
+        countryCode: '+91',
         phone: '',
         companyName: '',
         address: '',
@@ -168,6 +173,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
         fullName: quickClientModal.fullName,
         companyName: quickClientModal.companyName,
         email: quickClientModal.email,
+        countryCode: quickClientModal.countryCode || '+91',
         phone: quickClientModal.phone,
         address: quickClientModal.address || undefined,
         gstin: quickClientModal.gstin || undefined
@@ -177,7 +183,7 @@ export default function InstantBilling({ role = 'Accountant' }) {
       setClients(updatedClients);
       const newId = recordId(data);
       setSelectedClientId(newId);
-      setQuickClientModal({ open: false, salutation: 'Mr', fullName: '', companyName: '', email: '', phone: '', address: '', gstin: '', error: '', loading: false });
+      setQuickClientModal({ open: false, salutation: 'Mr', fullName: '', companyName: '', email: '', countryCode: '+91', phone: '', address: '', gstin: '', error: '', loading: false });
     } catch (err) {
       setQuickClientModal((p) => ({
         ...p,
@@ -590,14 +596,27 @@ export default function InstantBilling({ role = 'Accountant' }) {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase text-slate-400">Phone</label>
-                <input
-                  type="text"
-                  value={customClient.phone}
-                  onChange={(e) => setCustomClient({ ...customClient, phone: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
-                  placeholder="e.g. 7339201392"
-                />
+                <label className="text-xs font-bold uppercase text-slate-400">Mobile Number</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={customClient.countryCode || '+91'}
+                    onChange={(e) => setCustomClient({ ...customClient, countryCode: e.target.value })}
+                    className="w-28 rounded-xl border border-line bg-white px-2 py-2 text-xs font-bold outline-purple"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={customClient.phone}
+                    onChange={(e) => setCustomClient({ ...customClient, phone: e.target.value })}
+                    className="flex-1 rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                    placeholder="e.g. 7339201392"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1113,9 +1132,30 @@ export default function InstantBilling({ role = 'Accountant' }) {
               <label className="block text-xs font-bold uppercase text-slate-500">Email *
                 <input type="email" required value={quickClientModal.email} onChange={e => setQuickClientModal(p => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="client@gmail.com" />
               </label>
-              <label className="block text-xs font-bold uppercase text-slate-500">Phone (10 Digits) *
-                <input type="text" required pattern="\d{10}" value={quickClientModal.phone} onChange={e => setQuickClientModal(p => ({ ...p, phone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="9876543210" />
-              </label>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500">Mobile Number *</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={quickClientModal.countryCode || '+91'}
+                    onChange={e => setQuickClientModal(p => ({ ...p, countryCode: e.target.value }))}
+                    className="w-28 rounded-xl border border-line bg-white px-2 py-2 text-xs font-bold outline-purple"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    required
+                    value={quickClientModal.phone}
+                    onChange={e => setQuickClientModal(p => ({ ...p, phone: e.target.value }))}
+                    className="flex-1 rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                    placeholder="9876543210"
+                  />
+                </div>
+              </div>
               <label className="block text-xs font-bold uppercase text-slate-500">GSTIN
                 <input value={quickClientModal.gstin} onChange={e => setQuickClientModal(p => ({ ...p, gstin: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Optional GSTIN" />
               </label>

@@ -224,9 +224,29 @@ export function createBillPdfDocument(bill) {
   const client = bill.clientId || {};
   const clientName = formatSalutationName(client);
   const clientEmail = client.email || "-";
-  const clientPhone = client.phone || "-";
+
+  // Format Phone with Country Code
+  const rawPhone = String(client.phone || "").trim();
+  let clientPhone = "-";
+  if (rawPhone && rawPhone !== "-") {
+    if (rawPhone.startsWith("+")) {
+      clientPhone = rawPhone;
+    } else {
+      const code = (client.countryCode && String(client.countryCode).trim())
+        ? (String(client.countryCode).trim().startsWith("+") ? String(client.countryCode).trim() : `+${String(client.countryCode).trim()}`)
+        : "+91";
+      clientPhone = `${code} ${rawPhone}`;
+    }
+  }
+
   const companyName = client.companyName || "-";
   const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
+
+  // Conditional GST.NO
+  const rawGstin = String(client.gstin || "").trim();
+  const clientGstin = (rawGstin && rawGstin !== "-" && rawGstin.toUpperCase() !== "NA" && rawGstin.toUpperCase() !== "N/A")
+    ? rawGstin.toUpperCase()
+    : null;
 
   // Resolve bill meta
   const billIdStr = bill.billId || "-";
@@ -461,15 +481,17 @@ export function createBillPdfDocument(bill) {
             ...sectionTable("CLIENT DETAILS", [
               [
                 detailCell("CLIENT NAME", clientName),
-                detailCell("E-MAIL", clientEmail),
+                detailCell("COMPANY", companyName),
               ],
               [
                 detailCell("PHONE", clientPhone),
-                detailCell("BILL NO", billIdStr),
+                detailCell("E-MAIL", clientEmail),
               ],
               [
-                detailCell("COMPANY", companyName),
-                detailCell("CLIENT ID", clientIdStr),
+                clientGstin
+                  ? detailCell("GST.NO", clientGstin)
+                  : detailCell("CLIENT ID", clientIdStr),
+                detailCell("BILL NO", billIdStr),
               ],
             ]),
           },

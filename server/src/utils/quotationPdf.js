@@ -217,12 +217,45 @@ export function createQuotationPdfDocument(quotation) {
   const printer = new PdfPrinter(fonts);
 
   // Resolve client data
-  const client = quotation.clientId || {};
+  const clientObj = (quotation.clientId && typeof quotation.clientId === "object") ? quotation.clientId : {};
+  const clientDetails = (quotation.clientDetails && typeof quotation.clientDetails === "object") ? quotation.clientDetails : {};
+  const client = {
+    ...clientDetails,
+    ...clientObj,
+  };
   const clientName = formatSalutationName(client);
-  const clientEmail = client.email || "-";
-  const clientPhone = client.phone || "-";
-  const companyName = client.companyName || "-";
-  const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
+  const clientEmail = client.email || clientDetails.email || clientObj.email || "-";
+
+  // Format Phone with Country Code
+  const rawPhone = String(client.phone || clientDetails.phone || clientObj.phone || "").trim();
+  const rawCountryCode = client.countryCode || clientDetails.countryCode || clientObj.countryCode || "+91";
+  let clientPhone = "-";
+  if (rawPhone && rawPhone !== "-") {
+    if (rawPhone.startsWith("+")) {
+      clientPhone = rawPhone;
+    } else {
+      const code = String(rawCountryCode).trim().startsWith("+") ? String(rawCountryCode).trim() : `+${String(rawCountryCode).trim()}`;
+      clientPhone = `${code} ${rawPhone}`;
+    }
+  }
+
+  const companyName = client.companyName || clientDetails.companyName || clientObj.companyName || "-";
+  const clientIdStr = client.clientId || clientObj.clientId || (clientObj._id ? String(clientObj._id).slice(-8).toUpperCase() : "-");
+
+  // Conditional GST.NO: check client, clientDetails, quotation root
+  const rawGstin = String(
+    client.gstin ||
+    clientObj.gstin ||
+    clientDetails.gstin ||
+    quotation.gstin ||
+    quotation.clientGstin ||
+    client.gstNo ||
+    clientObj.gstNo ||
+    ""
+  ).trim();
+  const clientGstin = (rawGstin && rawGstin !== "-" && rawGstin.toUpperCase() !== "NA" && rawGstin.toUpperCase() !== "N/A" && rawGstin.toUpperCase() !== "NONE")
+    ? rawGstin.toUpperCase()
+    : null;
 
   // Resolve quotation meta
   const quotationIdStr = quotation.quotationId || "-";
@@ -573,15 +606,17 @@ export function createQuotationPdfDocument(quotation) {
             ...sectionTable("CLIENT DETAILS", [
               [
                 detailCell("CLIENT NAME", clientName),
-                detailCell("E-MAIL", clientEmail),
+                detailCell("COMPANY", companyName),
               ],
               [
                 detailCell("PHONE", clientPhone),
-                detailCell("QUOTATION", quotationIdStr),
+                detailCell("E-MAIL", clientEmail),
               ],
               [
-                detailCell("COMPANY", companyName),
-                detailCell("CLIENT ID", clientIdStr),
+                clientGstin
+                  ? detailCell("GST.NO", clientGstin)
+                  : detailCell("CLIENT ID", clientIdStr),
+                detailCell("QUOTATION", quotationIdStr),
               ],
             ]),
           },

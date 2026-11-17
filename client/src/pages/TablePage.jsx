@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, MessageCircle, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus } from 'lucide-react';
+import { CheckCircle2, MessageCircle, Download, Edit3, Eye, FileText, Key, Plus, ReceiptText, RefreshCw, Save, Trash2, UserPlus, ArrowLeft, Building2, ChevronRight, Hash, Layers, List, Mail, Phone, Users, Calendar } from 'lucide-react';
 import DataTable from '../components/DataTable.jsx';
 import EditQuotationModal from '../components/EditQuotationModal.jsx';
 import SearchFilterBar from '../components/SearchFilterBar.jsx';
@@ -8,6 +8,7 @@ import PdfDownloadButton from '../components/PdfDownloadButton.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api, { downloadInvoiceForQuotation, downloadPaymentAttachment, downloadPdf, downloadQuotationPdf } from '../api.js';
 import { currency, formatDate, getClientName, getInvoiceNumber, getQuotationNumber, recordId, serviceNames } from '../utils/format.js';
+import { COUNTRY_CODES, formatPhoneNumber } from '../utils/countryCodes.js';
 
 function buildPaymentDraftFromRow(row) {
   return {
@@ -25,10 +26,20 @@ function buildPaymentDraftFromRow(row) {
   };
 }
 
+function getInitials(name = '') {
+  const clean = String(name || '').replace(/^M\/s\.?\s+|^Mr\.?\s+|^Mrs\.?\s+|^Ms\.?\s+|^Dr\.?\s+/i, '').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'CL';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 export default function TablePage({ type, role }) {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [state, setState] = useState({ loading: true, error: '', data: [] });
+  const [quotationViewMode, setQuotationViewMode] = useState('customers'); // 'customers' | 'list'
+  const [selectedClientKey, setSelectedClientKey] = useState(null);
   
   const [pinModal, setPinModal] = useState({ open: false, userId: null, pin: '', password: '', error: '' });
   const [addModal, setAddModal] = useState({ open: false, name: '', email: '', password: '', error: '', loading: false });
@@ -41,7 +52,9 @@ export default function TablePage({ type, role }) {
     fullName: '',
     companyName: '',
     email: '',
+    countryCode: '+91',
     phone: '',
+    alternateCountryCode: '+91',
     alternatePhone: '',
     address: '',
     gstin: '',
@@ -141,11 +154,95 @@ export default function TablePage({ type, role }) {
       .catch(() => setInvoiceOptions([]));
   }, [type, role]);
 
+  useEffect(() => {
+    setSelectedClientKey(null);
+    setQuotationViewMode('customers');
+  }, [type]);
+
   const data = state.data;
   const rows = useMemo(() => data.filter((row) => {
     const blob = JSON.stringify(row).toLowerCase();
     return blob.includes(search.toLowerCase()) && (!status || row.status === status || row.paymentStatus === status || row.accountStatus === status);
   }), [data, search, status]);
+
+  // Group quotations by client for Client-centric Quotations view
+  const clientGroups = useMemo(() => {
+    if (type !== 'quotations') return [];
+    const map = new Map();
+
+    data.forEach((quotation) => {
+      const clientObj = (quotation.clientId && typeof quotation.clientId === 'object') ? quotation.clientId : {};
+      const clientDetails = (quotation.clientDetails && typeof quotation.clientDetails === 'object') ? quotation.clientDetails : {};
+
+      const rawName = getClientName(quotation);
+      const key = clientObj._id
+        ? String(clientObj._id)
+        : (clientObj.clientId || clientDetails.email || clientObj.email || rawName);
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          id: clientObj._id || clientObj.clientId || key,
+          clientId: clientObj.clientId || (clientObj._id ? String(clientObj._id).slice(-8).toUpperCase() : '-'),
+          clientName: rawName,
+          companyName: clientObj.companyName || clientDetails.companyName || '',
+          email: clientObj.email || clientDetails.email || '',
+          phone: clientObj.phone || clientDetails.phone || '',
+          countryCode: clientObj.countryCode || clientDetails.countryCode || '+91',
+          gstin: clientObj.gstin || clientDetails.gstin || quotation.gstin || '',
+          quotations: [],
+          totalAmount: 0,
+          latestDate: null,
+          statuses: []
+        });
+      }
+
+      const group = map.get(key);
+      group.quotations.push(quotation);
+      group.totalAmount += Number(quotation.totalAmount || 0);
+      if (!group.statuses.includes(quotation.status || 'Draft')) {
+        group.statuses.push(quotation.status || 'Draft');
+      }
+
+      const qDate = new Date(quotation.submittedAt || quotation.createdAt || Date.now());
+      if (!group.latestDate || qDate > new Date(group.latestDate)) {
+        group.latestDate = quotation.submittedAt || quotation.createdAt;
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => new Date(b.latestDate || 0) - new Date(a.latestDate || 0));
+  }, [type, data]);
+
+  const filteredClientGroups = useMemo(() => {
+    const query = search.toLowerCase().trim();
+    return clientGroups.filter((group) => {
+      const matchesSearch = !query ||
+        group.clientName.toLowerCase().includes(query) ||
+        group.companyName.toLowerCase().includes(query) ||
+        group.email.toLowerCase().includes(query) ||
+        group.phone.toLowerCase().includes(query) ||
+        group.gstin.toLowerCase().includes(query) ||
+        group.clientId.toLowerCase().includes(query) ||
+        group.quotations.some((q) => (q.quotationId || '').toLowerCase().includes(query) || (q.projectTitle || '').toLowerCase().includes(query));
+
+      const matchesStatus = !status || group.quotations.some((q) => q.status === status);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [clientGroups, search, status]);
+
+  const selectedClient = useMemo(() => {
+    if (!selectedClientKey) return null;
+    return clientGroups.find((g) => g.key === selectedClientKey) || null;
+  }, [clientGroups, selectedClientKey]);
+
+  const selectedClientQuotations = useMemo(() => {
+    if (!selectedClient) return [];
+    return selectedClient.quotations.filter((row) => {
+      const blob = JSON.stringify(row).toLowerCase();
+      return blob.includes(search.toLowerCase()) && (!status || row.status === status);
+    });
+  }, [selectedClient, search, status]);
   const entityId = (value) => (typeof value === 'string' ? value : recordId(value));
 
   useEffect(() => {
@@ -422,7 +519,9 @@ export default function TablePage({ type, role }) {
       fullName: row.fullName || '',
       companyName: row.companyName || '',
       email: row.email || '',
+      countryCode: row.countryCode || '+91',
       phone: row.phone || '',
+      alternateCountryCode: row.alternateCountryCode || '+91',
       alternatePhone: row.alternatePhone || '',
       address: row.address || '',
       gstin: row.gstin || '',
@@ -443,7 +542,9 @@ export default function TablePage({ type, role }) {
         fullName: clientModal.fullName,
         companyName: clientModal.companyName,
         email: clientModal.email,
+        countryCode: clientModal.countryCode || '+91',
         phone: clientModal.phone,
+        alternateCountryCode: clientModal.alternateCountryCode || '+91',
         alternatePhone: clientModal.alternatePhone || undefined,
         address: clientModal.address || undefined,
         gstin: clientModal.gstin || undefined,
@@ -1009,7 +1110,7 @@ export default function TablePage({ type, role }) {
         { key: 'companyName', label: 'Company' },
         { key: 'fullName', label: 'Contact Name', render: (row) => getClientName(row) },
         { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
+        { key: 'phone', label: 'Phone', render: (row) => formatPhoneNumber(row.phone, row.countryCode) },
         { key: 'accountStatus', label: 'Status', badge: true }
       ],
       actions: (row) => (
@@ -1093,12 +1194,42 @@ export default function TablePage({ type, role }) {
       <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
           <p className="text-sm font-bold uppercase tracking-widest text-purple">{role} Workspace</p>
-          <h1 className="text-3xl font-black">{config.title}</h1>
+          <h1 className="text-3xl font-black">
+            {type === 'quotations' && selectedClient ? (
+              <span className="flex items-center gap-2">
+                <span className="text-slate-400 font-medium text-2xl">Quotations /</span>
+                <span>{selectedClient.clientName}</span>
+              </span>
+            ) : config.title}
+          </h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {type === 'quotations' && role !== 'Client' && !selectedClient && (
+            <div className="flex items-center rounded-xl border border-line bg-slate-100 p-1 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setQuotationViewMode('customers')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  quotationViewMode === 'customers' ? 'bg-white text-purple shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Users size={14} /> By Customer ({clientGroups.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuotationViewMode('list')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  quotationViewMode === 'list' ? 'bg-white text-purple shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <List size={14} /> All Quotations ({data.length})
+              </button>
+            </div>
+          )}
+
           {type === 'clients' && (
             <button
-              onClick={() => setClientModal({ open: true, mode: 'create', id: null, fullName: '', companyName: '', email: '', phone: '', alternatePhone: '', address: '', gstin: '', pan: '', industry: '', accountStatus: 'Active', error: '', loading: false })}
+              onClick={() => setClientModal({ open: true, mode: 'create', id: null, fullName: '', companyName: '', email: '', countryCode: '+91', phone: '', alternateCountryCode: '+91', alternatePhone: '', address: '', gstin: '', pan: '', industry: '', accountStatus: 'Active', error: '', loading: false })}
               className="gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-glow"
             >
               <UserPlus size={16} /> Add Client
@@ -1117,18 +1248,207 @@ export default function TablePage({ type, role }) {
         </div>
       </div>
 
-      <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
-      {type === 'services' && serviceSync.message && <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{serviceSync.message}</p>}
-      {type === 'services' && serviceSync.error && <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">{serviceSync.error}</p>}
-      {state.loading && !rows.length && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading records...</p>}
-      {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
-      <DataTable columns={config.columns} rows={rows} actions={config.actions} />
-      
-      <div className="mt-4 flex justify-end gap-2 text-sm">
-        <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Previous</button>
-        <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Page 1</button>
-        <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Next</button>
-      </div>
+      {/* ── Quotations: Grouped By Customer View ── */}
+      {type === 'quotations' && role !== 'Client' && quotationViewMode === 'customers' && !selectedClient ? (
+        <div>
+          <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
+          {state.loading && !clientGroups.length && (
+            <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">
+              Loading customer quotations...
+            </p>
+          )}
+          {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
+
+          <div className="mb-4 flex items-center justify-between text-xs font-bold text-slate-500">
+            <span>SHOWING {filteredClientGroups.length} OF {clientGroups.length} CLIENTS</span>
+            <span>Click any customer to view their quotations</span>
+          </div>
+
+          {!filteredClientGroups.length && !state.loading && (
+            <div className="rounded-2xl border border-line bg-white p-12 text-center shadow-premium">
+              <Users size={36} className="mx-auto mb-3 text-slate-300" />
+              <h3 className="text-base font-black text-slate-800">No Customers Found</h3>
+              <p className="mt-1 text-xs text-slate-500 font-semibold">
+                {search || status ? 'No clients match your search or filter criteria.' : 'No quotations have been generated yet.'}
+              </p>
+            </div>
+          )}
+
+          {filteredClientGroups.length > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-premium">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-line bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 pl-6 pr-4">Customer</th>
+                      <th className="py-3.5 px-4">Contact Details</th>
+                      <th className="py-3.5 px-4">GSTIN</th>
+                      <th className="py-3.5 px-4 text-center">Quotations</th>
+                      <th className="py-3.5 px-4 text-right">Total Value</th>
+                      <th className="py-3.5 pl-4 pr-6 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {filteredClientGroups.map((group) => {
+                      const initials = getInitials(group.clientName);
+                      return (
+                        <tr
+                          key={group.key}
+                          onClick={() => setSelectedClientKey(group.key)}
+                          className="group hover:bg-purple/5 transition-colors cursor-pointer"
+                        >
+                          <td className="py-4 pl-6 pr-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple/10 font-black text-xs text-purple group-hover:bg-purple group-hover:text-white transition-colors">
+                                {initials}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 group-hover:text-purple transition-colors">
+                                  {group.clientName}
+                                </p>
+                                {group.companyName && group.companyName !== group.clientName ? (
+                                  <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                    <Building2 size={12} className="text-slate-400 shrink-0" />
+                                    <span>{group.companyName}</span>
+                                  </p>
+                                ) : (
+                                  <p className="font-mono text-[11px] text-slate-400 mt-0.5">ID: {group.clientId}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-xs">
+                            {group.phone && group.phone !== '-' ? (
+                              <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                <Phone size={12} className="text-slate-400 shrink-0" />
+                                <span>{formatPhoneNumber(group.phone, group.countryCode)}</span>
+                              </p>
+                            ) : null}
+                            {group.email && group.email !== '-' ? (
+                              <p className="text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                <Mail size={12} className="text-slate-400 shrink-0" />
+                                <span>{group.email}</span>
+                              </p>
+                            ) : null}
+                          </td>
+                          <td className="py-4 px-4">
+                            {group.gstin ? (
+                              <span className="inline-block rounded-md bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 font-mono text-xs font-bold text-emerald-800">
+                                {group.gstin}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 group-hover:bg-purple/10 group-hover:text-purple px-3 py-1 text-xs font-bold text-slate-700 transition-colors">
+                              <FileText size={12} />
+                              {group.quotations.length} {group.quotations.length === 1 ? 'Quotation' : 'Quotations'}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <span className="font-black text-slate-900 text-sm">
+                              {currency(group.totalAmount)}
+                            </span>
+                          </td>
+                          <td className="py-4 pl-4 pr-6 text-right">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-purple/20 bg-white group-hover:bg-purple group-hover:text-white px-3 py-1.5 text-xs font-bold text-purple shadow-2xs transition">
+                              View Quotations <ChevronRight size={13} />
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : type === 'quotations' && role !== 'Client' && selectedClient ? (
+        /* ── Quotations: Specific Customer Drill-Down View ── */
+        <div>
+          <div className="mb-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-line bg-white p-5 shadow-premium">
+              <div className="flex items-center gap-4 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientKey(null)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-slate-50 text-slate-600 hover:bg-purple hover:text-white hover:border-purple transition shadow-2xs"
+                  title="Back to Customers List"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-black text-slate-900">{selectedClient.clientName}</h2>
+                    {selectedClient.clientId && selectedClient.clientId !== '-' && (
+                      <span className="rounded-md bg-slate-100 border border-slate-200/80 px-2 py-0.5 font-mono text-xs font-bold text-slate-600">
+                        {selectedClient.clientId}
+                      </span>
+                    )}
+                    {selectedClient.gstin && (
+                      <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-bold text-emerald-800">
+                        GSTIN: {selectedClient.gstin}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                    {selectedClient.companyName && selectedClient.companyName !== selectedClient.clientName && (
+                      <span className="flex items-center gap-1 font-semibold text-slate-700">
+                        <Building2 size={13} className="text-slate-400 shrink-0" />
+                        {selectedClient.companyName}
+                      </span>
+                    )}
+                    {selectedClient.phone && selectedClient.phone !== '-' && (
+                      <span className="flex items-center gap-1 font-semibold">
+                        <Phone size={13} className="text-slate-400 shrink-0" />
+                        {formatPhoneNumber(selectedClient.phone, selectedClient.countryCode)}
+                      </span>
+                    )}
+                    {selectedClient.email && selectedClient.email !== '-' && (
+                      <span className="flex items-center gap-1 font-semibold">
+                        <Mail size={13} className="text-slate-400 shrink-0" />
+                        {selectedClient.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 border-t border-line pt-3 sm:border-t-0 sm:pt-0">
+                <div className="rounded-xl bg-slate-50 border border-line px-4 py-2 text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quotations</p>
+                  <p className="text-sm font-black text-purple">{selectedClient.quotations.length}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-line px-4 py-2 text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Value</p>
+                  <p className="text-sm font-black text-slate-900">{currency(selectedClient.totalAmount)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
+          <DataTable columns={config.columns} rows={selectedClientQuotations} actions={config.actions} />
+        </div>
+      ) : (
+        /* ── Standard Flat Table View ── */
+        <div>
+          <SearchFilterBar search={search} onSearch={setSearch} status={status} onStatus={setStatus} />
+          {type === 'services' && serviceSync.message && <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{serviceSync.message}</p>}
+          {type === 'services' && serviceSync.error && <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">{serviceSync.error}</p>}
+          {state.loading && !rows.length && <p className="mb-4 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-500 shadow-sm">Loading records...</p>}
+          {state.error && <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">{state.error}</p>}
+          <DataTable columns={config.columns} rows={rows} actions={config.actions} />
+          
+          <div className="mt-4 flex justify-end gap-2 text-sm">
+            <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Previous</button>
+            <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Page 1</button>
+            <button className="rounded-xl border border-line bg-white px-4 py-2 font-bold">Next</button>
+          </div>
+        </div>
+      )}
 
       {/* Pin Modal */}
       {pinModal.open && (
@@ -1249,12 +1569,53 @@ export default function TablePage({ type, role }) {
               <label className="block text-xs font-bold uppercase text-slate-500">Email *
                 <input type="email" required value={clientModal.email} onChange={e => setClientModal(p => ({ ...p, email: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="client@gmail.com" />
               </label>
-              <label className="block text-xs font-bold uppercase text-slate-500">Phone (10 Digits) *
-                <input type="text" required pattern="\d{10}" value={clientModal.phone} onChange={e => setClientModal(p => ({ ...p, phone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="9876543210" />
-              </label>
-              <label className="block text-xs font-bold uppercase text-slate-500">Alternate Phone
-                <input type="text" pattern="\d{10}" value={clientModal.alternatePhone} onChange={e => setClientModal(p => ({ ...p, alternatePhone: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="Optional" />
-              </label>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500">Phone *</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={clientModal.countryCode || '+91'}
+                    onChange={e => setClientModal(p => ({ ...p, countryCode: e.target.value }))}
+                    className="w-28 rounded-xl border border-line bg-white px-2 py-2 text-xs font-bold outline-purple"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    required
+                    value={clientModal.phone}
+                    onChange={e => setClientModal(p => ({ ...p, phone: e.target.value }))}
+                    className="flex-1 rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                    placeholder="9876543210"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500">Alternate Phone</label>
+                <div className="mt-1 flex gap-2">
+                  <select
+                    value={clientModal.alternateCountryCode || '+91'}
+                    onChange={e => setClientModal(p => ({ ...p, alternateCountryCode: e.target.value }))}
+                    className="w-28 rounded-xl border border-line bg-white px-2 py-2 text-xs font-bold outline-purple"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={clientModal.alternatePhone}
+                    onChange={e => setClientModal(p => ({ ...p, alternatePhone: e.target.value }))}
+                    className="flex-1 rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
               <label className="block text-xs font-bold uppercase text-slate-500">GSTIN
                 <input value={clientModal.gstin} onChange={e => setClientModal(p => ({ ...p, gstin: e.target.value }))} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-sm font-semibold outline-purple" placeholder="15-char GSTIN" />
               </label>

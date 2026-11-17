@@ -8,6 +8,7 @@ import QuotationTimeline from '../components/QuotationTimeline.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import api, { downloadInvoiceForQuotation, downloadPdf, downloadQuotationPdf } from '../api.js';
 import { currency, formatDate, getClientName, recordId } from '../utils/format.js';
+import { formatPhoneNumber } from '../utils/countryCodes.js';
 import priceMap from '../utils/priceList.js';
 import { getSacCode } from '../utils/sacCodes.js';
 
@@ -80,7 +81,7 @@ export default function QuotationDetail({ role, mode }) {
           type: 'success',
           text: target === 'management'
             ? `Quotation PDF dispatched to Management WhatsApp (${data.result?.successCount || 4}/${data.result?.totalCount || 4} members delivered)!`
-            : `Quotation PDF sent directly to client WhatsApp (+${data.result?.contact || quotation.clientId?.phone})!`
+            : `Quotation PDF sent directly to client WhatsApp (${formatPhoneNumber(data.result?.contact || quotation.clientId?.phone, quotation.clientId?.countryCode)})!`
         });
       } else {
         const errDetail = typeof data.result?.error === 'string'
@@ -287,10 +288,11 @@ export default function QuotationDetail({ role, mode }) {
                 ['Client', quotation.clientId?.fullName || getClientName(quotation)],
                 ['Company', quotation.clientId?.companyName || '-'],
                 ['Email', quotation.clientId?.email || '-'],
-                ['Phone', quotation.clientId?.phone || '-'],
+                ['Phone', formatPhoneNumber(quotation.clientId?.phone, quotation.clientId?.countryCode)],
+                ...(quotation.clientId?.gstin ? [['GST No', quotation.clientId.gstin]] : []),
                 ['Priority', quotation.priorityLevel],
                 ['Management WhatsApp', quotation.managementWhatsAppStatus === 'Sent' ? '✅ Sent (MD, ED, CEO, Office)' : quotation.managementWhatsAppStatus === 'Partial' ? '⚠️ Partial Delivery' : quotation.managementWhatsAppStatus === 'Failed' ? '❌ Failed' : '⏳ Pending Management Send'],
-                ['Client WhatsApp', quotation.whatsappStatus === 'Sent' ? `✅ Sent (+${quotation.whatsappRecipient || quotation.clientId?.phone})` : quotation.whatsappStatus === 'Failed' ? '❌ Failed' : (quotation.status === 'Approved' ? '⏳ Ready to Send' : '⏳ Awaiting Admin Approval')],
+                ['Client WhatsApp', quotation.whatsappStatus === 'Sent' ? `✅ Sent (${formatPhoneNumber(quotation.whatsappRecipient || quotation.clientId?.phone, quotation.clientId?.countryCode)})` : quotation.whatsappStatus === 'Failed' ? '❌ Failed' : (quotation.status === 'Approved' ? '⏳ Ready to Send' : '⏳ Awaiting Admin Approval')],
                 ['Submitted', formatDate(quotation.submittedAt || quotation.createdAt)]
               ].map(([label, value]) => <div key={label} className="rounded-xl bg-surface p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-1 font-semibold">{value}</p></div>)}
             </div>

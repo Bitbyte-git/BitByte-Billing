@@ -315,9 +315,31 @@ export function createInvoicePdfDocument(invoice) {
   };
   const printer = new PdfPrinter(fonts);
   const items = (invoice.items || []).map(enrichInvoiceItem);
-  const clientName = formatSalutationName(invoice.clientId);
-  const clientEmail = invoice.clientId?.email || "-";
-  const clientPhone = invoice.clientId?.phone || "-";
+  const client = invoice.clientId || {};
+  const clientName = formatSalutationName(client);
+  const clientEmail = client.email || "-";
+
+  // Format Phone with Country Code
+  const rawPhone = String(client.phone || "").trim();
+  let clientPhone = "-";
+  if (rawPhone && rawPhone !== "-") {
+    if (rawPhone.startsWith("+")) {
+      clientPhone = rawPhone;
+    } else {
+      const code = (client.countryCode && String(client.countryCode).trim())
+        ? (String(client.countryCode).trim().startsWith("+") ? String(client.countryCode).trim() : `+${String(client.countryCode).trim()}`)
+        : "+91";
+      clientPhone = `${code} ${rawPhone}`;
+    }
+  }
+
+  // Conditional GST.NO
+  const rawGstin = String(client.gstin || "").trim();
+  const clientGstin = (rawGstin && rawGstin !== "-" && rawGstin.toUpperCase() !== "NA" && rawGstin.toUpperCase() !== "N/A")
+    ? rawGstin.toUpperCase()
+    : null;
+  const companyName = client.companyName || "-";
+  const clientIdStr = client.clientId || (client._id ? String(client._id).slice(-8).toUpperCase() : "-");
   const quotationLabel =
     invoice.quotationId?.quotationId ||
     invoice.quotationId?.projectTitle ||
@@ -505,18 +527,17 @@ export function createInvoicePdfDocument(invoice) {
             ...sectionTable("CLIENT DETAILS", [
               [
                 detailCell("CLIENT NAME", clientName),
-                detailCell("E-MAIL", clientEmail),
+                detailCell("COMPANY", companyName),
               ],
               [
                 detailCell("PHONE", clientPhone),
-                detailCell("QUOTATION", quotationLabel),
+                detailCell("E-MAIL", clientEmail),
               ],
               [
-                detailCell(
-                  "COMPANY",
-                  invoice.clientId?.companyName || "-",
-                ),
-                detailCell("CLIENT ID", invoice.clientId?._id || "-"),
+                clientGstin
+                  ? detailCell("GST.NO", clientGstin)
+                  : detailCell("CLIENT ID", clientIdStr),
+                detailCell("QUOTATION", quotationLabel),
               ],
             ]),
           },

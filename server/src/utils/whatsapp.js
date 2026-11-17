@@ -18,29 +18,25 @@ async function safeUpdateQuotation(id, updateData) {
  * Formats a phone number for Tendigit WhatsApp API.
  * Tendigit expects numbers formatted with country code (e.g., 919876543210 for India).
  */
-export function formatWhatsAppContact(phone) {
+export function formatWhatsAppContact(phone, countryCode = '+91') {
   if (!phone) return null;
-  const raw = String(phone).replace(/\D/g, '');
+  const original = String(phone).trim();
+  const cleanCode = String(countryCode || '+91').replace(/\D/g, '') || '91';
+  let raw = original.replace(/\D/g, '');
   if (!raw) return null;
 
-  // 10 digit Indian mobile number -> prepend 91
-  if (raw.length === 10) {
-    return `91${raw}`;
-  }
-  // 11 digits starting with 0 -> strip 0 and prepend 91
-  if (raw.length === 11 && raw.startsWith('0')) {
-    return `91${raw.slice(1)}`;
-  }
-  // 12 digits starting with 91 -> already has country code
-  if (raw.length === 12 && raw.startsWith('91')) {
+  if (original.startsWith('+')) {
     return raw;
   }
-  // Other international formats with country code already included
-  if (raw.length >= 11) {
+  if (raw.startsWith(cleanCode) && raw.length > cleanCode.length + 8) {
     return raw;
   }
-
-  return `91${raw}`;
+  if (cleanCode === '91') {
+    if (raw.length === 10) return `91${raw}`;
+    if (raw.length === 11 && raw.startsWith('0')) return `91${raw.slice(1)}`;
+    if (raw.length === 12 && raw.startsWith('91')) return raw;
+  }
+  return `${cleanCode}${raw}`;
 }
 
 /**
@@ -177,8 +173,10 @@ export async function sendQuotationWhatsApp({ quotation, contactOverride, client
   }
 
   // 1. Resolve contact number
-  const rawPhone = contactOverride || populated.clientId?.phone || clientDetails?.phone || populated.clientDetails?.phone;
-  const contact = formatWhatsAppContact(rawPhone);
+  const clientObj = populated.clientId || clientDetails || {};
+  const rawCountryCode = clientObj.countryCode || '+91';
+  const rawPhone = contactOverride || clientObj.phone || populated.clientDetails?.phone;
+  const contact = formatWhatsAppContact(rawPhone, rawCountryCode);
 
   if (!contact) {
     const errMsg = `Invalid or missing phone number for client (${rawPhone || 'empty'}). WhatsApp message not sent.`;
@@ -191,7 +189,6 @@ export async function sendQuotationWhatsApp({ quotation, contactOverride, client
   }
 
   // 2. Resolve Client Name, Quotation ID, and Valid Until date
-  const clientObj = populated.clientId || clientDetails || {};
   const rawName = clientObj.fullName || clientObj.name || clientObj.companyName || 'Valued Client';
   const clientName = String(rawName).replace(/,/g, ' ').trim();
   const quotationId = String(populated.quotationId || populated._id).replace(/,/g, '').trim();
