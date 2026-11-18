@@ -895,14 +895,26 @@ export default function TablePage({ type, role }) {
                 </button>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation')}
-              className="inline-flex items-center gap-1 rounded-lg border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"
-              title="Download Quotation PDF"
-            >
-              <Download size={13} /> Quotation
-            </button>
+            <div className="inline-flex items-center overflow-hidden rounded-lg border border-purple/30 bg-white shadow-2xs">
+              <button
+                type="button"
+                onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation', 'Advanced')}
+                className="inline-flex items-center gap-1 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition"
+                title="Download Quotation in Modern Advanced Template"
+              >
+                <Download size={13} />
+                <span>Advance</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadQuotationPdf(recordId(row), row.quotationId || 'Quotation', 'Legacy')}
+                className="inline-flex items-center gap-1 border-l border-purple/20 bg-indigo-50/70 px-2.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white transition"
+                title="Download Quotation in Classic Legacy MNC Proposal Template"
+              >
+                <Download size={13} />
+                <span>Legacy</span>
+              </button>
+            </div>
             {hasInvoice ? (
               <button
                 type="button"
@@ -1058,15 +1070,26 @@ export default function TablePage({ type, role }) {
               <span>Invoice</span>
             </button>
             {linkedQuotationId && (
-              <button
-                type="button"
-                onClick={() => downloadQuotationPdf(linkedQuotationId, quotationNum || 'Quotation')}
-                className="inline-flex items-center gap-1 rounded-lg border border-purple/30 bg-purple/5 px-2.5 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition shadow-2xs"
-                title="Download linked Quotation PDF"
-              >
-                <FileText size={13} />
-                <span>Quotation</span>
-              </button>
+              <div className="inline-flex items-center overflow-hidden rounded-lg border border-purple/30 bg-white shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => downloadQuotationPdf(linkedQuotationId, quotationNum || 'Quotation', 'Advanced')}
+                  className="inline-flex items-center gap-1 bg-purple/5 px-2 py-1.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition"
+                  title="Download linked Quotation in Modern Advanced Template"
+                >
+                  <Download size={12} />
+                  <span>Advance</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadQuotationPdf(linkedQuotationId, quotationNum || 'Quotation', 'Legacy')}
+                  className="inline-flex items-center gap-1 border-l border-purple/20 bg-indigo-50/70 px-2 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-600 hover:text-white transition"
+                  title="Download linked Quotation in Classic Legacy MNC Proposal Template"
+                >
+                  <Download size={12} />
+                  <span>Legacy</span>
+                </button>
+              </div>
             )}
             {['Admin', 'Accountant'].includes(role) && (
               <button

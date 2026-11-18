@@ -75,13 +75,15 @@ export const downloadInternInvoicePdf = async (invoiceId, invoiceNumber = 'Inter
   }
 };
 
-export const downloadQuotationPdf = async (quotationId, quotationNumber = 'Quotation') => {
+export const downloadQuotationPdf = async (quotationId, quotationNumber = 'Quotation', format = null) => {
   try {
-    const response = await api.get(`/quotations/${quotationId}/pdf`, { responseType: 'blob' });
+    const params = format ? { format } : {};
+    const response = await api.get(`/quotations/${quotationId}/pdf`, { responseType: 'blob', params });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${quotationNumber}.pdf`);
+    const suffix = format ? `-${format}` : '';
+    link.setAttribute('download', `${quotationNumber}${suffix}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.parentNode.removeChild(link);

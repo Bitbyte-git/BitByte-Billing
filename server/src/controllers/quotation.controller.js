@@ -168,21 +168,23 @@ export async function createQuotation(req, res, next) {
       const isComplimentary = Boolean(
         item.isComplimentary ||
         item.tier === 'Complimentary' ||
-        (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
-        ((item.basePrice === 0 || item.basePrice === '0') && Number(item.totalAmount || 0) === 0)
+        item.tierKey === 'complimentary' ||
+        (item.description && /complimentary|free\s+of\s+charge/i.test(item.description))
       );
-      const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
+      const isOptional = Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
+      const basePrice = Number(item.basePrice || 0);
       const quantity = Number(item.quantity || 1);
       const lineBase = basePrice * quantity;
       const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
       const discountAmount = isComplimentary ? 0 : Number(item.discountAmount ?? (lineBase * discountPercentage / 100));
-      const taxableValue = isComplimentary ? 0 : Math.max(0, lineBase - discountAmount);
-      const gstPercentage = isComplimentary ? 0 : Number(item.gstPercentage || 18);
-      const gstAmount = isComplimentary ? 0 : (taxableValue * gstPercentage / 100);
-      const totalAmount = isComplimentary ? 0 : (taxableValue + gstAmount);
+      const taxableValue = Math.max(0, lineBase - discountAmount);
+      const gstPercentage = Number(item.gstPercentage || 18);
+      const gstAmount = (taxableValue * gstPercentage / 100);
+      const totalAmount = (taxableValue + gstAmount);
       return {
         ...item,
         isComplimentary,
+        isOptional,
         basePrice,
         quantity,
         discountPercentage,
@@ -202,7 +204,10 @@ export async function createQuotation(req, res, next) {
     let totalAmount = Number(req.body.totalAmount || 0);
 
     if (costingItems.length > 0) {
-      subtotal = costingItems.reduce((sum, item) => sum + item.taxableValue, 0);
+      // Subtotal strictly sums billable items (excluding complimentary & optional)
+      subtotal = costingItems
+        .filter(item => !item.isComplimentary && !item.isOptional)
+        .reduce((sum, item) => sum + item.taxableValue, 0);
 
       // Compute overall discount
       if (finalDiscountType === 'Percentage' && finalDiscountValue > 0) {
@@ -253,10 +258,12 @@ export async function createQuotation(req, res, next) {
     if (costingItems.length > 0) {
       const qItems = costingItems.map(item => {
         const isComplimentary = Boolean(item.isComplimentary);
-        const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
+        const basePrice = Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
         const discountAmount = isComplimentary ? 0 : Number(item.discountAmount || 0);
-        const taxableValue = isComplimentary ? 0 : Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const taxableValue = Number(item.taxableValue ?? ((basePrice * quantity) - discountAmount));
+        const gstAmount = Number(item.gstAmount || 0);
+        const totalAmount = Number(item.totalAmount || 0);
         return {
           quotationId: quotation._id,
           serviceId: toSafeObjectId(item.serviceId),
@@ -270,9 +277,9 @@ export async function createQuotation(req, res, next) {
           discountPercentage: isComplimentary ? 0 : Number(item.discountPercentage || 0),
           discountAmount,
           taxableValue,
-          gstPercentage: isComplimentary ? 0 : Number(item.gstPercentage || 18),
-          gstAmount: isComplimentary ? 0 : Number(item.gstAmount || 0),
-          totalAmount: isComplimentary ? 0 : Number(item.totalAmount || 0),
+          gstPercentage: Number(item.gstPercentage || 18),
+          gstAmount,
+          totalAmount,
           isOptional: Boolean(item.isOptional),
           isComplimentary,
           priceType: item.priceType || 'Auto',
@@ -335,10 +342,12 @@ export async function quotationPdf(req, res, next) {
       }
     }
 
-    const pdfDoc = createQuotationPdfDocument(quotation);
+    const requestedFormat = req.query.format;
+    const pdfDoc = createQuotationPdfDocument(quotation, requestedFormat);
     const safeId = quotation.quotationId || String(quotation._id);
+    const suffix = requestedFormat ? `-${requestedFormat}` : (quotation.templateFormat ? `-${quotation.templateFormat}` : '');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeId}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeId}${suffix}.pdf"`);
     pdfDoc.pipe(res);
     pdfDoc.end();
   } catch (err) { next(err); }
@@ -380,18 +389,19 @@ export async function adminEditQuotation(req, res, next) {
         const isComplimentary = Boolean(
           item.isComplimentary ||
           item.tier === 'Complimentary' ||
-          (item.description && /complimentary|free\s+of\s+charge/i.test(item.description)) ||
-          ((item.basePrice === 0 || item.basePrice === '0') && Number(item.totalAmount || 0) === 0)
+          item.tierKey === 'complimentary' ||
+          (item.description && /complimentary|free\s+of\s+charge/i.test(item.description))
         );
-        const basePrice = isComplimentary ? 0 : Number(item.basePrice || 0);
+        const isOptional = Boolean(item.isOptional || item.optional || item.isOptionalSuggestion);
+        const basePrice = Number(item.basePrice || 0);
         const quantity = Number(item.quantity || 1);
         const lineBase = basePrice * quantity;
         const discountPercentage = isComplimentary ? 0 : Number(item.discountPercentage || 0);
-        const discountAmount = isComplimentary ? 0 : (lineBase * discountPercentage / 100);
-        const taxableValue = isComplimentary ? 0 : Math.max(0, lineBase - discountAmount);
-        const gstPercentage = isComplimentary ? 0 : Number(item.gstPercentage || 18);
-        const gstAmount = isComplimentary ? 0 : (taxableValue * gstPercentage / 100);
-        const totalAmount = isComplimentary ? 0 : (taxableValue + gstAmount);
+        const discountAmount = isComplimentary ? 0 : Number(item.discountAmount ?? (lineBase * discountPercentage / 100));
+        const taxableValue = Math.max(0, lineBase - discountAmount);
+        const gstPercentage = Number(item.gstPercentage || 18);
+        const gstAmount = (taxableValue * gstPercentage / 100);
+        const totalAmount = (taxableValue + gstAmount);
         return {
           serviceId: toSafeObjectId(item.serviceId),
           mainService: item.mainService || 'General',
@@ -402,7 +412,7 @@ export async function adminEditQuotation(req, res, next) {
           unit: item.unit || 'Per Service',
           frequency: item.frequency || 'One Time',
           payable: item.payable || 'One Time',
-          isOptional: Boolean(item.isOptional),
+          isOptional,
           isComplimentary,
           basePrice,
           quantity,
@@ -412,7 +422,7 @@ export async function adminEditQuotation(req, res, next) {
           gstPercentage,
           gstAmount,
           totalAmount,
-          priceType: item.priceType || 'Manual',
+          priceType: item.priceType || (isComplimentary ? 'Complimentary' : 'Manual'),
           addedByAccountant: item.addedByAccountant || req.user._id,
           addedByAccountantName: item.addedByAccountantName || req.user.name || req.user.email,
           pricingAddedAt: item.pricingAddedAt || new Date()
@@ -421,8 +431,10 @@ export async function adminEditQuotation(req, res, next) {
 
       quotation.costingItems = items;
 
-      // Recalculate totals with overall discount support
-      const subtotal = items.reduce((sum, i) => sum + i.taxableValue, 0);
+      // Recalculate totals strictly summing billable items (excluding complimentary & optional)
+      const subtotal = items
+        .filter(item => !item.isComplimentary && !item.isOptional)
+        .reduce((sum, i) => sum + i.taxableValue, 0);
       const discountType = req.body.finalDiscountType !== undefined ? req.body.finalDiscountType : (quotation.finalDiscountType || 'None');
       const discountValue = req.body.finalDiscountValue !== undefined ? Number(req.body.finalDiscountValue || 0) : Number(quotation.finalDiscountValue || 0);
 
@@ -440,6 +452,7 @@ export async function adminEditQuotation(req, res, next) {
       quotation.finalDiscountValue = discountValue;
       quotation.finalDiscountAmount = finalDiscountAmount;
       quotation.subtotal = subtotal;
+      quotation.netTaxable = netTaxable;
       quotation.gstAmount = gstAmount;
       quotation.totalAmount = netTaxable + gstAmount;
 
@@ -860,11 +873,13 @@ export async function publicQuotationPdf(req, res, next) {
       }
     }
 
-    const pdfDoc = createQuotationPdfDocument(quotation);
+    const requestedFormat = req.query.format;
+    const pdfDoc = createQuotationPdfDocument(quotation, requestedFormat);
     const safeId = quotation.quotationId || String(quotation._id);
+    const suffix = requestedFormat ? `-${requestedFormat}` : (quotation.templateFormat ? `-${quotation.templateFormat}` : '');
     const isDownload = req.query.download === 'true' || req.query.download === '1' || req.query.dl === '1';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${safeId}.pdf"`);
+    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${safeId}${suffix}.pdf"`);
     pdfDoc.pipe(res);
     pdfDoc.end();
   } catch (err) {

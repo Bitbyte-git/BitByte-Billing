@@ -136,9 +136,9 @@ export default function QuotationDetail({ role, mode }) {
     await downloadInvoiceForQuotation(recordId(quotation), quotation.quotationId);
   };
 
-  const handleDownloadQuotation = async () => {
+  const handleDownloadQuotation = async (format = null) => {
     if (!quotation) return;
-    await downloadQuotationPdf(recordId(quotation), quotation.quotationId || 'Quotation');
+    await downloadQuotationPdf(recordId(quotation), quotation.quotationId || 'Quotation', format);
   };
 
   if (!quotation && !message.text) return <p className="rounded-xl bg-white p-5 text-sm font-semibold text-slate-500 shadow-sm">Loading quotation...</p>;
@@ -159,12 +159,21 @@ export default function QuotationDetail({ role, mode }) {
             <>
               <button
                 type="button"
-                onClick={handleDownloadQuotation}
-                className="flex items-center gap-1.5 rounded-xl bg-purple px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple/90 transition-all"
-                title="Download Quotation PDF at anytime"
+                onClick={() => handleDownloadQuotation('Advanced')}
+                className="flex items-center gap-1.5 rounded-xl bg-purple px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple/90 transition-all"
+                title="Download Quotation in Modern Advanced Template"
               >
-                <Download size={15} />
-                <span>Quotation PDF</span>
+                <Download size={14} />
+                <span>Advanced PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadQuotation('Legacy')}
+                className="flex items-center gap-1.5 rounded-xl border border-purple/40 bg-purple/10 px-3 py-2 text-xs font-bold text-purple hover:bg-purple hover:text-white transition-all"
+                title="Download Quotation in Classic Legacy Proposal Template"
+              >
+                <Download size={14} />
+                <span>Legacy PDF</span>
               </button>
               {(quotation.invoice || ['Invoice Generated', 'Paid'].includes(quotation.status)) && (
                 <button
@@ -441,20 +450,54 @@ export default function QuotationDetail({ role, mode }) {
             <QuotationTimeline status={quotation.status} />
           </div>
           <div className="rounded-2xl border border-line bg-white p-6 shadow-premium">
-            <h2 className="text-lg font-black">Quotation Document</h2>
-            <p className="mt-2 text-sm text-slate-500">Official quotation document is available to download at anytime.</p>
-            <div className="mt-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black">Quotation Document</h2>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                quotation.templateFormat === 'Legacy'
+                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                  : 'bg-purple/10 text-purple border border-purple/20'
+              }`}>
+                {quotation.templateFormat === 'Legacy' ? 'Legacy Template' : 'Advanced Template'}
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-slate-500">Official quotation proposal document. You can download either format on demand:</p>
+            <div className="mt-4 flex flex-col gap-2.5">
               {['Accountant', 'Admin'].includes(role) ? (
-                <PdfDownloadButton label="Download Quotation PDF" onClick={handleDownloadQuotation} />
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadQuotation('Advanced')}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-purple/90 transition-all"
+                  >
+                    <Download size={15} /> Download Advanced Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadQuotation('Legacy')}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-purple/40 bg-purple/10 px-4 py-2.5 text-xs font-bold text-purple hover:bg-purple hover:text-white transition-all"
+                  >
+                    <Download size={15} /> Download Legacy Template
+                  </button>
+                </>
               ) : (
-                <a
-                  href={`/public/quotation/${recordId(quotation)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm font-bold text-purple hover:bg-purple/5"
-                >
-                  <Download size={16} /> View Online
-                </a>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`/public/quotation/${recordId(quotation)}?format=Advanced`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs font-bold text-purple hover:bg-purple/5"
+                  >
+                    <Download size={15} /> Advanced PDF
+                  </a>
+                  <a
+                    href={`/public/quotation/${recordId(quotation)}?format=Legacy`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-line px-3 py-2 text-xs font-bold text-purple hover:bg-purple/5"
+                  >
+                    <Download size={15} /> Legacy PDF
+                  </a>
+                </div>
               )}
             </div>
           </div>

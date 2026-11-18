@@ -117,7 +117,6 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
   }, [activeServiceObj?.id, selectedTier]);
 
   const currentTierPrice = useMemo(() => {
-    if (isComplimentaryItem) return 0;
     if (!activeServiceObj) return 0;
     if (isWhatsAppCustomization) {
       const extra = Math.max(0, Number(whatsappCategoryCount) - 15);
@@ -192,7 +191,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
 
   // ── Totals ─────────────────────────────────────────────────────────
   const totals = useMemo(() => {
-    const subtotal = costingItems.reduce((sum, i) => sum + Number(i.taxableValue || 0), 0);
+    const subtotal = costingItems.filter(i => !i.isComplimentary && !i.isOptional).reduce((sum, i) => sum + Number(i.taxableValue || 0), 0);
     const discType = overallDiscount.type || 'None';
     const discVal = Math.max(0, Number(overallDiscount.value || 0));
     let discountAmount = 0;
@@ -221,9 +220,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
     }
 
     const isComplimentary = Boolean(isComplimentaryItem);
-    const basePrice = isComplimentary
-      ? 0
-      : isWhatsAppCustomization
+    const basePrice = isWhatsAppCustomization
       ? (9990 + Math.max(0, Number(whatsappCategoryCount) - 15) * 2990)
       : isErpCrmService
       ? (39990 + Math.max(0, Number(erpModuleCount) - 6) * 6990)
@@ -239,12 +236,12 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
         ? Math.max(1, Math.min(15, Number(changesCount || 15)))
         : Math.max(1, Number(itemQty || 1));
     const discPct = isComplimentary ? 0 : Math.min(20, Math.max(0, Number(itemDiscount || 0)));
-    const lineBase = isComplimentary ? 0 : basePrice * qty;
+    const lineBase = basePrice * qty;
     const discAmount = isComplimentary ? 0 : (lineBase * discPct) / 100;
-    const taxableValue = isComplimentary ? 0 : lineBase - discAmount;
+    const taxableValue = lineBase - discAmount;
     const gstPct = 18;
-    const gstAmount = isComplimentary ? 0 : (taxableValue * gstPct) / 100;
-    const totalAmount = isComplimentary ? 0 : taxableValue + gstAmount;
+    const gstAmount = (taxableValue * gstPct) / 100;
+    const totalAmount = taxableValue + gstAmount;
     const tierObj = losTiers.find((t) => t.key === selectedTier);
     const tierLabel = tierObj ? tierObj.label : 'Starter';
 
@@ -806,7 +803,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                     }}
                     className="h-4 w-4"
                   />
-                  <span className="text-xs font-bold whitespace-nowrap">🎁 Complimentary (₹0)</span>
+                  <span className="text-xs font-bold whitespace-nowrap">🎁 Complimentary (Free)</span>
                 </label>
                 <div className="ml-auto flex flex-col items-end gap-1">
                   {addedMsg && (
@@ -849,7 +846,7 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">💡 Optional</span>
                             )}
                             {item.isComplimentary && (
-                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">🎁 Complimentary (₹0)</span>
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">🎁 Complimentary (Free)</span>
                             )}
                           </div>
                         </div>
