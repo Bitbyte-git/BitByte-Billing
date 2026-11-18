@@ -584,16 +584,11 @@ export function createQuotationPdfDocument(quotation, formatOverride) {
         { text: item.isComplimentary ? "0.00" : formatMoney(item.sgstAmount), alignment: "right", margin: [0, 4, 0, 4], fontSize: 7.5 },
         { text: item.isComplimentary ? "0.00" : formatMoney(item.igstAmount), alignment: "right", margin: [0, 4, 0, 4], fontSize: 7.5 },
         {
-          text: item.isComplimentary
-            ? [
-                { text: `${formatMoney(item.displayCost)}\n`, bold: true, fontSize: 7.5, color: "#059669" },
-                { text: "[Complimentary]", bold: true, fontSize: 6.5, color: "#059669" }
-              ]
-            : formatMoney(item.total),
+          text: item.isComplimentary ? "0.00" : formatMoney(item.total),
           alignment: "right",
           bold: true,
           color: item.isComplimentary ? "#059669" : COLORS.navy,
-          fontSize: item.isComplimentary ? 7.2 : 7.8,
+          fontSize: 7.8,
           margin: [0, 4, 0, 4],
         },
       ];

@@ -914,7 +914,11 @@ export default function EditQuotationModal({ quotation, onClose, onSaved }) {
                         </div>
                         <div>
                           <label className="block text-[10px] font-black uppercase text-purple mb-1">Total</label>
-                          <p className="rounded-lg bg-purple/5 border border-purple/20 px-2 py-1.5 text-sm font-black text-purple text-center">{currency(item.totalAmount)}</p>
+                          <p className={`rounded-lg border px-2 py-1.5 text-sm font-black text-center ${
+                            item.isComplimentary ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-purple/5 border-purple/20 text-purple'
+                          }`}>
+                            {item.isComplimentary ? '₹0.00' : currency(item.totalAmount)}
+                          </p>
                         </div>
                       </div>
                     </div>

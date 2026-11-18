@@ -1988,8 +1988,8 @@ export default function GenerateQuotation({ role = 'Accountant' }) {
                     <td className="p-3 text-right font-black">
                       {item.isComplimentary ? (
                         <div>
-                          <span className="text-emerald-700 font-black">{currency(item.totalAmount)}</span>
-                          <span className="block text-[10px] font-bold text-emerald-600">[Complimentary · Not Billed]</span>
+                          <span className="text-emerald-700 font-black">₹0.00</span>
+                          <span className="block text-[10px] font-bold text-emerald-600">[Complimentary]</span>
                         </div>
                       ) : (
                         <span className="text-purple">{currency(item.totalAmount)}</span>
